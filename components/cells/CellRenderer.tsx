@@ -12,6 +12,7 @@ import TagsCell from "./TagsCell";
 import PriorityCell from "./PriorityCell";
 import FilesCell from "./FilesCell";
 import DependencyCell from "./DependencyCell";
+import FormulaCell from "./FormulaCell";
 
 interface CellRendererProps {
   item: Item;
@@ -21,6 +22,7 @@ interface CellRendererProps {
   onUpdate: (itemId: string, columnId: string, value: any) => void;
   profiles?: Profile[];
   boardItems?: Item[];
+  allItems?: Item[];
 }
 
 /**
@@ -35,6 +37,7 @@ export default function CellRenderer({
   onUpdate,
   profiles,
   boardItems,
+  allItems,
 }: CellRendererProps) {
   switch (column.type) {
     case "status":
@@ -65,6 +68,8 @@ export default function CellRenderer({
       return <FilesCell item={item} column={column} onUpdate={onUpdate} />;
     case "dependency":
       return <DependencyCell item={item} column={column} onUpdate={onUpdate} boardItems={boardItems || []} />;
+    case "formula":
+      return <FormulaCell item={item} column={column} onUpdate={onUpdate} allItems={allItems} />;
     default:
       return <div className="w-32 border-r border-gray-200 dark:border-slate-700 shrink-0 bg-gray-50 dark:bg-slate-800"></div>;
   }
