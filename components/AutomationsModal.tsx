@@ -22,6 +22,8 @@ export default function AutomationsModal({ board, groups, onClose }: Automations
   const [actionTargetId, setActionTargetId] = useState("");
 
   const statusCols = board.columns.filter((c) => c.type === "status");
+  const selectedColDef = board.columns.find((c) => c.id === triggerColId);
+  const currentStatusOptions = selectedColDef?.settings?.statusLabels || STATUS_OPTIONS;
 
   useEffect(() => {
     fetchAutomations();
@@ -125,7 +127,7 @@ export default function AutomationsModal({ board, groups, onClose }: Automations
                   onChange={(e) => setTriggerValue(e.target.value)}
                 >
                   <option value="" disabled>Select Status</option>
-                  {STATUS_OPTIONS.map(s => <option key={s.label} value={s.label}>{s.label}</option>)}
+                  {currentStatusOptions.map((s: any) => <option key={s.label} value={s.label}>{s.label}</option>)}
                 </select>
                 
                 <span>, then move item to</span>

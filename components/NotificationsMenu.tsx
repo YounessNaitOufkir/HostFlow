@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Notification } from "@/types";
 
 
-export default function NotificationsMenu({ userId }: { userId: string }) {
+export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -41,15 +41,21 @@ export default function NotificationsMenu({ userId }: { userId: string }) {
     const channel = supabase
       .channel("realtime-notifications")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, (payload) => {
-        setNotifications((prev) => [payload.new as Notification, ...prev]);
+        setNotifications((prev) => {
+          if (prev.some(n => n.id === payload.new.id)) return prev;
+          return [payload.new as Notification, ...prev];
+        });
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, (payload) => {
         setNotifications((prev) => prev.map(n => n.id === payload.new.id ? payload.new as Notification : n));
       })
       .subscribe();
 
+    window.addEventListener('notification-added', fetchNotifications);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('notification-added', fetchNotifications);
     };
   }, [userId]);
 
@@ -84,7 +90,7 @@ export default function NotificationsMenu({ userId }: { userId: string }) {
       </div>
 
       {isOpen && (
-        <div className="absolute left-full ml-4 top-0 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 animate-in fade-in zoom-in-95 duration-200 max-h-96 flex flex-col">
+        <div className="absolute left-full ml-4 bottom-0 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 animate-in fade-in zoom-in-95 duration-200 max-h-96 flex flex-col">
           <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center shrink-0">
             <h3 className="font-semibold text-gray-800 dark:text-gray-100">Notifications</h3>
             {unreadCount > 0 && (
@@ -102,10 +108,16 @@ export default function NotificationsMenu({ userId }: { userId: string }) {
                 No notifications yet.
               </div>
             ) : (
-              notifications.map((n) => (
+              Array.from(new Map(notifications.map(n => [n.id, n])).values()).map((n) => (
                 <div 
                   key={n.id}
-                  onClick={() => !n.read && markAsRead(n.id)}
+                  onClick={() => {
+                    if (!n.read) markAsRead(n.id);
+                    if (onNotificationClick && (n.board_id || n.item_id)) {
+                      onNotificationClick(n.board_id, n.item_id);
+                      setIsOpen(false);
+                    }
+                  }}
                   className={`p-3 rounded-md transition-colors ${
                     n.read 
                       ? 'bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 opacity-75' 

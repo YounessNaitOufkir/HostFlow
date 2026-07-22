@@ -30,7 +30,7 @@ export default function NumberCell({ item, column, onUpdate }: NumberCellProps) 
   })();
 
   return (
-    <div className="w-32 border-r border-gray-200 flex items-center justify-center px-2 shrink-0">
+    <div className={`${column.width ? '' : 'w-32'} border-r border-gray-200 dark:border-slate-700 flex items-center justify-center px-2 shrink-0`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <input
         type="text"
         inputMode="numeric"
@@ -51,7 +51,7 @@ export default function NumberCell({ item, column, onUpdate }: NumberCellProps) 
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
-        className="outline-none bg-transparent w-full text-sm text-gray-700 text-center number-input"
+        className="outline-none bg-transparent w-full text-sm text-gray-700 dark:text-gray-200 text-center number-input placeholder-gray-400 dark:placeholder-gray-600"
       />
     </div>
   );

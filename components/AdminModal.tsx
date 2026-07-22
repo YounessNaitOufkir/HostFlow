@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Shield } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Profile, Workspace, Board } from "@/types";
+import { Profile, Workspace, Board, UserRole } from "@/types";
 
 interface AdminModalProps {
   onClose: () => void;
@@ -38,7 +38,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
     setSavingId(profileId);
     try {
       await supabase.from("profiles").update({ role: newRole }).eq("id", profileId);
-      setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, role: newRole as "admin" | "member" | "limited" } : p));
+      setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, role: newRole as UserRole } : p));
     } catch (err) {
       console.error("Failed to update role", err);
     }
@@ -127,12 +127,12 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                       >
                         <option value="admin">Admin</option>
                         <option value="member">Member</option>
-                        <option value="limited">Limited</option>
+                        <option value="contractor">Contractor (Limited)</option>
                       </select>
                     </div>
                   </div>
 
-                  {profile.role === "limited" && (
+                  {profile.role === "contractor" && (
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2">
                       <div>
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Allowed Workspaces</h4>
@@ -163,7 +163,9 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                                 checked={(profile.allowed_boards || []).includes(board.id)}
                                 onChange={() => handleToggleBoard(profile, board.id)}
                               />
-                              <span className="text-sm text-gray-700 dark:text-gray-200">{board.name}</span>
+                              <span className="text-sm text-gray-700 dark:text-gray-200">
+                                {board.name} <span className="text-gray-400 dark:text-gray-500 text-xs">({workspaces.find(w => w.id === board.workspace_id)?.name || 'Unknown Workspace'})</span>
+                              </span>
                             </label>
                           ))}
                           {boards.length === 0 && <span className="text-xs text-gray-500">No boards available.</span>}

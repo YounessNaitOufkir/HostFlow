@@ -56,7 +56,7 @@ export default function FilesCell({ item, column, onUpdate }: FilesCellProps) {
 
   return (
     <div 
-      className="w-40 border-r border-gray-200 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-900 flex items-center justify-center p-2 relative group overflow-hidden cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+      className={`${column.width ? '' : 'w-40'} border-r border-gray-200 dark:border-slate-700 shrink-0 flex items-center justify-center p-2 relative group overflow-hidden cursor-pointer transition-colors`} style={{ width: column.width ? `${column.width}px` : undefined }}
       onClick={() => fileInputRef.current?.click()}
     >
       <input 
@@ -73,7 +73,7 @@ export default function FilesCell({ item, column, onUpdate }: FilesCellProps) {
           {files.map((fileUrl, idx) => (
             <div 
               key={idx} 
-              className="w-8 h-8 rounded-full bg-gray-200 dark:bg-slate-700 border-2 border-white dark:border-slate-900 flex items-center justify-center relative group/file cursor-pointer"
+              className={`${column.width ? '' : 'w-8'} h-8 rounded-full bg-gray-200 dark:bg-slate-700 border-2 border-white dark:border-slate-900 flex items-center justify-center relative group/file cursor-pointer`} style={{ width: column.width ? `${column.width}px` : undefined }}
               onClick={(e) => { e.stopPropagation(); window.open(fileUrl, '_blank'); }}
             >
               {/* If image, try to render. If not, render icon. For simplicity, just icon for now */}

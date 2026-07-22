@@ -9,9 +9,10 @@ interface ProfileMenuProps {
   profile: Profile;
   onSignOut: () => void;
   onOpenAdmin: () => void;
+  onOpenProfileSettings: () => void;
 }
 
-export default function ProfileMenu({ profile, onSignOut, onOpenAdmin }: ProfileMenuProps) {
+export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenProfileSettings }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -31,10 +32,14 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin }: Profile
       <div
         onClick={() => setIsOpen(!isOpen)}
         title={profile.full_name}
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[12px] font-bold shadow-md cursor-pointer ring-2 ring-transparent hover:ring-white/50 transition-all select-none"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[12px] font-bold shadow-md cursor-pointer ring-2 ring-transparent hover:ring-white/50 transition-all select-none overflow-hidden"
         style={{ backgroundColor: profile.color }}
       >
-        {profile.avatar_initials}
+        {profile.avatar_url ? (
+          <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
+        ) : (
+          profile.avatar_initials
+        )}
       </div>
 
       {isOpen && (
@@ -54,7 +59,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin }: Profile
               </div>
             )}
             <div 
-              onClick={() => { setIsOpen(false); alert("My Profile features coming soon!"); }}
+              onClick={() => { setIsOpen(false); onOpenProfileSettings(); }}
               className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
             >
               <User size={16} className="mr-3 text-gray-400 dark:text-gray-400" />

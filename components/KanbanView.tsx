@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { ChevronDown, Columns3 } from "lucide-react";
+import { ChevronDown, Columns3, Link2 } from "lucide-react";
 
 import { Item, Column, Group, STATUS_OPTIONS, Profile } from "@/types";
+import { useBoardStore } from "@/hooks/useBoardStore";
 
 // ============================================================
 // Helpers
@@ -37,10 +38,11 @@ export default function KanbanView({
   onSelectItem,
   profiles,
 }: KanbanViewProps) {
-  const statusColumns = columns.filter((c) => c.type === "status");
+  const statusColumns = columns.filter((c) => c.type === "status" || c.type === "priority");
   const [kanbanColumnId, setKanbanColumnId] = useState<string>("");
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const { state } = useBoardStore();
 
   // Auto-select first status column (or re-select if the current one was deleted)
   useEffect(() => {
@@ -89,6 +91,18 @@ export default function KanbanView({
 
   const selectedColumn = statusColumns.find((c) => c.id === kanbanColumnId);
 
+  const PRIORITY_OPTIONS = [
+    { label: "Critical", color: "bg-[#333333] text-white" },
+    { label: "High", color: "bg-[#e2445c] text-white" },
+    { label: "Medium", color: "bg-[#a25ddc] text-white" },
+    { label: "Low", color: "bg-[#579bfc] text-white" },
+    { label: "Empty", color: "bg-[#c4c4c4] text-white" },
+  ];
+
+  const laneOptions = selectedColumn?.type === "priority" 
+    ? PRIORITY_OPTIONS 
+    : selectedColumn?.settings?.statusLabels || STATUS_OPTIONS;
+
   // Other columns to display as chips on cards (exclude the kanban grouping column, max 3)
   const chipColumns = columns.filter((c) => c.id !== kanbanColumnId).slice(0, 3);
 
@@ -132,7 +146,7 @@ export default function KanbanView({
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden px-8 pb-8">
           <div className="flex gap-4 h-full min-w-max">
-            {STATUS_OPTIONS.map((status) => {
+            {laneOptions.map((status) => {
               const hexColor = getHexColor(status.color);
 
               // Items in this lane
@@ -152,7 +166,7 @@ export default function KanbanView({
                     style={{ backgroundColor: hexColor }}
                   >
                     <span className="text-white text-sm font-semibold">{status.label}</span>
-                    <span className="bg-white dark:bg-slate-900/25 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center">
+                    <span className="bg-white dark:bg-slate-900/25 text-gray-800 dark:text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center">
                       {laneItems.length}
                     </span>
                   </div>
@@ -165,8 +179,8 @@ export default function KanbanView({
                         {...provided.droppableProps}
                         className={`flex-1 rounded-b-xl p-2.5 space-y-2.5 overflow-y-auto kanban-lane transition-colors ${
                           snapshot.isDraggingOver
-                            ? "bg-blue-50 ring-2 ring-blue-200 ring-inset"
-                            : "bg-gray-100 dark:bg-slate-700/80"
+                            ? "bg-indigo-50/50 dark:bg-indigo-900/10 ring-1 ring-indigo-500/20"
+                            : "bg-gray-100/50 dark:bg-slate-900/40"
                         }`}
                       >
                         {laneItems.map((item, index) => {
@@ -178,10 +192,10 @@ export default function KanbanView({
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  className={`kanban-card bg-white dark:bg-slate-900 rounded-lg p-3.5 cursor-grab active:cursor-grabbing transition-shadow ${
+                                  className={`kanban-card bg-white dark:bg-slate-800 rounded-lg p-3.5 cursor-grab active:cursor-grabbing transition-shadow border border-gray-100 dark:border-slate-700/50 ${
                                     snapshot.isDragging
-                                      ? "shadow-xl ring-2 ring-blue-400"
-                                      : "shadow-sm dark:shadow-none hover:shadow-md"
+                                      ? "shadow-2xl ring-1 ring-indigo-500/50 z-50 scale-[1.02]"
+                                      : "shadow-sm hover:shadow-md"
                                   }`}
                                   style={{
                                     ...provided.draggableProps.style,
@@ -225,14 +239,24 @@ export default function KanbanView({
                                           return (
                                             <div key={col.id} className="flex -space-x-1.5">
                                               {users.slice(0, 3).map((u) => (
-                                                <div
-                                                  key={u.id}
-                                                  title={u.full_name}
-                                                  className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold ring-1 ring-white"
-                                                  style={{ backgroundColor: u.color }}
-                                                >
-                                                  {u.avatar_initials}
-                                                </div>
+                                                u.avatar_url ? (
+                                                  <img
+                                                    key={u.id}
+                                                    src={u.avatar_url}
+                                                    alt={u.full_name}
+                                                    title={u.full_name}
+                                                    className="w-5 h-5 rounded-full object-cover ring-1 ring-white"
+                                                  />
+                                                ) : (
+                                                  <div
+                                                    key={u.id}
+                                                    title={u.full_name}
+                                                    className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold ring-1 ring-white"
+                                                    style={{ backgroundColor: u.color }}
+                                                  >
+                                                    {u.avatar_initials}
+                                                  </div>
+                                                )
                                               ))}
                                               {users.length > 3 && (
                                                 <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center text-[8px] font-bold text-gray-600 dark:text-gray-300 ring-1 ring-white">
@@ -273,6 +297,35 @@ export default function KanbanView({
                                           );
                                         }
 
+                                        // Timeline chip
+                                        if (col.type === "timeline" && typeof val === "object") {
+                                          const start = val?.start ? new Date(val.start).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+                                          const end = val?.end ? new Date(val.end).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+                                          const text = start && end ? `${start} - ${end}` : start || end;
+                                          if (!text) return null;
+                                          return (
+                                            <span
+                                              key={col.id}
+                                              className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
+                                            >
+                                              {text}
+                                            </span>
+                                          );
+                                        }
+
+                                        // Dependency chip
+                                        if (col.type === "dependency" && Array.isArray(val)) {
+                                          if (val.length === 0) return null;
+                                          return (
+                                            <span
+                                              key={col.id}
+                                              className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
+                                            >
+                                              🔗 {val.length} dep{val.length > 1 ? 's' : ''}
+                                            </span>
+                                          );
+                                        }
+
                                         // Text / fallback chip
                                         return (
                                           <span
@@ -286,18 +339,31 @@ export default function KanbanView({
                                     </div>
                                   )}
 
-                                  {/* Group name indicator */}
-                                  {group && (
-                                    <div className="flex items-center gap-1.5 mt-1">
-                                      <div
-                                        className="w-2 h-2 rounded-full shrink-0"
-                                        style={{ backgroundColor: group.color }}
-                                      />
-                                      <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
-                                        {group.title}
-                                      </span>
-                                    </div>
-                                  )}
+                                  {/* Group name & Relations indicator */}
+                                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50 dark:border-slate-700/50">
+                                    {group && (
+                                      <div className="flex items-center gap-1.5">
+                                        <div
+                                          className="w-2 h-2 rounded-full shrink-0"
+                                          style={{ backgroundColor: group.color }}
+                                        />
+                                        <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                                          {group.title}
+                                        </span>
+                                      </div>
+                                    )}
+                                    
+                                    {(() => {
+                                      const myLinks = state.itemLinks.filter(l => l.source_item_id === item.id || l.target_item_id === item.id);
+                                      if (myLinks.length === 0) return null;
+                                      return (
+                                        <div className="flex items-center gap-1 text-[10px] font-medium text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                                          <Link2 size={10} />
+                                          {myLinks.length}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
                               )}
                             </Draggable>
