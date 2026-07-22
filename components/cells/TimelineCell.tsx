@@ -1,102 +1,234 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Item, Column } from "@/types";
+import { DayPicker, DateRange } from "react-day-picker";
+import { format } from "date-fns";
+import "react-day-picker/dist/style.css"; // Default styles for the calendar
 
 interface TimelineCellProps {
   item: Item;
   column: Column;
   onUpdate: (itemId: string, columnId: string, value: any) => void;
+  activeStatusId?: string | null;
+  setActiveStatusId?: (id: string | null) => void;
 }
 
-export default function TimelineCell({ item, column, onUpdate }: TimelineCellProps) {
-  // Value will be stored as { start: string, end: string } or null
+export default function TimelineCell({ item, column, onUpdate, activeStatusId, setActiveStatusId }: TimelineCellProps) {
   const value = item.column_values?.[column.id] || null;
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempStart, setTempStart] = useState(value?.start || "");
-  const [tempEnd, setTempEnd] = useState(value?.end || "");
+  const isEditing = activeStatusId === item.id + column.id;
+  
+  const setIsEditing = (editing: boolean) => {
+    if (setActiveStatusId) {
+      setActiveStatusId(editing ? item.id + column.id : null);
+    }
+  };
+  
+  // Track range for react-day-picker
+  const [range, setRange] = useState<DateRange | undefined>(() => {
+    if (value?.start && value?.end) {
+      return { from: new Date(value.start), to: new Date(value.end) };
+    } else if (value?.start) {
+      return { from: new Date(value.start), to: new Date(value.start) };
+    }
+    return undefined;
+  });
+
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+        handleSave();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isEditing, range]); // Depend on range so it saves the latest state when closing
+
+  // When value prop changes, update local state
+  useEffect(() => {
+    if (!isEditing) {
+      if (value?.start && value?.end) {
+        setRange({ from: new Date(value.start), to: new Date(value.end) });
+      } else if (value?.start) {
+        setRange({ from: new Date(value.start), to: new Date(value.start) });
+      } else {
+        setRange(undefined);
+      }
+    }
+  }, [value, isEditing]);
 
   const handleSave = () => {
     setIsEditing(false);
-    if (!tempStart && !tempEnd) {
+    if (!range?.from) {
       onUpdate(item.id, column.id, null);
     } else {
-      onUpdate(item.id, column.id, { start: tempStart, end: tempEnd });
+      // Ensure we have a valid start and end (even if they are the same)
+      const startStr = format(range.from, "yyyy-MM-dd");
+      const endStr = range.to ? format(range.to, "yyyy-MM-dd") : startStr;
+      
+      // Only update if changed to avoid unnecessary API calls
+      if (value?.start !== startStr || value?.end !== endStr) {
+        onUpdate(item.id, column.id, { start: startStr, end: endStr });
+      }
     }
   };
 
-  if (isEditing) {
-    return (
-      <div className="w-48 border-r border-gray-200 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-900 flex items-center justify-center p-1 relative z-10">
-        <div className="flex items-center space-x-1 w-full bg-white dark:bg-slate-800 rounded shadow-lg p-1 border border-blue-500">
-          <input
-            type="date"
-            value={tempStart}
-            onChange={(e) => setTempStart(e.target.value)}
-            className="w-full text-xs border border-gray-300 dark:border-slate-600 rounded p-0.5 bg-transparent"
-          />
-          <span className="text-gray-400 text-xs">-</span>
-          <input
-            type="date"
-            value={tempEnd}
-            onChange={(e) => setTempEnd(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            className="w-full text-xs border border-gray-300 dark:border-slate-600 rounded p-0.5 bg-transparent"
-          />
-          <button onClick={handleSave} className="text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded">✓</button>
-        </div>
-        {/* Backdrop to close */}
-        <div className="fixed inset-0 z-[-1]" onClick={handleSave} />
-      </div>
-    );
-  }
+  const handleClear = () => {
+    setRange(undefined);
+    onUpdate(item.id, column.id, null);
+    setIsEditing(false);
+  };
 
-  // Formatting display
+  // Formatting display text and color for the pill
   let displayText = "-";
-  let displayColor = "bg-gray-100 dark:bg-slate-800";
-  let textColor = "text-gray-500 dark:text-gray-400";
-  let widthPercent = 100;
+  let pillBg = "";
+  let pillText = "";
+  let isOverdue = false;
 
   if (value && value.start && value.end) {
     const s = new Date(value.start);
     const e = new Date(value.end);
     
-    const formattedStart = s.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const formattedEnd = e.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    displayText = `${formattedStart} - ${formattedEnd}`;
+    const formattedStart = format(s, "MMM d");
+    const formattedEnd = format(e, "MMM d");
+    displayText = formattedStart === formattedEnd ? formattedStart : `${formattedStart} - ${formattedEnd}`;
     
-    // Some basic color logic: if past due -> red, if active -> blue, if future -> gray
+    // Status color logic based on end date
     const now = new Date();
-    if (e < now) {
-      displayColor = "bg-red-500";
-      textColor = "text-white";
+    now.setHours(0, 0, 0, 0);
+    const endDateOnly = new Date(e);
+    endDateOnly.setHours(0, 0, 0, 0);
+
+    if (endDateOnly < now) {
+      // Overdue — bold red like Monday.com
+      pillBg = "bg-[#e44258]";
+      pillText = "text-white";
+      isOverdue = true;
     } else if (s <= now && e >= now) {
-      displayColor = "bg-blue-500";
-      textColor = "text-white";
+      // Active — vivid blue
+      pillBg = "bg-[#579bfc]";
+      pillText = "text-white";
     } else {
-      displayColor = "bg-gray-400 dark:bg-gray-600";
-      textColor = "text-white";
+      // Future — bright green
+      pillBg = "bg-[#00c875]";
+      pillText = "text-white";
     }
-  } else if (value?.start || value?.end) {
-    // Only one date
-    const d = new Date(value.start || value.end);
-    displayText = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    displayColor = "bg-gray-300 dark:bg-slate-600";
-    textColor = "text-white";
+  } else if (value?.start) {
+    displayText = format(new Date(value.start), "MMM d");
+    
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const startDate = new Date(value.start);
+    startDate.setHours(0, 0, 0, 0);
+    
+    if (startDate < now) {
+      pillBg = "bg-[#e44258]";
+      pillText = "text-white";
+      isOverdue = true;
+    } else {
+      pillBg = "bg-[#579bfc]";
+      pillText = "text-white";
+    }
   }
 
   return (
     <div
-      onClick={() => setIsEditing(true)}
-      className="w-48 border-r border-gray-200 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-900 flex items-center justify-center p-1.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+      className={`${column.width ? '' : 'w-48'} h-full border-r border-gray-200 dark:border-slate-700 shrink-0 relative flex items-center justify-center p-1 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/50 group ${isEditing ? "z-50" : ""}`} 
+      style={{ width: column.width ? `${column.width}px` : undefined }}
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsEditing(true);
+      }}
     >
+      {/* Sleek Pill UI */}
       {displayText !== "-" ? (
-        <div className={`w-full h-full rounded-full flex items-center justify-center ${displayColor} ${textColor} text-xs font-medium px-2 py-0.5`}>
-          {displayText}
+        <div className={`w-[88%] h-[75%] min-h-[24px] rounded-full flex items-center justify-center text-xs font-bold tracking-wide transition-all duration-200 ${pillBg} ${pillText} shadow-sm hover:shadow-md hover:scale-[1.02] relative`}>
+          <span>{displayText}</span>
         </div>
       ) : (
-        <div className="w-full h-full rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xl pb-1 hover:bg-gray-200 dark:hover:bg-slate-700">
+        <div className="w-[88%] h-[75%] min-h-[24px] rounded-full bg-gray-100/50 dark:bg-slate-800/30 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xl pb-1 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
           -
+        </div>
+      )}
+
+      {/* Popover Dual Calendar UI */}
+      {isEditing && (
+        <div 
+          ref={popupRef}
+          className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200 cursor-default"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <style dangerouslySetInnerHTML={{__html: `
+            .rdp { --rdp-cell-size: 32px; margin: 0; }
+            .rdp-day { 
+              border-radius: 100% !important; 
+              transition: background-color 0.2s; 
+              background-color: transparent; 
+              color: #334155; /* Light mode text */
+            }
+            .rdp-day_selected, .rdp-day_selected:focus-visible, .rdp-day_selected:hover { 
+              background-color: #3b82f6 !important; 
+              color: white !important; 
+              font-weight: bold; 
+            }
+            
+            /* Middle range styles */
+            .rdp-day_range_middle { background-color: #eff6ff !important; color: #1d4ed8 !important; border-radius: 0 !important; }
+            
+            /* Dark mode specific overrides */
+            html.dark .rdp-day { color: #e2e8f0; }
+            html.dark .rdp-day_range_middle { background-color: rgba(59, 130, 246, 0.25) !important; color: #bfdbfe !important; border-radius: 0 !important; }
+            html.dark .rdp-day:hover:not(.rdp-day_selected) { background-color: #1e293b !important; color: #f8fafc !important; }
+            html.dark .rdp-nav_button:hover { background-color: #1e293b !important; }
+            html.dark .rdp-day_outside { color: #475569 !important; }
+            
+            /* Light mode overrides */
+            .rdp-day:hover:not(.rdp-day_selected) { background-color: #f1f5f9 !important; }
+            .rdp-button:focus-visible:not([disabled]) { outline: 2px solid #3b82f6; }
+            .rdp-months { justify-content: center; }
+            .rdp-day_outside { color: #cbd5e1 !important; }
+          `}} />
+          
+          <div className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-2 flex justify-between items-center">
+            <span>Select Timeline</span>
+            <span className="text-[10px] font-medium text-gray-400 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+              {range?.from && range?.to 
+                ? (format(range.from, "MMM d") === format(range.to, "MMM d") 
+                    ? format(range.from, "MMM d") 
+                    : `${format(range.from, "MMM d")} - ${format(range.to, "MMM d")}`) 
+                : "Sweep to select range"}
+            </span>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden text-gray-800 dark:text-gray-200 flex justify-center">
+            <DayPicker
+              mode="range"
+              selected={range}
+              onSelect={setRange}
+              numberOfMonths={1}
+              pagedNavigation
+              showOutsideDays={false}
+              className="font-sans text-sm m-0"
+            />
+          </div>
+
+          <div className="mt-4 flex justify-between items-center pt-3 border-t border-gray-100 dark:border-slate-800">
+            <button 
+              onClick={handleClear}
+              className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors"
+            >
+              Clear
+            </button>
+            <button 
+              onClick={handleSave} 
+              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+            >
+              Apply Timeline
+            </button>
+          </div>
         </div>
       )}
     </div>

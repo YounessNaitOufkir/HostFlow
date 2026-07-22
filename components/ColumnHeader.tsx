@@ -10,6 +10,7 @@ interface ColumnHeaderProps {
   /** Drag handle props from the parent Draggable wrapper */
   dragHandleProps: DraggableProvidedDragHandleProps | null | undefined;
   onRename: (columnId: string, newTitle: string) => void;
+  onResize: (columnId: string, width: number) => void;
   onDelete: (columnId: string) => void;
 }
 
@@ -17,11 +18,13 @@ export default function ColumnHeader({
   column,
   dragHandleProps,
   onRename,
+  onResize,
   onDelete,
 }: ColumnHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameValue, setRenameValue] = useState(column.title);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -75,14 +78,51 @@ export default function ColumnHeader({
     files: "w-40",
     dependency: "w-48",
   };
-  const widthClass = widthMap[column.type] || "w-32";
+  const defaultWidthClass = widthMap[column.type] || "w-32";
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault(); // Prevent text selection while dragging
+    const startX = e.pageX;
+    // We assume default tailwind spacing e.g. w-32 is ~128px
+    const startWidth = column.width || parseInt(defaultWidthClass.replace("w-", "")) * 4 || 128;
+    setDragWidth(startWidth);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const diffX = moveEvent.pageX - startX;
+      let newWidth = startWidth + diffX;
+      if (newWidth < 60) newWidth = 60; // min width
+      setDragWidth(newWidth);
+    };
+
+    const handleMouseUp = (upEvent: MouseEvent) => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      
+      const diffX = upEvent.pageX - startX;
+      let newWidth = startWidth + diffX;
+      if (newWidth < 60) newWidth = 60;
+      if (diffX !== 0) {
+        onResize(column.id, newWidth);
+      }
+      setDragWidth(null);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+  
+  const activeWidth = dragWidth !== null ? dragWidth : column.width;
+  const inlineStyle = activeWidth ? { width: `${activeWidth}px` } : undefined;
+  const className = `${activeWidth ? '' : defaultWidthClass} border-r border-gray-200 dark:border-slate-800 shrink-0 relative group/colheader transition-colors duration-100 ${dragWidth !== null ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'bg-transparent'}`;
 
   return (
     <div
-      className={`${widthClass} border-r border-gray-200 dark:border-slate-600 shrink-0 relative group/colheader bg-white dark:bg-slate-900`}
+      className={className}
+      style={inlineStyle}
       ref={menuRef}
     >
-      <div className="flex items-center justify-center h-full p-2">
+      <div className="flex items-center justify-center h-full p-2 relative">
         {/* Drag handle — appears on hover */}
         <div
           {...dragHandleProps}
@@ -94,16 +134,24 @@ export default function ColumnHeader({
         {/* Column title — clickable to open menu */}
         <button
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-          className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate hover:text-gray-700 dark:hover:text-gray-200 transition-colors px-3"
         >
           {column.title}
         </button>
+
+        {/* Resize Handle */}
+        <div 
+          className={`absolute right-[-3px] top-0 bottom-0 w-[6px] cursor-col-resize z-10 flex items-center justify-center group/resizer`}
+          onMouseDown={handleResizeStart}
+        >
+          <div className={`w-[2px] h-full transition-all duration-150 ${dragWidth !== null ? 'bg-blue-500 opacity-100' : 'bg-gray-300 dark:bg-slate-600 opacity-0 group-hover/colheader:opacity-100 group-hover/resizer:bg-blue-400 group-hover/resizer:w-[3px]'}`} />
+        </div>
       </div>
 
       {/* Context menu */}
       {menuOpen && (
         <div
-          className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-52 bg-white dark:bg-slate-900 shadow-xl rounded-lg border border-gray-200 dark:border-slate-700 py-2 z-50"
+          className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-52 dropdown-menu py-2 z-50"
           onClick={(e) => e.stopPropagation()}
         >
           {isRenaming ? (

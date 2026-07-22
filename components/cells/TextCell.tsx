@@ -18,7 +18,7 @@ export default function TextCell({ item, column, onUpdate }: TextCellProps) {
   }, [item.column_values[column.id]]);
 
   return (
-    <div className="w-48 border-r border-gray-200 flex items-center px-2 shrink-0">
+    <div className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700 flex items-center px-2 shrink-0`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <input
         type="text"
         placeholder="Add text..."
@@ -30,7 +30,7 @@ export default function TextCell({ item, column, onUpdate }: TextCellProps) {
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="outline-none bg-transparent w-full text-sm text-gray-700"
+        className="outline-none bg-transparent w-full text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
       />
     </div>
   );

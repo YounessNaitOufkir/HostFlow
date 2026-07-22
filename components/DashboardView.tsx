@@ -15,6 +15,8 @@ import {
   Cell
 } from "recharts";
 import { CheckCircle, AlertTriangle, ListTodo, CalendarClock } from "lucide-react";
+import { RingChart, Ring, RingCenter } from "@/components/ui/RingChart";
+import { motion } from "framer-motion";
 
 interface DashboardViewProps {
   board: Board | null;
@@ -51,10 +53,12 @@ export default function DashboardView({ board, groups, items }: DashboardViewPro
       }
     });
 
-    // Format for Recharts
+    // Format for Recharts and RingChart
     const statusData = Object.keys(statusCounts).map(key => ({
-      name: key,
+      name: key, // For Recharts
+      label: key, // For RingChart
       value: statusCounts[key],
+      maxValue: totalItems, // For RingChart percentage
       color: STATUS_OPTIONS.find(opt => opt.label === key)?.color?.replace("bg-[", "").replace("]", "") || "#c4c4c4"
     }));
 
@@ -62,6 +66,29 @@ export default function DashboardView({ board, groups, items }: DashboardViewPro
   }, [items, board]);
 
   if (!board) return null;
+
+  const CustomXAxisTick = ({ x, y, payload }: any) => {
+    const isTruncated = payload.value.length > 14;
+    const displayText = isTruncated ? payload.value.substring(0, 14) + "..." : payload.value;
+    
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          x={0}
+          y={0}
+          dy={10}
+          textAnchor="end"
+          fill="#666"
+          fontSize={11}
+          fontWeight="bold"
+          transform="rotate(-90)"
+        >
+          <title>{payload.value}</title>
+          {displayText}
+        </text>
+      </g>
+    );
+  };
 
   return (
     <div className="flex-1 overflow-auto bg-[#f5f6f8] dark:bg-slate-950 p-8">
@@ -125,48 +152,60 @@ export default function DashboardView({ board, groups, items }: DashboardViewPro
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col">
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-6">Status Breakdown</h3>
-            <div className="h-64">
-              {analytics.statusData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={analytics.statusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {analytics.statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">No status data available</div>
-              )}
-            </div>
             
-            <div className="flex flex-wrap items-center justify-center gap-4 mt-4">
-              {analytics.statusData.map((s, i) => (
-                <div key={i} className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                  <div className="w-3 h-3 rounded-sm mr-2" style={{ backgroundColor: s.color }}></div>
-                  {s.name} ({s.value})
-                </div>
-              ))}
+            <div className="flex flex-col 2xl:flex-row items-center gap-8 flex-1">
+              {/* Chart Side */}
+              <div className="h-64 w-64 md:h-72 md:w-72 flex-shrink-0">
+                {analytics.statusData.length > 0 ? (
+                  <RingChart data={analytics.statusData} strokeWidth={14} ringGap={6} baseInnerRadius={55}>
+                    {analytics.statusData.map((item, index) => (
+                      <Ring key={item.label} index={index} />
+                    ))}
+                    <RingCenter defaultLabel="Tasks" />
+                  </RingChart>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">No status data available</div>
+                )}
+              </div>
+              
+              {/* Legend Side */}
+              <div className="flex flex-col justify-center gap-5 w-full flex-1">
+                {analytics.statusData.map((s, i) => {
+                  const pct = analytics.totalItems > 0 ? Math.round((s.value / analytics.totalItems) * 100) : 0;
+                  return (
+                    <div key={i} className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center text-gray-700 dark:text-gray-200 font-medium">
+                          <div className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: s.color }}></div>
+                          {s.name}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold text-gray-900 dark:text-white">{s.value}</span>
+                          <span className="text-gray-500 dark:text-gray-400 w-9 text-right">{pct}%</span>
+                        </div>
+                      </div>
+                      {/* Mini progress bar */}
+                      <div className="w-full h-1.5 bg-gray-100 dark:bg-slate-800/80 rounded-full overflow-hidden">
+                        <motion.div 
+                          className="h-full rounded-full" 
+                          style={{ backgroundColor: s.color }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 1, type: "spring", bounce: 0, delay: i * 0.1 }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col">
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-6">Group Distribution</h3>
-            <div className="h-64">
+            <div className="flex-1 w-full min-h-[18rem]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={groups.map(g => ({
@@ -174,11 +213,17 @@ export default function DashboardView({ board, groups, items }: DashboardViewPro
                     tasks: items.filter(i => i.group_id === g.id).length,
                     color: g.color
                   }))}
-                  margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                  margin={{ top: 5, right: 30, left: 0, bottom: 90 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    interval={0} 
+                    tick={<CustomXAxisTick />} 
+                    axisLine={false} 
+                    tickLine={false} 
+                  />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                   <Tooltip 
                     cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}

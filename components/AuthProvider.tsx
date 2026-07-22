@@ -50,6 +50,8 @@ function mapUserToProfile(user: User): Profile {
     full_name: email.split("@")[0],
     avatar_initials: getInitials(email),
     color: stringToColor(email),
+    is_onboarded: false,
+    avatar_url: undefined,
   };
 }
 

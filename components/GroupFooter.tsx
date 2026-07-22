@@ -20,20 +20,31 @@ export default function GroupFooter({ columns, items, groupColor }: GroupFooterP
   if (!hasNumbersColumn) return null;
 
   return (
-    <div className="flex border-t border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/80">
+    <div className="flex border-t border-gray-200 dark:border-slate-700/50 bg-[#f9fafb] dark:bg-[#1a1d38] rounded-b-lg overflow-hidden">
       {/* Color bar spacer */}
-      <div className="w-8 shrink-0 border-r border-gray-200 dark:border-slate-600 relative" style={{ backgroundColor: `${groupColor}10` }}>
+      <div className="w-8 shrink-0 border-r border-gray-200 dark:border-slate-700/50 relative" style={{ backgroundColor: `${groupColor}10` }}>
         <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: groupColor }}></div>
       </div>
 
       {/* Item Name spacer */}
-      <div className="w-[300px] p-2 pl-4 border-r border-gray-200 dark:border-slate-600 shrink-0">
+      <div className="w-[300px] p-2 pl-4 border-r border-gray-200 dark:border-slate-700/50 shrink-0">
         <span className="text-xs font-medium text-gray-400 dark:text-gray-500"></span>
       </div>
 
       {/* Column cells — only numbers show a sum */}
       {columns.map((col) => {
-        const widthClass = col.type === "text" ? "w-48" : col.type === "people" ? "w-36" : "w-32";
+        const widthMap: Record<string, string> = {
+          text: "w-48",
+          people: "w-36",
+          timeline: "w-48",
+          tags: "w-48",
+          priority: "w-36",
+          files: "w-40",
+          dependency: "w-48",
+        };
+        const defaultWidthClass = widthMap[col.type] || "w-32";
+        const widthClass = col.width ? '' : defaultWidthClass;
+        const inlineStyle = col.width ? { width: `${col.width}px` } : undefined;
 
         if (col.type === "numbers") {
           const sum = items.reduce((acc, item) => {
@@ -44,7 +55,8 @@ export default function GroupFooter({ columns, items, groupColor }: GroupFooterP
           return (
             <div
               key={col.id}
-              className={`${widthClass} border-r border-gray-200 dark:border-slate-600 flex items-center justify-center px-2 shrink-0`}
+              className={`${widthClass} border-r border-gray-200 dark:border-slate-700/50 flex items-center justify-center px-2 shrink-0`}
+              style={inlineStyle}
             >
               <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
                 {sum !== 0 ? `Σ ${sum.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : "—"}
@@ -54,7 +66,7 @@ export default function GroupFooter({ columns, items, groupColor }: GroupFooterP
         }
 
         return (
-          <div key={col.id} className={`${widthClass} border-r border-gray-200 dark:border-slate-600 shrink-0`}></div>
+          <div key={col.id} className={`${widthClass} border-r border-gray-200 dark:border-slate-700/50 shrink-0`} style={inlineStyle}></div>
         );
       })}
 
