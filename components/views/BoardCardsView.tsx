@@ -32,7 +32,7 @@ export default function BoardCardsView({
 
   const statusColumn = columns.find((c) => c.type === "status");
   const priorityColumn = columns.find((c) => c.type === "priority");
-  const personColumn = columns.find((c) => c.type === "person");
+  const personColumn = columns.find((c) => c.type === "people");
   const dateColumn = columns.find((c) => c.type === "date");
 
   const handleCreateItem = (groupId: string) => {

@@ -99,7 +99,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
               My Profile
             </div>
             <div
-              onClick={() => { setIsOpen(false); onOpenSettings(); }}
+              onClick={() => { setIsOpen(false); onOpenSettings?.(); }}
               className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
             >
               <Settings size={16} className="mr-3 text-gray-400 dark:text-gray-400" />

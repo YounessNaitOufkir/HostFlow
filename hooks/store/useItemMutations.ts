@@ -113,8 +113,7 @@ export function useItemMutations({
           dispatch({ type: "UPDATE_ITEM", payload: movedItem });
 
           if (targetGroupId !== itemToUpdate.group_id) {
-            const targetGroupName =
-              activeBoard.groups.find((g) => g.id === targetGroupId)?.title || "group";
+            const targetGroupName = "new group";
             const originalGroupId = itemToUpdate.group_id;
             const originalValues = existingValues;
 

@@ -43,6 +43,7 @@ export interface BoardStoreState {
     | "dashboard"
     | "calendar"
     | "gantt"
+    | "cards"
     | "my_work"
     | "trash"
     | "workspace_overview"

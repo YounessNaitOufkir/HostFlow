@@ -31,8 +31,6 @@ import type { Item, Column, ColumnType, Profile, Group } from "@/types";
 import ColumnHeader from "@/components/ColumnHeader";
 import GroupFooter from "@/components/GroupFooter";
 import ItemRow from "@/components/board/ItemRow";
-import AddItemRow from "@/components/board/AddItemRow";
-import AdminSafetyRights from "@/components/AdminSafetyRights";
 import { getColumnsByCategory, type ColumnDefinition } from "@/lib/columnRegistry";
 
 export interface GroupSectionProps {
