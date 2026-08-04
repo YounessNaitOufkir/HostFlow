@@ -76,6 +76,9 @@ export type CellValue =
 export interface Workspace {
   id: string;
   name: string;
+  icon?: string | null;
+  created_at: string;
+  is_private?: boolean;
 }
 
 export interface Profile {
@@ -87,7 +90,6 @@ export interface Profile {
   avatar_url?: string;
   is_onboarded?: boolean;
   role?: UserRole;
-  allowed_workspaces?: string[];
   allowed_boards?: string[];
 }
 
@@ -97,6 +99,8 @@ export interface Board {
   description: string;
   workspace_id?: string;
   columns: Column[];
+  items?: Item[];
+  automations?: Automation[];
   position?: number;
   type?: BoardType;
   item_name_column?: string;
@@ -153,7 +157,10 @@ export type AutomationActionType =
   | "set_value"
   | "notify"
   | "create_item"
-  | "update_status";
+  | "update_status"
+  | "sla_alert"
+  | "overdue_tagging"
+  | "timeline_shifting";
 
 export interface Automation {
   id: string;
@@ -161,6 +168,7 @@ export interface Automation {
   trigger_column_id: string;
   trigger_value: string;
   action_type: AutomationActionType;
+  config?: any;
   action_target_id: string;
   action_payload?: Record<string, any>;
   enabled?: boolean;
@@ -225,6 +233,7 @@ export const STATUS_OPTIONS: StatusOption[] = [
   { label: "Done", color: "bg-[#00c875]" },
   { label: "Stuck", color: "bg-[#e2445c]" },
   { label: "Not Started", color: "bg-[#c4c4c4]" },
+  { label: "Overdue", color: "bg-gradient-to-r from-red-600 to-rose-600" },
 ];
 
 export const PRIORITY_OPTIONS: StatusOption[] = [
@@ -241,3 +250,59 @@ export const GROUP_COLORS = [
   "#a25ddc", "#0086c0", "#037f4c", "#bb3354",
   "#ff642e", "#cab641",
 ] as const;
+
+// ============================================================
+// Comprehensive Settings Features
+// ============================================================
+
+export interface OrganizationSettings {
+  id: string;
+  company_name: string;
+  logo_url: string | null;
+  primary_color: string;
+  default_timezone: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  color: string;
+  created_at?: string;
+}
+
+export interface TeamMember {
+  team_id: string;
+  user_id: string;
+  role: string;
+}
+
+export interface ApiKey {
+  id: string;
+  user_id: string;
+  name: string;
+  key_hash: string;
+  created_at?: string;
+}
+
+export interface Webhook {
+  id: string;
+  board_id: string | null;
+  endpoint_url: string;
+  events: string[];
+  created_at?: string;
+}
+
+export interface GlobalStatusLabel {
+  id: string;
+  label: string;
+  color: string;
+  position: number;
+}
+
+export interface NotificationPreference {
+  user_id: string;
+  email_notifications: boolean;
+  in_app_notifications: boolean;
+  daily_digest: boolean;
+}
+

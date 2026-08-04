@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/hooks/queries/queryKeys";
+import { ItemPanelSkeleton } from "@/components/skeletons/ItemPanelSkeleton";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -33,12 +36,16 @@ import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react';
 import { MentionList } from './MentionList';
 import { motion } from "framer-motion";
 import { useUpdateEditor } from "@/hooks/useUpdateEditor";
+import { usePromptModal } from "@/hooks/usePromptModal";
 
 import { supabase } from "@/lib/supabase";
 import { Item, Column, Update, Profile, STATUS_OPTIONS, ActivityLog } from "@/types";
 import { Clock, Reply, Trash2 } from "lucide-react";
-import { usePromptModal } from "@/hooks/usePromptModal";
+import { reportError, reportFetchError, reportMutationError } from "@/lib/errorReporting";
 import { format } from "date-fns";
+import DOMPurify from "dompurify";
+
+const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
 // ============================================================
 // Relative time formatter (no dependency needed)
@@ -99,7 +106,7 @@ function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: 
       const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, file);
 
       if (uploadError) {
-        console.error("Upload failed", uploadError);
+        reportMutationError(uploadError, "File upload failed", { table: "storage", operation: "upload" });
         return;
       }
       
@@ -113,7 +120,7 @@ function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: 
         editor.chain().focus().insertContent(`<a href="${data.publicUrl}" target="_blank">${icon} ${file.name}</a> `).run();
       }
     } catch (err) {
-      console.error('Upload failed', err);
+      reportMutationError(err, "File upload failed", { table: "storage", operation: "upload" });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -278,12 +285,52 @@ interface ItemPanelProps {
 }
 
 export default function ItemPanel({ item, columns, currentUser, onClose, onUpdateCell, profiles, boardItems = [] }: ItemPanelProps) {
-  const [updates, setUpdates] = useState<Update[]>([]);
-  const [loadingUpdates, setLoadingUpdates] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: updates = [],
+    isLoading: loadingUpdates,
+  } = useQuery({
+    queryKey: queryKeys.itemUpdates(item.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("updates")
+        .select("*")
+        .eq("item_id", item.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data || []) as Update[];
+    },
+  });
+
+  const {
+    data: activityLogs = [],
+    isLoading: loadingLogs,
+  } = useQuery({
+    queryKey: queryKeys.itemActivityLogs(item.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("activity_logs")
+        .select("*")
+        .eq("item_id", item.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as ActivityLog[];
+    },
+  });
+
+  const setUpdates = useCallback(
+    (updater: Update[] | ((old: Update[]) => Update[])) => {
+      queryClient.setQueryData<Update[]>(queryKeys.itemUpdates(item.id), (old = []) =>
+        typeof updater === "function" ? updater(old) : updater
+      );
+    },
+    [queryClient, item.id]
+  );
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"updates" | "activity">("updates");
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(true);
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
 
   // Resizing state
@@ -330,47 +377,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
     };
   }, [isResizing]);
 
-  // ---- Fetch Updates ----
-  const fetchUpdates = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("updates")
-        .select("*")
-        .eq("item_id", item.id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      setUpdates(data || []);
-    } catch (err) {
-      console.error("Error fetching updates:", err);
-    } finally {
-      setLoadingUpdates(false);
-    }
-  }, [item.id]);
-
-  // ---- Fetch Activity Logs ----
-  const fetchLogs = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("activity_logs")
-        .select("*")
-        .eq("item_id", item.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setActivityLogs(data || []);
-    } catch (err) {
-      console.error("Error fetching logs:", err);
-    } finally {
-      setLoadingLogs(false);
-    }
-  }, [item.id]);
-
   useEffect(() => {
-    fetchUpdates();
-    fetchLogs();
-
     // Subscribe to realtime updates for this specific item
     const channel = supabase
       .channel(`item-updates-${item.id}`)
@@ -379,6 +386,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
         { event: "INSERT", schema: "public", table: "updates", filter: `item_id=eq.${item.id}` },
         (payload) => {
           setUpdates((prev) => [payload.new as Update, ...prev]);
+          queryClient.invalidateQueries({ queryKey: queryKeys.itemUpdates(item.id) });
         }
       )
       .subscribe();
@@ -386,7 +394,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [item.id, fetchUpdates, fetchLogs]);
+  }, [item.id, setUpdates, queryClient]);
 
   // ---- Close on Escape ----
   useEffect(() => {
@@ -458,7 +466,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
         }));
         const { error: notifError } = await supabase.from("notifications").insert(notificationsToInsert);
         if (notifError) {
-          console.error("Failed to insert notifications:", notifError);
+          reportMutationError(notifError, "Failed to send mention notifications", { table: "notifications" });
         } else {
           console.log("Successfully sent notifications to:", mentionedIds);
           // Trigger local refresh for instant UI feedback
@@ -466,7 +474,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
         }
       }
     } catch (error) {
-      console.error("Failed to post update:", error);
+      reportMutationError(error, "Failed to post update", { table: "updates", operation: "insert" });
       // Remove the optimistic entry on failure
       setUpdates((prev) => prev.filter((u) => u.id !== tempUpdate.id));
     }
@@ -515,13 +523,13 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
         }));
         const { error: notifError } = await supabase.from("notifications").insert(notificationsToInsert);
         if (notifError) {
-          console.error("Failed to insert notifications:", notifError);
+          reportMutationError(notifError, "Failed to send mention notifications", { table: "notifications" });
         } else {
           window.dispatchEvent(new CustomEvent('notification-added'));
         }
       }
     } catch (err) {
-      console.error(err);
+      reportMutationError(err, "Failed to post reply", { table: "updates", operation: "insert" });
       setUpdates((prev) => prev.filter((u) => u.id !== tempUpdate.id));
     }
   };
@@ -532,9 +540,10 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
       const { error } = await supabase.from('updates').update({ deleted_at: new Date().toISOString() }).eq('id', id);
       if (error) throw error;
       window.dispatchEvent(new CustomEvent('update-deleted', { detail: { itemId: item.id } }));
+      queryClient.invalidateQueries({ queryKey: queryKeys.itemUpdates(item.id) });
     } catch (err) {
-      console.error(err);
-      fetchUpdates(); 
+      reportMutationError(err, "Failed to delete update", { table: "updates", operation: "delete" });
+      queryClient.invalidateQueries({ queryKey: queryKeys.itemUpdates(item.id) });
     }
   };
 
@@ -719,7 +728,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
             {/* ---- UPDATES FEED ---- */}
             <div className="flex-1 overflow-y-auto">
               {loadingUpdates ? (
-                <div className="px-6 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">Loading updates...</div>
+                <ItemPanelSkeleton />
               ) : updates.length === 0 ? (
                 <div className="px-6 py-12 text-center">
                   <MessageSquare size={32} className="text-gray-200 mx-auto mb-3" />
@@ -780,7 +789,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                           
                           <div
                             className="prose prose-sm dark:prose-invert max-w-none ml-11 text-gray-700 dark:text-gray-300"
-                            dangerouslySetInnerHTML={{ __html: update.body }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(update.body) }}
                           />
 
                           <div className="ml-11 mt-3 flex items-center">
@@ -834,7 +843,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                                     </div>
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none ml-8 text-gray-600 dark:text-gray-400 text-sm"
-                                      dangerouslySetInnerHTML={{ __html: reply.body }}
+                                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(reply.body) }}
                                     />
                                   </div>
                                 );

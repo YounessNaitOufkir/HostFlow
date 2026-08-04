@@ -1,0 +1,178 @@
+import { useCallback } from "react";
+import { supabase } from "@/lib/supabase";
+import type { Board, Profile, Column } from "@/types";
+import type { BoardStoreDispatch } from "./types";
+import { reportMutationError } from "@/lib/errorReporting";
+import { getQueryClient } from "@/components/QueryProvider";
+import { queryKeys } from "@/hooks/queries/queryKeys";
+
+interface UseBoardMutationsProps {
+  dispatch: BoardStoreDispatch;
+  requestPrompt: (message: string, defaultValue?: string) => Promise<string | null>;
+}
+
+export function useBoardMutations({
+  dispatch,
+  requestPrompt,
+}: UseBoardMutationsProps) {
+  const switchBoard = useCallback(
+    (board: Board | null) => {
+      dispatch({ type: "SET_ACTIVE_BOARD", payload: board });
+      if (board) {
+        dispatch({ type: "SET_GROUPS", payload: [] });
+        dispatch({ type: "SET_ITEMS", payload: [] });
+        dispatch({ type: "SET_MAIN_VIEW", payload: "board" });
+      }
+    },
+    [dispatch]
+  );
+
+  const createBoard = useCallback(
+    async (workspaceId?: string, currentProfile?: Profile | null) => {
+      const boardName = await requestPrompt("Enter new board name:");
+      if (!boardName) return;
+      const wsId =
+        workspaceId ||
+        (await supabase.from("workspaces").select("id").limit(1).single())
+          .data?.id;
+      const defaultColumns: Column[] = [
+        { id: "status", title: "Status", type: "status" },
+        { id: "date", title: "Date", type: "date" },
+      ];
+      try {
+        const { data, error } = await supabase
+          .from("boards")
+          .insert({
+            name: boardName,
+            description: "New project board",
+            workspace_id: wsId,
+            columns: defaultColumns,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        if (data) {
+          if (
+            currentProfile &&
+            (currentProfile.role === "contractor" ||
+              currentProfile.role === "member")
+          ) {
+            const currentAllowed = currentProfile.allowed_boards || [];
+            if (!currentAllowed.includes(data.id)) {
+              await supabase
+                .from("profiles")
+                .update({ allowed_boards: [...currentAllowed, data.id] })
+                .eq("id", currentProfile.id);
+            }
+          }
+          dispatch({ type: "ADD_BOARD", payload: data });
+          getQueryClient().invalidateQueries({
+            queryKey: queryKeys.boards(),
+          });
+          switchBoard(data);
+        }
+      } catch (err) {
+        reportMutationError(err, "Failed to create board", {
+          table: "boards",
+          operation: "insert",
+        });
+      }
+    },
+    [dispatch, requestPrompt, switchBoard]
+  );
+
+  const renameBoard = useCallback(
+    async (board: Board) => {
+      const newName = await requestPrompt("Enter new board name:", board.name);
+      if (newName && newName !== board.name) {
+        try {
+          const { error } = await supabase
+            .from("boards")
+            .update({ name: newName })
+            .eq("id", board.id);
+          if (!error) {
+            dispatch({
+              type: "UPDATE_BOARD",
+              payload: { ...board, name: newName },
+            });
+            getQueryClient().invalidateQueries({
+              queryKey: queryKeys.boards(),
+            });
+          }
+        } catch (err) {
+          reportMutationError(err, "Failed to rename board", {
+            table: "boards",
+            operation: "update",
+          });
+        }
+      }
+    },
+    [dispatch, requestPrompt]
+  );
+
+  const deleteBoard = useCallback(
+    async (board: Board) => {
+      if (
+        confirm(
+          `Are you sure you want to delete board "${board.name}"?`
+        )
+      ) {
+        try {
+          const { error } = await supabase
+            .from("boards")
+            .delete()
+            .eq("id", board.id);
+          if (!error) {
+            dispatch({ type: "REMOVE_BOARD", payload: board.id });
+            getQueryClient().invalidateQueries({
+              queryKey: queryKeys.boards(),
+            });
+          }
+        } catch (err) {
+          reportMutationError(err, "Failed to delete board", {
+            table: "boards",
+            operation: "delete",
+          });
+        }
+      }
+    },
+    [dispatch]
+  );
+
+  const updateBoardItemNameColumn = useCallback(
+    async (board: Board, newName: string) => {
+      if (newName) {
+        // Optimistic update
+        dispatch({
+          type: "UPDATE_BOARD",
+          payload: { ...board, item_name_column: newName },
+        });
+        try {
+          const { error } = await supabase
+            .from("boards")
+            .update({ item_name_column: newName })
+            .eq("id", board.id);
+          if (error) throw error;
+          getQueryClient().invalidateQueries({
+            queryKey: queryKeys.boards(),
+          });
+        } catch (err) {
+          reportMutationError(err, "Failed to update column name", {
+            table: "boards",
+            operation: "update",
+          });
+          dispatch({ type: "UPDATE_BOARD", payload: board }); // Revert
+        }
+      }
+    },
+    [dispatch]
+  );
+
+  return {
+    switchBoard,
+    createBoard,
+    renameBoard,
+    deleteBoard,
+    updateBoardItemNameColumn,
+  };
+}

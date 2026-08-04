@@ -9,6 +9,7 @@ interface PriorityCellProps {
   activeStatusId?: string | null;
   setActiveStatusId?: (id: string | null) => void;
   onUpdate: (itemId: string, columnId: string, value: any) => void;
+  dropdownDirection?: "up" | "down";
 }
 
 const PRIORITY_OPTIONS = [
@@ -19,7 +20,7 @@ const PRIORITY_OPTIONS = [
   { label: "Empty", color: "bg-[#c4c4c4] text-white" },
 ];
 
-export default function PriorityCell({ item, column, activeStatusId, setActiveStatusId, onUpdate }: PriorityCellProps) {
+export default function PriorityCell({ item, column, activeStatusId, setActiveStatusId, onUpdate, dropdownDirection = "down" }: PriorityCellProps) {
   const value = item.column_values?.[column.id] || "Empty";
   const cellKey = `${item.id}-${column.id}`;
   const isOpen = activeStatusId === cellKey;
@@ -64,7 +65,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute top-full mt-1 left-1/2 -translate-x-1/2 w-40 dropdown-menu py-1.5 z-50"
+          className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} left-1/2 -translate-x-1/2 w-40 dropdown-menu py-1.5 z-50 flex flex-col`}
         >
           {PRIORITY_OPTIONS.map((opt) => (
             <div

@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useCallback, useMemo } from "react";
-import { DragDropContext, DropResult, DragStart } from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from "@hello-pangea/dnd";
 import { Plus, Layout as LayoutIcon } from "lucide-react";
-import type { Item, Column, ColumnType, Group, Profile, Automation } from "@/types";
+import type { Board, Item, Column, ColumnType, Group, Profile, Automation } from "@/types";
 import GroupSection from "@/components/board/GroupSection";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { evaluateTimeAutomations } from "@/lib/automations/engine";
+import { supabase } from "@/lib/supabase";
 
 interface BoardTableViewProps {
   boardId: string;
+  boardName: string;
   groups: Group[];
   filteredItems: Item[];
   allItems: Item[];
@@ -51,6 +55,7 @@ interface BoardTableViewProps {
   onRenameItem: (item: Item, newName: string) => void;
   collapsedGroups?: string[];
   onToggleGroupCollapse?: (groupId: string) => void;
+  onMoveGroup?: (groupId: string, direction: "up" | "down") => void;
 }
 
 /**
@@ -59,6 +64,7 @@ interface BoardTableViewProps {
  */
 export default function BoardTableView({
   boardId,
+  boardName,
   groups,
   filteredItems,
   allItems,
@@ -97,6 +103,7 @@ export default function BoardTableView({
   onRenameItem,
   collapsedGroups = [],
   onToggleGroupCollapse,
+  onMoveGroup,
 }: BoardTableViewProps) {
   const [itemNameWidth, setItemNameWidth] = React.useState(300);
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
@@ -121,6 +128,27 @@ export default function BoardTableView({
       } catch (e) {}
     }
   }, [boardId]);
+
+  // Run automatic time-based SLA & Overdue check once per board load / day
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !boardId || !boardAutomations || boardAutomations.length === 0) return;
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const checkKey = `hostflow_sla_checked_${boardId}_${today}`;
+      if (!sessionStorage.getItem(checkKey)) {
+        sessionStorage.setItem(checkKey, "true");
+        const activeBoard = {
+          id: boardId,
+          name: boardName,
+          description: "",
+          columns,
+          items: allItems,
+          automations: boardAutomations,
+        } as Board & { items: Item[]; automations: Automation[] };
+        evaluateTimeAutomations(activeBoard, profiles, supabase).catch(() => {});
+      }
+    } catch (e) {}
+  }, [boardId, boardAutomations, columns, allItems, profiles]);
 
   const handleResizeItemNameColumn = useCallback((newWidth: number) => {
     setItemNameWidth(newWidth);
@@ -168,64 +196,93 @@ export default function BoardTableView({
                 </button>
               </div>
             ) : (
-              sortedGroups.map((group) => {
-                const groupItems = filteredItems
-                  .filter((item) => item.group_id === group.id);
+              <Droppable droppableId="board-groups" type="GROUP">
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="space-y-12"
+                  >
+                    {sortedGroups.map((group, index) => {
+                      const groupItems = filteredItems
+                        .filter((item) => item.group_id === group.id);
 
-                return (
-                  <GroupSection
-                    key={group.id}
-                    group={group}
-                    items={groupItems}
-                    allItems={allItems}
-                    columns={columns}
-                    profiles={profiles}
-                    editingGroupId={editingGroupId}
-                    editGroupTitle={editGroupTitle}
-                    addingToGroupId={addingToGroupId}
-                    newItemName={newItemName}
-                    activeStatusId={activeStatusId}
-                    showAddColumnMenu={showAddColumnMenu}
-                    itemMenuOpen={itemMenuOpen}
-                    onSetEditingGroup={onSetEditingGroup}
-                    onRenameGroup={onRenameGroup}
-                    onDeleteGroup={onDeleteGroup}
-                    onSetAddingToGroup={onSetAddingToGroup}
-                    onSetNewItemName={onSetNewItemName}
-                    onAddItem={onAddItem}
-                    onUpdateCell={onUpdateCell}
-                    onSelectItem={onSelectItem}
-                    onDuplicateItem={onDuplicateItem}
-                    onDeleteItem={onDeleteItem}
-                    onSetActiveStatusId={onSetActiveStatusId}
-                    onSetShowAddColumnMenu={onSetShowAddColumnMenu}
-                    onSetItemMenuOpen={onSetItemMenuOpen}
-                    onChangeGroupColor={onChangeGroupColor}
-                    onAddColumn={onAddColumn}
-                    onRenameColumn={onRenameColumn}
-                    onResizeColumn={onResizeColumn}
-                    onDeleteColumn={onDeleteColumn}
-                    itemNameColumn={itemNameColumn}
-                    onRenameItemNameColumn={onRenameItemNameColumn}
-                    onRenameItem={onRenameItem}
-                    itemNameWidth={itemNameWidth}
-                    onResizeItemNameColumn={handleResizeItemNameColumn}
-                    draggingId={draggingId}
-                    isCollapsed={collapsedGroups.includes(group.id)}
-                    onToggleCollapse={() => onToggleGroupCollapse?.(group.id)}
-                  />
-                );
-              })
+                      return (
+                        <Draggable key={group.id} draggableId={group.id} index={index}>
+                          {(dragProvided, dragSnapshot) => (
+                            <div
+                              ref={dragProvided.innerRef}
+                              {...dragProvided.draggableProps}
+                              className={`transition-all ${
+                                dragSnapshot.isDragging ? "shadow-2xl rounded-2xl z-50 opacity-95" : ""
+                              }`}
+                            >
+                              <GroupSection
+                                key={group.id}
+                                group={group}
+                                items={groupItems}
+                                allItems={allItems}
+                                columns={columns}
+                                profiles={profiles}
+                                editingGroupId={editingGroupId}
+                                editGroupTitle={editGroupTitle}
+                                addingToGroupId={addingToGroupId}
+                                newItemName={newItemName}
+                                activeStatusId={activeStatusId}
+                                showAddColumnMenu={showAddColumnMenu}
+                                itemMenuOpen={itemMenuOpen}
+                                onSetEditingGroup={onSetEditingGroup}
+                                onRenameGroup={onRenameGroup}
+                                onDeleteGroup={onDeleteGroup}
+                                onSetAddingToGroup={onSetAddingToGroup}
+                                onSetNewItemName={onSetNewItemName}
+                                onAddItem={onAddItem}
+                                onUpdateCell={onUpdateCell}
+                                onSelectItem={onSelectItem}
+                                onDuplicateItem={onDuplicateItem}
+                                onDeleteItem={onDeleteItem}
+                                onSetActiveStatusId={onSetActiveStatusId}
+                                onSetShowAddColumnMenu={onSetShowAddColumnMenu}
+                                onSetItemMenuOpen={onSetItemMenuOpen}
+                                onChangeGroupColor={onChangeGroupColor}
+                                onAddColumn={onAddColumn}
+                                onRenameColumn={onRenameColumn}
+                                onResizeColumn={onResizeColumn}
+                                onDeleteColumn={onDeleteColumn}
+                                itemNameColumn={itemNameColumn}
+                                onRenameItemNameColumn={onRenameItemNameColumn}
+                                onRenameItem={onRenameItem}
+                                itemNameWidth={itemNameWidth}
+                                onResizeItemNameColumn={handleResizeItemNameColumn}
+                                draggingId={draggingId}
+                                isCollapsed={collapsedGroups.includes(group.id)}
+                                onToggleCollapse={() => onToggleGroupCollapse?.(group.id)}
+                                dragHandleProps={dragProvided.dragHandleProps}
+                                onMoveGroup={onMoveGroup}
+                                isFirstGroup={index === 0}
+                                isLastGroup={index === sortedGroups.length - 1}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
             )}
 
             {/* Add Group Button */}
             {groups.length > 0 && (
-              <button
-                onClick={onAddGroup}
-                className="mt-2 flex items-center px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-[#1e2140] rounded-lg border border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all font-medium"
-              >
-                <Plus size={15} className="mr-2" /> Add New Group
-              </button>
+              <Tooltip content="Create a new item group" side="top">
+                <button
+                  onClick={onAddGroup}
+                  className="mt-2 flex items-center px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-[#1e2140] rounded-lg border border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all font-medium"
+                >
+                  <Plus size={15} className="mr-2" /> Add New Group
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>

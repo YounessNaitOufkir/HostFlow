@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Lock, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { reportMutationError } from "@/lib/errorReporting";
 
 type EmptyStateProps = {
     profile: any;
@@ -35,7 +36,7 @@ export default function EmptyState({ profile, onCreateWorkspace }: EmptyStatePro
                 showToast("No admins found in the system to notify.", "error");
             }
         } catch (err) {
-            console.error(err);
+            reportMutationError(err, "Failed to send access request", { table: "notifications", operation: "insert" });
             showToast("Failed to send request. Please try again later.", "error");
         } finally {
             setRequesting(false);

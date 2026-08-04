@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Filter, X, Plus, Trash2, ArrowUpDown } from "lucide-react";
+import { Search, Filter, X, Plus, Trash2, ArrowUpDown, Eye, EyeOff } from "lucide-react";
 import { Column, STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/types";
 
 interface FilterBarProps {
@@ -9,9 +9,12 @@ interface FilterBarProps {
   setSearchQuery: (query: string) => void;
   columns: Column[];
   filters: any; // UseFiltersReturn
+  hiddenColumns?: string[];
+  onToggleColumnVisibility?: (columnId: string) => void;
+  onAddTask?: () => void;
 }
 
-export default function FilterBar({ searchQuery, setSearchQuery, columns, filters }: FilterBarProps) {
+export default function FilterBar({ searchQuery, setSearchQuery, columns, filters, hiddenColumns = [], onToggleColumnVisibility, onAddTask }: FilterBarProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [newColumnId, setNewColumnId] = useState("");
   const [newOperator, setNewOperator] = useState("equals");
@@ -24,6 +27,8 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
     setNewValue("");
     setShowAdvanced(false);
   };
+
+  const [showColumnsMenu, setShowColumnsMenu] = useState(false);
 
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [newSortColumnId, setNewSortColumnId] = useState("");
@@ -68,7 +73,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           {/* Sort Button */}
           <div className="relative">
             <button
-              onClick={() => { setShowSortMenu(!showSortMenu); setShowAdvanced(false); }}
+              onClick={() => { setShowSortMenu(!showSortMenu); setShowAdvanced(false); setShowColumnsMenu(false); }}
               className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                 activeSorts.length > 0 || showSortMenu 
                   ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" 
@@ -129,7 +134,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
 
           <div className="relative">
             <button
-              onClick={() => { setShowAdvanced(!showAdvanced); setShowSortMenu(false); }}
+              onClick={() => { setShowAdvanced(!showAdvanced); setShowSortMenu(false); setShowColumnsMenu(false); }}
             className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
               activeRules.length > 0 || showAdvanced 
                 ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" 
@@ -260,7 +265,58 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
               </div>
             </div>
           )}
-        </div>
+          </div>
+
+          <div className="h-4 w-px bg-gray-200 dark:bg-slate-700/50 mx-1"></div>
+
+          {/* Hide Columns Button */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowColumnsMenu(!showColumnsMenu); setShowSortMenu(false); setShowAdvanced(false); }}
+              className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                hiddenColumns.length > 0 || showColumnsMenu 
+                  ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" 
+                  : "bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700/50 text-gray-700 dark:text-gray-200"
+              }`}
+              title="Hide / Show Columns"
+            >
+              {hiddenColumns.length > 0 ? <EyeOff size={14} /> : <Eye size={14} />}
+              <span>Columns {hiddenColumns.length > 0 ? `(${columns.length - hiddenColumns.length}/${columns.length})` : ''}</span>
+            </button>
+
+            {showColumnsMenu && (
+              <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-50 p-4 max-h-96 overflow-y-auto custom-scrollbar">
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Visible Columns</h4>
+                <div className="space-y-1">
+                  {columns.map(c => (
+                    <label key={c.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={!hiddenColumns.includes(c.id)}
+                        onChange={() => onToggleColumnVisibility && onToggleColumnVisibility(c.id)}
+                        className="rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 bg-transparent"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{c.title}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="h-4 w-px bg-gray-200 dark:bg-slate-700/50 mx-1"></div>
+
+          {/* Add Task Button */}
+          {onAddTask && (
+            <button
+              onClick={onAddTask}
+              className="flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-[#15172a]"
+            >
+              <Plus size={14} />
+              <span>New Task</span>
+            </button>
+          )}
+
         </div>
       </div>
 

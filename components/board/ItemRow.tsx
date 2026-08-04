@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import type { Item, Column, Profile } from "@/types";
 import CellRenderer from "@/components/cells/CellRenderer";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface ItemRowProps {
   item: Item;
@@ -196,35 +197,45 @@ const ItemRow = memo(function ItemRow({
 
             {/* Updates indicator */}
             {!isEditingName && (
-              <div 
-                className={`flex items-center justify-center mr-2 relative shrink-0 cursor-pointer ${updatesCount > 0 ? 'text-blue-500' : 'text-gray-300 dark:text-gray-500 hover:text-blue-500 opacity-0 group-hover/name:opacity-100'} transition-all`} 
-                title={updatesCount > 0 ? `${updatesCount} update${updatesCount > 1 ? 's' : ''}` : "Add update"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectItem(item);
-                }}
+              <Tooltip
+                content={
+                  updatesCount > 0
+                    ? `${updatesCount} update${updatesCount > 1 ? "s" : ""}`
+                    : "Add update"
+                }
+                side="top"
               >
-                <MessageCircle size={18} className={updatesCount > 0 ? "fill-blue-500 text-blue-500" : "fill-transparent text-current"} />
-                {updatesCount > 0 ? (
-                  <span className="absolute text-[9px] font-bold text-white mb-[1px]">{updatesCount > 9 ? '9+' : updatesCount}</span>
-                ) : (
-                  <span className="absolute text-[12px] font-medium text-current mb-[1px]">+</span>
-                )}
-              </div>
+                <div 
+                  className={`flex items-center justify-center mr-2 relative shrink-0 cursor-pointer ${updatesCount > 0 ? 'text-blue-500' : 'text-gray-300 dark:text-gray-500 hover:text-blue-500 opacity-0 group-hover/name:opacity-100'} transition-all`} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectItem(item);
+                  }}
+                >
+                  <MessageCircle size={18} className={updatesCount > 0 ? "fill-blue-500 text-blue-500" : "fill-transparent text-current"} />
+                  {updatesCount > 0 ? (
+                    <span className="absolute text-[9px] font-bold text-white mb-[1px]">{updatesCount > 9 ? '9+' : updatesCount}</span>
+                  ) : (
+                    <span className="absolute text-[12px] font-medium text-current mb-[1px]">+</span>
+                  )}
+                </div>
+              </Tooltip>
             )}
 
             {/* Row context menu button */}
             {!isEditingName && (
               <div className="opacity-0 group-hover/name:opacity-100 transition-opacity">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setItemMenuOpen(isMenuOpen ? null : item.id);
-                  }}
-                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
-                >
-                  <MoreHorizontal size={14} className="text-gray-400" />
-                </button>
+                <Tooltip content="Item menu" side="top">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setItemMenuOpen(isMenuOpen ? null : item.id);
+                    }}
+                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+                  >
+                    <MoreHorizontal size={14} className="text-gray-400" />
+                  </button>
+                </Tooltip>
               </div>
             )}
 
