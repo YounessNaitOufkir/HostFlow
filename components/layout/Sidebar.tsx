@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   CalendarDays,
 } from "lucide-react";
+import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
 import ProfileMenu from "@/components/ProfileMenu";
@@ -91,50 +92,61 @@ export default function Sidebar({
       {/* ======================================= */}
       <div className="w-[60px] bg-[#292f4c] text-white flex flex-col items-center py-4 justify-between shrink-0 relative z-50">
         <div className="flex flex-col items-center space-y-3 w-full">
-          <div
-            className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-bold text-lg select-none cursor-pointer hover:from-blue-400 hover:to-blue-500 transition-all shadow-lg shadow-blue-500/20"
-            onClick={onToggleSidebar}
-            title="Toggle Sidebar"
-          >
-            H
-          </div>
+          <Tooltip content="Toggle Sidebar" side="right">
+            <div
+              className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-bold text-lg select-none cursor-pointer hover:from-blue-400 hover:to-blue-500 transition-all shadow-lg shadow-blue-500/20"
+              onClick={onToggleSidebar}
+            >
+              H
+            </div>
+          </Tooltip>
           <div className="w-8 border-t border-white/10 my-1"></div>
-          <div
-            onClick={() => onSetMainView(mainView === "my_work" ? "board" : "my_work")}
-            className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-all ${
-              mainView === "my_work"
-                ? "bg-white/15 text-white shadow-inner"
-                : "text-white/60 hover:text-white hover:bg-white/8"
-            }`}
-            title="My Work"
-          >
-            <LayoutDashboard size={20} />
-          </div>
-          <div
-            onClick={() => onSetMainView(mainView === "trash" ? "board" : "trash")}
-            className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-all ${
-              mainView === "trash"
-                ? "bg-red-500/20 text-red-400 shadow-inner"
-                : "text-white/60 hover:text-white hover:bg-white/8"
-            }`}
-            title="Trash Bin"
-          >
-            <Trash2 size={20} />
-          </div>
+          <Tooltip content="My Work" side="right">
+            <div
+              onClick={() => onSetMainView(mainView === "my_work" ? "board" : "my_work")}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-all ${
+                mainView === "my_work"
+                  ? "bg-white/15 text-white shadow-inner"
+                  : "text-white/60 hover:text-white hover:bg-white/8"
+              }`}
+            >
+              <LayoutDashboard size={20} />
+            </div>
+          </Tooltip>
+          <Tooltip content="Trash Bin" side="right">
+            <div
+              onClick={() => onSetMainView(mainView === "trash" ? "board" : "trash")}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-all ${
+                mainView === "trash"
+                  ? "bg-red-500/20 text-red-400 shadow-inner"
+                  : "text-white/60 hover:text-white hover:bg-white/8"
+              }`}
+            >
+              <Trash2 size={20} />
+            </div>
+          </Tooltip>
         </div>
         <div className="flex flex-col items-center space-y-3">
-          {profile ? (
-            <NotificationsMenu userId={profile.id} onNotificationClick={onNotificationClick} />
-          ) : (
-            <div className="w-10 h-10 flex items-center justify-center rounded-lg text-white/40 cursor-default">
-              <Bell size={20} />
+          <Tooltip content="Notifications" side="right">
+            <div>
+              {profile ? (
+                <NotificationsMenu userId={profile.id} onNotificationClick={onNotificationClick} />
+              ) : (
+                <div className="w-10 h-10 flex items-center justify-center rounded-lg text-white/40 cursor-default">
+                  <Bell size={20} />
+                </div>
+              )}
             </div>
-          )}
-          {profile ? (
-            <ProfileMenu profile={profile} onSignOut={onSignOut} onOpenAdmin={onOpenAdmin} onOpenProfileSettings={onOpenProfileSettings} />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-white/10 animate-pulse"></div>
-          )}
+          </Tooltip>
+          <Tooltip content="Profile & Settings" side="right">
+            <div>
+              {profile ? (
+                <ProfileMenu profile={profile} onSignOut={onSignOut} onOpenAdmin={onOpenAdmin} onOpenProfileSettings={onOpenProfileSettings} />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-white/10 animate-pulse"></div>
+              )}
+            </div>
+          </Tooltip>
         </div>
       </div>
 

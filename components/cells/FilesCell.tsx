@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import { Item, Column } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { Paperclip, Loader2, X } from "lucide-react";
+import { reportMutationError } from "@/lib/errorReporting";
 
 interface FilesCellProps {
   item: Item;
@@ -32,8 +33,7 @@ export default function FilesCell({ item, column, onUpdate }: FilesCellProps) {
         .upload(fileName, file);
         
       if (error) {
-        console.error("Upload error:", error);
-        alert("Failed to upload file. Ensure the 'attachments' bucket exists.");
+        reportMutationError(error, "Failed to upload file", { table: "storage", operation: "upload" });
       } else if (data) {
         // Get public URL
         const { data: publicData } = supabase.storage.from('attachments').getPublicUrl(data.path);
@@ -41,7 +41,7 @@ export default function FilesCell({ item, column, onUpdate }: FilesCellProps) {
         onUpdate(item.id, column.id, newFiles);
       }
     } catch (err) {
-      console.error(err);
+      reportMutationError(err, "File upload failed", { table: "storage", operation: "upload" });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

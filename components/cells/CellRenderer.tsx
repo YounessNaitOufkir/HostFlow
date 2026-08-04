@@ -29,6 +29,7 @@ interface CellRendererProps {
   boardItems?: Item[];
   /** All column definitions on the board (needed by FormulaCell) */
   columns?: Column[];
+  dropdownDirection?: "up" | "down";
 }
 
 /**
@@ -45,6 +46,7 @@ export default function CellRenderer({
   profiles,
   boardItems,
   columns,
+  dropdownDirection,
 }: CellRendererProps) {
   switch (column.type) {
     case "status":
@@ -55,6 +57,7 @@ export default function CellRenderer({
           activeStatusId={activeStatusId}
           setActiveStatusId={setActiveStatusId}
           onUpdate={onUpdate}
+          dropdownDirection={dropdownDirection}
         />
       );
     case "text":
@@ -103,6 +106,7 @@ export default function CellRenderer({
           onUpdate={onUpdate}
           activeStatusId={activeStatusId}
           setActiveStatusId={setActiveStatusId}
+          dropdownDirection={dropdownDirection}
         />
       );
     case "files":

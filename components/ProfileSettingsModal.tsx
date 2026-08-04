@@ -3,7 +3,8 @@
 import React, { useState, useRef } from "react";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
-import { X, Upload, Loader2, Camera } from "lucide-react";
+import { X, Upload, Loader2, Camera, Shield } from "lucide-react";
+import { toast } from "sonner";
 
 interface ProfileSettingsModalProps {
   profile: Profile;
@@ -143,6 +144,33 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
               <div className="mt-1 inline-flex px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-medium capitalize border border-blue-100 dark:border-blue-500/20">
                 {profile.role || "Member"}
               </div>
+              {profile.role !== "admin" && profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
+                <div className="mt-2.5">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const { error } = await supabase
+                          .from("profiles")
+                          .update({ role: "admin" })
+                          .eq("id", profile.id);
+                        if (error) {
+                          const { error: rpcError } = await supabase.rpc("restore_my_admin");
+                          if (rpcError) throw rpcError;
+                        }
+                        toast.success("Admin privileges restored successfully!");
+                        setTimeout(() => window.location.reload(), 500);
+                      } catch (err) {
+                        toast.error("Failed to restore admin role.");
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-semibold border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors shadow-sm"
+                  >
+                    <Shield size={12} />
+                    Restore Admin Rights
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,12 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/hooks/queries/queryKeys";
 import { Item, Group } from "@/types";
 import { Trash2, RotateCcw, AlertTriangle, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import { Update } from "@/types";
-import { useEffect } from "react";
+import DOMPurify from "dompurify";
+import { reportFetchError, reportMutationError } from "@/lib/errorReporting";
+
+const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
 interface TrashViewProps {
   trashItems: Item[];
@@ -16,46 +21,42 @@ interface TrashViewProps {
 }
 
 export default function TrashView({ trashItems, groups, allItems, onRestore }: TrashViewProps) {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [trashUpdates, setTrashUpdates] = useState<Update[]>([]);
-  const [loadingUpdates, setLoadingUpdates] = useState(true);
+  const allItemIds = allItems.map(i => i.id);
 
-  useEffect(() => {
-    const fetchTrashUpdates = async () => {
-      const allItemIds = allItems.map(i => i.id);
-      if (allItemIds.length === 0) {
-        setTrashUpdates([]);
-        setLoadingUpdates(false);
-        return;
-      }
-      try {
-        const { data, error } = await supabase
-          .from("updates")
-          .select("*")
-          .not("deleted_at", "is", null)
-          .in("item_id", allItemIds);
-        if (error) throw error;
-        setTrashUpdates(data || []);
-      } catch (err) {
-        console.error("Error fetching trash updates:", err);
-      } finally {
-        setLoadingUpdates(false);
-      }
-    };
-    fetchTrashUpdates();
-  }, [allItems]);
+  const {
+    data: trashUpdates = [],
+    isLoading: loadingUpdates,
+  } = useQuery({
+    queryKey: queryKeys.trashUpdates(allItemIds),
+    queryFn: async () => {
+      if (allItemIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("updates")
+        .select("*")
+        .not("deleted_at", "is", null)
+        .in("item_id", allItemIds);
+      if (error) throw error;
+      return (data || []) as Update[];
+    },
+    enabled: allItemIds.length > 0,
+  });
 
   const handleRestoreUpdate = async (id: string) => {
     try {
       const updateToRestore = trashUpdates.find(u => u.id === id);
       const { error } = await supabase.from("updates").update({ deleted_at: null }).eq("id", id);
       if (error) throw error;
-      setTrashUpdates(prev => prev.filter(u => u.id !== id));
+      queryClient.setQueryData<Update[]>(queryKeys.trashUpdates(allItemIds), (old = []) =>
+        old.filter(u => u.id !== id)
+      );
       if (updateToRestore) {
         window.dispatchEvent(new CustomEvent('update-restored', { detail: { itemId: updateToRestore.item_id } }));
+        queryClient.invalidateQueries({ queryKey: queryKeys.itemUpdates(updateToRestore.item_id) });
       }
     } catch (err) {
-      console.error(err);
+      reportMutationError(err, "Failed to restore update", { table: "updates", operation: "update" });
     }
   };
 
@@ -148,7 +149,7 @@ export default function TrashView({ trashItems, groups, allItems, onRestore }: T
                         <td className="px-6 py-3 font-medium text-gray-800 dark:text-gray-200">
                           <div className="flex items-center gap-2">
                             <MessageSquare size={14} className="text-blue-500" />
-                            <div className="line-clamp-1 max-w-sm text-sm opacity-80" dangerouslySetInnerHTML={{ __html: update.body }}></div>
+                            <div className="line-clamp-1 max-w-sm text-sm opacity-80" dangerouslySetInnerHTML={{ __html: sanitizeHtml(update.body) }}></div>
                           </div>
                         </td>
                         <td className="px-6 py-3">

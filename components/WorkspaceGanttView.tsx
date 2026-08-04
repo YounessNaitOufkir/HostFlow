@@ -5,6 +5,7 @@ import { Board } from "@/types";
 import { useWorkspaceGanttData } from "@/hooks/useWorkspaceGanttData";
 import GanttView from "./GanttView";
 import { Check, LayoutList } from "lucide-react";
+import { GanttSkeleton } from "@/components/skeletons/GanttSkeleton";
 
 interface WorkspaceGanttViewProps {
   allBoards: Board[];
@@ -86,16 +87,9 @@ export default function WorkspaceGanttView({ allBoards }: WorkspaceGanttViewProp
 
       {/* Gantt Area */}
       <div className="flex-1 overflow-hidden relative">
-        {loading && (
-          <div className="absolute inset-0 z-50 bg-white/50 dark:bg-[#0e111a]/50 backdrop-blur-sm flex items-center justify-center">
-            <div className="flex flex-col items-center">
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-300 font-medium">Loading workspace timeline...</p>
-            </div>
-          </div>
-        )}
-        
-        {selectedBoardIds.size === 0 ? (
+        {loading ? (
+          <GanttSkeleton />
+        ) : selectedBoardIds.size === 0 ? (
           <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
             Select at least one board to view the Master Gantt chart.
           </div>

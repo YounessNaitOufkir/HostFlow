@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0073ea" />
+      <stop offset="100%" stop-color="#4e1b9b" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <!-- Rounded Squircle App Icon Background -->
+  <rect width="512" height="512" rx="120" fill="url(#bgGrad)" />
+  
+  <!-- Modern Work OS Stylized Logo Bars -->
+  <g filter="url(#shadow)">
+    <!-- Yellow bar -->
+    <rect x="120" y="270" width="64" height="110" rx="32" fill="#fdab3d" />
+    <!-- Red bar -->
+    <rect x="224" y="190" width="64" height="190" rx="32" fill="#e2445c" />
+    <!-- Green bar -->
+    <rect x="328" y="130" width="64" height="250" rx="32" fill="#00c875" />
+    <!-- Top indicator dots -->
+    <circle cx="152" cy="205" r="22" fill="#579bfc" />
+    <circle cx="256" cy="125" r="22" fill="#a25ddc" />
+  </g>
+</svg>

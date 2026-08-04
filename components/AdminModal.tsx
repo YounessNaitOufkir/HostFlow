@@ -1,184 +1,450 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { X, Shield } from "lucide-react";
+import React, { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/hooks/queries/queryKeys";
+import { X, Shield, Users, Lock, ChevronDown, ChevronRight, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Profile, Workspace, Board, UserRole } from "@/types";
+import { motion, AnimatePresence } from "framer-motion";
+import { reportMutationError } from "@/lib/errorReporting";
 
 interface AdminModalProps {
   onClose: () => void;
 }
 
 export default function AdminModal({ onClose }: AdminModalProps) {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<"users" | "permissions">("users");
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [profilesRes, workspacesRes, boardsRes] = await Promise.all([
+  const {
+    data: adminData = {
+      profiles: [],
+      workspaces: [],
+      boards: [],
+      workspaceMembers: [],
+      boardMembers: [],
+    },
+    isLoading: loading,
+  } = useQuery({
+    queryKey: queryKeys.adminData(),
+    queryFn: async () => {
+      const [profilesRes, workspacesRes, boardsRes, wsMembersRes, bMembersRes] = await Promise.all([
         supabase.from("profiles").select("*").order("full_name"),
         supabase.from("workspaces").select("*").order("name"),
         supabase.from("boards").select("*").order("name"),
+        supabase.from("workspace_members").select("user_id, workspace_id"),
+        supabase.from("board_members").select("user_id, board_id")
       ]);
 
-      if (profilesRes.data) setProfiles(profilesRes.data);
-      if (workspacesRes.data) setWorkspaces(workspacesRes.data);
-      if (boardsRes.data) setBoards(boardsRes.data);
-      
-      setLoading(false);
-    };
+      return {
+        profiles: (profilesRes.data || []) as Profile[],
+        workspaces: (workspacesRes.data || []) as Workspace[],
+        boards: (boardsRes.data || []) as Board[],
+        workspaceMembers: wsMembersRes.data || [],
+        boardMembers: bMembersRes.data || [],
+      };
+    },
+  });
 
-    fetchData();
-  }, []);
+  const { profiles, workspaces, boards, workspaceMembers, boardMembers } = adminData;
+
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const handleRoleChange = async (profileId: string, newRole: string) => {
+    const targetProfile = profiles.find((p) => p.id === profileId);
+    if (targetProfile?.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && newRole !== "admin") {
+      alert("Action Blocked: The platform owner account (younessnaitoufkir@gmail.com) can never be demoted from Administrator.");
+      return;
+    }
+    if (targetProfile?.role === "admin" && newRole !== "admin") {
+      const adminCount = profiles.filter((p) => p.role === "admin").length;
+      if (adminCount <= 1) {
+        alert("Action Blocked: You cannot remove Administrator privileges from the only remaining Administrator on this account.");
+        return;
+      }
+      const confirmed = window.confirm(
+        "Warning: You are removing Administrator privileges from an administrator. If you change your own role, you will immediately lose access to Admin Settings and private workspaces. Are you sure you want to proceed?"
+      );
+      if (!confirmed) return;
+    }
+
     setSavingId(profileId);
     try {
-      await supabase.from("profiles").update({ role: newRole }).eq("id", profileId);
-      setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, role: newRole as UserRole } : p));
+      const { error } = await supabase.rpc('set_user_role', { target_user_id: profileId, new_role: newRole });
+      if (error) throw error;
+      queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          profiles: old.profiles.map((p: Profile) => p.id === profileId ? { ...p, role: newRole as UserRole } : p)
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles() });
     } catch (err) {
-      console.error("Failed to update role", err);
+      reportMutationError(err, "Failed to update role. Are you a global admin?", { table: "profiles", operation: "rpc" });
     }
     setSavingId(null);
   };
 
-  const handlePermissionChange = async (profileId: string, field: "allowed_workspaces" | "allowed_boards", values: string[]) => {
-    setSavingId(profileId);
+  const handleToggleWorkspace = async (profileId: string, workspaceId: string) => {
+    setSavingId(`${profileId}-${workspaceId}`);
+    const isMember = workspaceMembers.some(m => m.user_id === profileId && m.workspace_id === workspaceId);
+    
     try {
-      await supabase.from("profiles").update({ [field]: values }).eq("id", profileId);
-      setProfiles((prev) => prev.map((p) => p.id === profileId ? { ...p, [field]: values } : p));
+      if (isMember) {
+        const { error } = await supabase.from("workspace_members")
+          .delete()
+          .match({ user_id: profileId, workspace_id: workspaceId });
+        if (error) throw error;
+        queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            workspaceMembers: old.workspaceMembers.filter((m: any) => !(m.user_id === profileId && m.workspace_id === workspaceId))
+          };
+        });
+      } else {
+        const { error } = await supabase.from("workspace_members")
+          .insert({ user_id: profileId, workspace_id: workspaceId, role: 'member' });
+        if (error) throw error;
+        queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            workspaceMembers: [...old.workspaceMembers, { user_id: profileId, workspace_id: workspaceId }]
+          };
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminData() });
     } catch (err) {
-      console.error(`Failed to update ${field}`, err);
+      reportMutationError(err, "Failed to change workspace access", { table: "workspace_members" });
     }
+    
     setSavingId(null);
   };
 
-  const handleToggleWorkspace = (profile: Profile, workspaceId: string) => {
-    const current = profile.allowed_workspaces || [];
-    const updated = current.includes(workspaceId)
-      ? current.filter(id => id !== workspaceId)
-      : [...current, workspaceId];
-    handlePermissionChange(profile.id, "allowed_workspaces", updated);
+  const handleToggleBoard = async (profileId: string, boardId: string) => {
+    setSavingId(`${profileId}-board-${boardId}`);
+    const isMember = boardMembers.some(m => m.user_id === profileId && m.board_id === boardId);
+    
+    try {
+      if (isMember) {
+        const { error } = await supabase.from("board_members")
+          .delete()
+          .match({ user_id: profileId, board_id: boardId });
+        if (error) throw error;
+        queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            boardMembers: old.boardMembers.filter((m: any) => !(m.user_id === profileId && m.board_id === boardId))
+          };
+        });
+      } else {
+        const { error } = await supabase.from("board_members")
+          .insert({ user_id: profileId, board_id: boardId, role: 'member' });
+        if (error) throw error;
+        queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            boardMembers: [...old.boardMembers, { user_id: profileId, board_id: boardId }]
+          };
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminData() });
+    } catch (err) {
+      reportMutationError(err, "Failed to change board access", { table: "board_members" });
+    }
+    
+    setSavingId(null);
   };
 
-  const handleToggleBoard = (profile: Profile, boardId: string) => {
-    const current = profile.allowed_boards || [];
-    const updated = current.includes(boardId)
-      ? current.filter(id => id !== boardId)
-      : [...current, boardId];
-    handlePermissionChange(profile.id, "allowed_boards", updated);
+  const toggleWorkspaceAccordion = (workspaceId: string) => {
+    setExpandedWorkspaces(prev => {
+      const next = new Set(prev);
+      if (next.has(workspaceId)) next.delete(workspaceId);
+      else next.add(workspaceId);
+      return next;
+    });
+  };
+
+  // Switch to permissions tab and select user
+  const handleManagePermissions = (profileId: string) => {
+    setSelectedProfileId(profileId);
+    setActiveTab("permissions");
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-100 dark:border-slate-800 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 backdrop-blur-md bg-slate-900/40">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className="w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden rounded-2xl shadow-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/20 dark:border-white/10"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/50 dark:border-slate-700/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
               <Shield size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white">Admin Settings</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Manage user roles and permissions</p>
+              <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300">
+                Admin Center
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Manage access & security</p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        {/* Tabs */}
+        <div className="flex px-6 pt-2 border-b border-gray-200/50 dark:border-slate-700/50 gap-6">
+          <button
+            onClick={() => setActiveTab("users")}
+            className={`pb-3 text-sm font-medium transition-all relative ${
+              activeTab === "users" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
+          >
+            <span className="flex items-center gap-2"><Users size={16} /> User Roles</span>
+            {activeTab === "users" && (
+              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-t-full" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("permissions")}
+            className={`pb-3 text-sm font-medium transition-all relative ${
+              activeTab === "permissions" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
+          >
+            <span className="flex items-center gap-2"><Lock size={16} /> Data Access</span>
+            {activeTab === "permissions" && (
+              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-t-full" />
+            )}
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-hidden relative bg-gray-50/50 dark:bg-slate-900/50">
           {loading ? (
-            <div className="flex justify-center py-12">
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
             </div>
           ) : (
-            <div className="space-y-6">
-              {profiles.map((profile) => (
-                <div key={profile.id} className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4 md:p-5 border border-gray-200 dark:border-slate-700">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm shrink-0"
-                        style={{ backgroundColor: profile.color }}
-                      >
-                        {profile.avatar_initials}
+            <AnimatePresence mode="wait">
+              {activeTab === "users" ? (
+                <motion.div 
+                  key="users"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="h-full overflow-y-auto p-6"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {profiles.map((profile) => (
+                      <div key={profile.id} className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-gray-100 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-shadow group">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div 
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-inner"
+                            style={{ backgroundColor: profile.color }}
+                          >
+                            {profile.avatar_initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</h3>
+                              {profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-md border border-amber-300 dark:border-amber-500/30">
+                                  Owner
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{profile.email}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-slate-700/50">
+                          <select
+                            value={profile.role || "member"}
+                            onChange={(e) => handleRoleChange(profile.id, e.target.value)}
+                            disabled={profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com"}
+                            title={profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" ? "Platform Owner role cannot be changed" : undefined}
+                            className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            <option value="admin">Administrator</option>
+                            <option value="manager">Manager</option>
+                            <option value="member">Member</option>
+                            <option value="viewer">Viewer</option>
+                          </select>
+
+                          <button 
+                            onClick={() => handleManagePermissions(profile.id)}
+                            className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Manage Access &rarr;
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-800 dark:text-gray-100">{profile.full_name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{profile.email}</p>
+                    ))}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="permissions"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="h-full flex"
+                >
+                  {/* Left sidebar: User selection */}
+                  <div className="w-1/3 border-r border-gray-200/50 dark:border-slate-700/50 bg-white/30 dark:bg-slate-800/20 overflow-y-auto custom-scrollbar">
+                    <div className="p-4">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Select User</h3>
+                      <div className="space-y-1">
+                        {profiles.map(profile => (
+                          <button
+                            key={profile.id}
+                            onClick={() => setSelectedProfileId(profile.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                              selectedProfileId === profile.id 
+                                ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 shadow-sm" 
+                                : "hover:bg-gray-100 dark:hover:bg-slate-800/50 text-gray-700 dark:text-gray-300"
+                            }`}
+                          >
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold shrink-0" style={{ backgroundColor: profile.color }}>
+                              {profile.avatar_initials}
+                            </div>
+                            <span className="text-sm font-medium truncate">{profile.full_name}</span>
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      {savingId === profile.id && (
-                        <span className="text-xs text-indigo-500 animate-pulse">Saving...</span>
-                      )}
-                      <select
-                        value={profile.role || "member"}
-                        onChange={(e) => handleRoleChange(profile.id, e.target.value)}
-                        className="bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="member">Member</option>
-                        <option value="contractor">Contractor (Limited)</option>
-                      </select>
                     </div>
                   </div>
 
-                  {profile.role === "contractor" && (
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Allowed Workspaces</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                          {workspaces.map((ws) => (
-                            <label key={ws.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-slate-700/50 rounded-md cursor-pointer transition-colors">
-                              <input 
-                                type="checkbox" 
-                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800"
-                                checked={(profile.allowed_workspaces || []).includes(ws.id)}
-                                onChange={() => handleToggleWorkspace(profile, ws.id)}
-                              />
-                              <span className="text-sm text-gray-700 dark:text-gray-200">{ws.name}</span>
-                            </label>
-                          ))}
-                          {workspaces.length === 0 && <span className="text-xs text-gray-500">No workspaces available.</span>}
-                        </div>
+                  {/* Right pane: Permissions matrix */}
+                  <div className="w-2/3 overflow-y-auto custom-scrollbar p-6">
+                    {!selectedProfileId ? (
+                      <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                        <Lock size={48} className="mb-4 opacity-20" />
+                        <p>Select a user to manage their data access</p>
                       </div>
-                      
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Allowed Boards</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                          {boards.map((board) => (
-                            <label key={board.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-slate-700/50 rounded-md cursor-pointer transition-colors">
-                              <input 
-                                type="checkbox" 
-                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800"
-                                checked={(profile.allowed_boards || []).includes(board.id)}
-                                onChange={() => handleToggleBoard(profile, board.id)}
-                              />
-                              <span className="text-sm text-gray-700 dark:text-gray-200">
-                                {board.name} <span className="text-gray-400 dark:text-gray-500 text-xs">({workspaces.find(w => w.id === board.workspace_id)?.name || 'Unknown Workspace'})</span>
-                              </span>
-                            </label>
-                          ))}
-                          {boards.length === 0 && <span className="text-xs text-gray-500">No boards available.</span>}
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="mb-6 flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Workspace & Board Access</h3>
+                            <p className="text-sm text-gray-500">Toggle access for the whole workspace, or expand to grant granular board access.</p>
+                          </div>
                         </div>
+
+                        {workspaces.map(ws => {
+                          const isWsMember = workspaceMembers.some(m => m.user_id === selectedProfileId && m.workspace_id === ws.id);
+                          const wsBoards = boards.filter(b => b.workspace_id === ws.id);
+                          const isExpanded = expandedWorkspaces.has(ws.id);
+                          const isSavingWs = savingId === `${selectedProfileId}-${ws.id}`;
+
+                          return (
+                            <div key={ws.id} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                              <div className="flex items-center justify-between p-4 bg-gray-50/50 dark:bg-slate-800/80">
+                                <button 
+                                  onClick={() => toggleWorkspaceAccordion(ws.id)}
+                                  className="flex items-center gap-3 flex-1 text-left"
+                                >
+                                  <div className={`p-1 rounded-md transition-transform ${isExpanded ? "rotate-90 bg-gray-200 dark:bg-slate-700" : "hover:bg-gray-200 dark:hover:bg-slate-700"}`}>
+                                    <ChevronRight size={16} className="text-gray-500" />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                      {ws.name}
+                                      {ws.is_private && <Lock size={12} className="text-gray-400" />}
+                                    </h4>
+                                    <p className="text-xs text-gray-500">{wsBoards.length} boards</p>
+                                  </div>
+                                </button>
+                                
+                                <div className="flex items-center gap-4">
+                                  {isSavingWs && <span className="text-xs text-indigo-500 animate-pulse">Saving...</span>}
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                      type="checkbox" 
+                                      className="sr-only peer" 
+                                      checked={isWsMember}
+                                      onChange={() => handleToggleWorkspace(selectedProfileId, ws.id)}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                                    <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">Workspace Access</span>
+                                  </label>
+                                </div>
+                              </div>
+
+                              <AnimatePresence>
+                                {isExpanded && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-1">
+                                      {isWsMember && (
+                                        <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-sm text-indigo-800 dark:text-indigo-200 flex items-start gap-2">
+                                          <Check size={16} className="mt-0.5 shrink-0" />
+                                          <p>This user has full access to <b>all boards</b> in this workspace. Individual board toggles are overridden.</p>
+                                        </div>
+                                      )}
+                                      
+                                      {wsBoards.length === 0 ? (
+                                        <p className="text-sm text-gray-500 italic py-2 px-4">No boards in this workspace.</p>
+                                      ) : (
+                                        wsBoards.map(board => {
+                                          const isBoardMember = boardMembers.some(m => m.user_id === selectedProfileId && m.board_id === board.id);
+                                          const isSavingBoard = savingId === `${selectedProfileId}-board-${board.id}`;
+                                          
+                                          return (
+                                            <div key={board.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-8">{board.name}</span>
+                                              <div className="flex items-center gap-3">
+                                                {isSavingBoard && <span className="text-xs text-indigo-500 animate-pulse">Saving...</span>}
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                  <input 
+                                                    type="checkbox" 
+                                                    className="sr-only peer" 
+                                                    checked={isWsMember || isBoardMember}
+                                                    disabled={isWsMember}
+                                                    onChange={() => handleToggleBoard(selectedProfileId, board.id)}
+                                                  />
+                                                  <div className={`w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${isWsMember ? 'bg-indigo-300 dark:bg-indigo-800/50 cursor-not-allowed' : 'bg-gray-200 dark:bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 peer-checked:bg-indigo-500'}`}></div>
+                                                </label>
+                                              </div>
+                                            </div>
+                                          );
+                                        })
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

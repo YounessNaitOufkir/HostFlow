@@ -2,20 +2,44 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { LogOut, Moon, Sun, Settings, User, Shield } from "lucide-react";
+import { LogOut, Moon, Sun, Settings, User, Shield, Type } from "lucide-react";
 import { Profile } from "@/types";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface ProfileMenuProps {
   profile: Profile;
   onSignOut: () => void;
   onOpenAdmin: () => void;
   onOpenProfileSettings: () => void;
+  onOpenSettings?: () => void;
+  onOpenReadability?: () => void;
 }
 
-export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenProfileSettings }: ProfileMenuProps) {
+export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenProfileSettings, onOpenSettings, onOpenReadability }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleRestoreAdmin = async () => {
+    setIsOpen(false);
+    try {
+      // First try standard RLS self-update
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "admin" })
+        .eq("id", profile.id);
+      if (error) {
+        // Fallback to self-recovery RPC
+        const { error: rpcError } = await supabase.rpc("restore_my_admin");
+        if (rpcError) throw rpcError;
+      }
+      toast.success("Admin privileges restored successfully!");
+      setTimeout(() => window.location.reload(), 500);
+    } catch (err) {
+      toast.error("Failed to restore admin role.");
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -58,6 +82,15 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                 Admin Settings
               </div>
             )}
+            {profile.role !== "admin" && profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
+              <div 
+                onClick={handleRestoreAdmin}
+                className="flex items-center px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-md cursor-pointer transition-colors font-semibold border border-amber-200 dark:border-amber-800/50 my-1"
+              >
+                <Shield size={16} className="mr-3" />
+                Restore Admin Rights
+              </div>
+            )}
             <div 
               onClick={() => { setIsOpen(false); onOpenProfileSettings(); }}
               className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
@@ -65,8 +98,8 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
               <User size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
               My Profile
             </div>
-            <div 
-              onClick={() => { setIsOpen(false); alert("Settings features coming soon!"); }}
+            <div
+              onClick={() => { setIsOpen(false); onOpenSettings(); }}
               className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
             >
               <Settings size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
@@ -82,6 +115,17 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                 <Moon size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
               )}
               {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </div>
+            <div
+              onClick={() => {
+                setIsOpen(false);
+                if (onOpenReadability) onOpenReadability();
+                else window.dispatchEvent(new CustomEvent("open-readability"));
+              }}
+              className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
+            >
+              <Type size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
+              Readability & Font
             </div>
           </div>
           <div className="p-2 border-t border-gray-100 dark:border-slate-700">
