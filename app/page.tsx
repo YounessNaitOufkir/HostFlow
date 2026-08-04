@@ -614,11 +614,11 @@ export default function MondayClone() {
                   filteredItems={filters.filteredItems}
                   columns={visibleColumns}
                   profiles={state.profiles}
-                  onSelectItem={handleSelectItem}
+                  onSelectItem={(item) => dispatch({ type: "SET_SELECTED_ITEM", payload: item })}
                   onUpdateCell={handleUpdateCell}
                   onAddItem={handleAddItem}
-                  onDeleteItem={handleDeleteItem}
-                  onDuplicateItem={handleDuplicateItem}
+                  onDeleteItem={store.deleteItem}
+                  onDuplicateItem={store.duplicateItem}
                 />
               )}
 

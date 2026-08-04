@@ -43,6 +43,9 @@ interface SidebarProps {
   onOpenAdmin: () => void;
   onOpenProfileSettings: () => void;
   onNotificationClick: (boardId?: string, itemId?: string) => void;
+  onOpenSettings?: () => void;
+  onDuplicateWorkspace?: (ws: Workspace) => void;
+  onImportData?: () => void;
 }
 
 export default function Sidebar({
