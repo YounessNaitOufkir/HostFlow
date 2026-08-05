@@ -141,15 +141,13 @@ export default function Sidebar({
               )}
             </div>
           </Tooltip>
-          <Tooltip content="Profile & Settings" side="right">
-            <div>
-              {profile ? (
-                <ProfileMenu profile={profile} onSignOut={onSignOut} onOpenAdmin={onOpenAdmin} onOpenProfileSettings={onOpenProfileSettings} />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-white/10 animate-pulse"></div>
-              )}
-            </div>
-          </Tooltip>
+          <div>
+            {profile ? (
+              <ProfileMenu profile={profile} onSignOut={onSignOut} onOpenAdmin={onOpenAdmin} onOpenProfileSettings={onOpenProfileSettings} />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-white/10 animate-pulse"></div>
+            )}
+          </div>
         </div>
       </div>
 

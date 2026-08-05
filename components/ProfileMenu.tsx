@@ -6,6 +6,7 @@ import { LogOut, Moon, Sun, Settings, User, Shield, Type } from "lucide-react";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface ProfileMenuProps {
   profile: Profile;
@@ -52,12 +53,12 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
   }, []);
 
   return (
-    <div className="relative" ref={menuRef}>
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        title={profile.full_name}
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[12px] font-bold shadow-md cursor-pointer ring-2 ring-transparent hover:ring-white/50 transition-all select-none overflow-hidden"
-        style={{ backgroundColor: profile.color }}
+    <Tooltip content={profile.full_name} side="right" disabled={isOpen}>
+      <div className="relative" ref={menuRef}>
+        <div
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[12px] font-bold shadow-md cursor-pointer ring-2 ring-transparent hover:ring-white/50 transition-all select-none overflow-hidden"
+          style={{ backgroundColor: profile.color }}
       >
         {profile.avatar_url ? (
           <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
@@ -143,5 +144,6 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
         </div>
       )}
     </div>
+    </Tooltip>
   );
 }

@@ -9,6 +9,7 @@ export interface TooltipProps {
   delay?: number;
   children: React.ReactElement;
   className?: string;
+  disabled?: boolean;
 }
 
 export function Tooltip({
@@ -17,6 +18,7 @@ export function Tooltip({
   delay = 50,
   children,
   className = "",
+  disabled = false,
 }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -55,7 +57,7 @@ export function Tooltip({
     >
       {children}
       <AnimatePresence>
-        {isOpen && content && (
+        {isOpen && !disabled && content && (
           <motion.div
             initial="hidden"
             animate="visible"
