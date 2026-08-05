@@ -53,7 +53,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
   }, []);
 
   return (
-    <Tooltip content={profile.full_name} side="right" disabled={isOpen}>
+    <Tooltip content="Profile & Settings" side="right" disabled={isOpen}>
       <div className="relative" ref={menuRef}>
         <div
           onClick={() => setIsOpen(!isOpen)}
