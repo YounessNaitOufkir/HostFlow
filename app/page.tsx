@@ -496,6 +496,24 @@ export default function MondayClone() {
             onCreateWorkspace={() => store.createWorkspace(profile)}
           />
         </div>
+      ) : state.mainView === "workspace_overview" ? (
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
+          <WorkspaceOverview
+            workspace={state.activeWorkspace}
+            workspaces={state.workspaces}
+            boards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
+            onSelectBoard={(board) => store.switchBoard(board)}
+            onSelectWorkspace={(ws) => dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: ws })}
+            onCreateBoard={() => store.createBoard(state.activeWorkspace?.id, profile)}
+            onCreateWorkspace={() => store.createWorkspace(profile)}
+          />
+        </div>
+      ) : state.mainView === "workspace_gantt" ? (
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
+          <WorkspaceGanttView
+            allBoards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
+          />
+        </div>
       ) : (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           {state.activeBoard ? (
@@ -624,27 +642,12 @@ export default function MondayClone() {
 
             </>
           ) : (
-            <>
-              {state.mainView === "workspace_gantt" ? (
-                <div className="flex-1 flex flex-col h-full overflow-hidden">
-                  <WorkspaceGanttView
-                    allBoards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
-                  />
-                </div>
-              ) : (
-                <WorkspaceOverview
-                  workspace={state.activeWorkspace}
-                  workspaces={state.workspaces}
-                  boards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
-                  onSelectBoard={(board) => {
-                    store.switchBoard(board);
-                  }}
-                  onSelectWorkspace={(ws) => dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: ws })}
-                  onCreateBoard={() => store.createBoard(state.activeWorkspace?.id, profile)}
-                  onCreateWorkspace={() => store.createWorkspace(profile)}
-                />
-              )}
-            </>
+            <div className="flex-1 flex items-center justify-center">
+              <div className="animate-pulse flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mb-4"></div>
+                <div className="text-gray-400 font-medium">Loading board...</div>
+              </div>
+            </div>
           )}
         </div>
       )}
