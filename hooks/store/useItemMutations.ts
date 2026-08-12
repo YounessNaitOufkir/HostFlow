@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Board, Item, ItemLink, Profile, Automation } from "@/types";
 import type { BoardStoreDispatch } from "./types";
@@ -60,6 +61,7 @@ export function useItemMutations({
   itemLinks,
   reorderColumns,
 }: UseItemMutationsProps) {
+  const queryClient = useQueryClient();
   const updateCell = useCallback(
     async (
       currentItems: Item[],
@@ -436,6 +438,7 @@ export function useItemMutations({
           .update({ name: newName })
           .eq("id", item.id);
         if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ["myWorkItems"] });
       } catch (err) {
         reportMutationError(err, "Failed to rename item", {
           table: "items",
@@ -444,7 +447,7 @@ export function useItemMutations({
         dispatch({ type: "UPDATE_ITEM", payload: item });
       }
     },
-    [dispatch]
+    [dispatch, queryClient]
   );
 
   const deleteItem = useCallback(
@@ -467,6 +470,7 @@ export function useItemMutations({
           .update({ deleted_at: new Date().toISOString() })
           .eq("id", itemId);
         if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ["myWorkItems"] });
         if (itemToTrash) notifyTabSync(itemToTrash.board_id);
       } catch (err) {
         reportMutationError(err, "Failed to delete item", {
@@ -479,7 +483,7 @@ export function useItemMutations({
         }
       }
     },
-    [dispatch, items]
+    [dispatch, items, queryClient]
   );
 
   const restoreItem = useCallback(
@@ -499,6 +503,7 @@ export function useItemMutations({
           .update({ deleted_at: null })
           .eq("id", itemId);
         if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ["myWorkItems"] });
       } catch (err) {
         reportMutationError(err, "Failed to restore item", {
           table: "items",

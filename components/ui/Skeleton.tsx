@@ -8,11 +8,11 @@ export interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function Skeleton({ className = "", variant = "default", ...props }: SkeletonProps) {
-  const baseClasses = "animate-pulse bg-gray-200/80 dark:bg-slate-700/80 transition-colors";
+  const baseClasses = "skeleton transition-colors";
   const variantClasses = {
-    default: "rounded-md",
+    default: "rounded-[6px]",
     circular: "rounded-full",
-    text: "rounded h-4 w-full",
+    text: "rounded-[6px] h-4 w-full",
   }[variant];
 
   return (

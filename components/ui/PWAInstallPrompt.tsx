@@ -77,7 +77,7 @@ export default function PWAInstallPrompt() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[120] animate-in slide-in-from-bottom-5 duration-300">
-      <div className="bg-white dark:bg-[#1e223d] border border-gray-200 dark:border-slate-700/80 rounded-2xl shadow-2xl p-4 text-left">
+      <div className="bg-white dark:bg-[#1e2140] border border-gray-200 dark:border-slate-700/80 rounded-2xl shadow-2xl p-4 text-left">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-bold shadow-md shrink-0">

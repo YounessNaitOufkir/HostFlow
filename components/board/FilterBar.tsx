@@ -46,7 +46,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
   const activeSorts = filters.sortRules || [];
 
   return (
-    <div className="flex flex-col border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-[#15172a] shrink-0">
+    <div className="flex flex-col border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-[#181b34] shrink-0">
       <div className="flex items-center gap-3 py-3 px-8">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -310,7 +310,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           {onAddTask && (
             <button
               onClick={onAddTask}
-              className="flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-[#15172a]"
+              className="flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-[#181b34]"
             >
               <Plus size={14} />
               <span>New Task</span>
