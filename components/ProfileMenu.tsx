@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { LogOut, Moon, Sun, Settings, User, Shield, Type } from "lucide-react";
+import { LogOut, Moon, Sun, User, Shield, Type } from "lucide-react";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -13,11 +13,10 @@ interface ProfileMenuProps {
   onSignOut: () => void;
   onOpenAdmin: () => void;
   onOpenProfileSettings: () => void;
-  onOpenSettings?: () => void;
   onOpenReadability?: () => void;
 }
 
-export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenProfileSettings, onOpenSettings, onOpenReadability }: ProfileMenuProps) {
+export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenProfileSettings, onOpenReadability }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -99,13 +98,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
               <User size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
               My Profile
             </div>
-            <div
-              onClick={() => { setIsOpen(false); onOpenSettings?.(); }}
-              className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
-            >
-              <Settings size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
-              Settings
-            </div>
+
             <div 
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"

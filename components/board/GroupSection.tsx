@@ -342,10 +342,9 @@ const GroupSection = memo(function GroupSection({
             {group.title}
           </h2>
         )}
-        <span className="text-gray-400 dark:text-gray-500 text-sm ml-4 font-normal tracking-wide">
-          {groupItems.length} {groupItems.length === 1 ? "item" : "items"}
-        </span>
-        <div className="flex items-center ml-auto opacity-0 group-hover/grouptitle:opacity-100 transition-opacity">
+        
+        {/* Color Picker and Move Arrows (moved to right side of group name) */}
+        <div className="flex items-center ml-2 mr-2 opacity-0 group-hover/grouptitle:opacity-100 transition-opacity">
           <div className="relative" ref={colorPickerRef}>
             <button
               className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -355,7 +354,7 @@ const GroupSection = memo(function GroupSection({
               <div className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-slate-600" style={{ backgroundColor: group.color }}></div>
             </button>
             {isColorPickerOpen && (
-              <div className="absolute top-full right-0 mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-xl rounded-lg p-2 z-50 w-48">
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-xl rounded-lg p-2 z-50 w-48">
                 <div className="grid grid-cols-6 gap-1.5">
                   {PRESET_COLORS.map(c => (
                     <button
@@ -387,7 +386,7 @@ const GroupSection = memo(function GroupSection({
             )}
           </div>
           {onMoveGroup && (
-            <div className="flex items-center space-x-0.5 ml-1 border-r border-gray-200 dark:border-slate-700 pr-1">
+            <div className="flex items-center space-x-0.5 ml-1 border-r border-gray-200 dark:border-slate-700 pr-1 mr-1">
               <button
                 className={`p-1 rounded transition-all ${
                   isFirstGroup
@@ -414,6 +413,11 @@ const GroupSection = memo(function GroupSection({
               </button>
             </div>
           )}
+        </div>
+        <span className="text-gray-400 dark:text-gray-500 text-sm ml-4 font-normal tracking-wide">
+          {groupItems.length} {groupItems.length === 1 ? "item" : "items"}
+        </span>
+        <div className="flex items-center ml-auto opacity-0 group-hover/grouptitle:opacity-100 transition-opacity">
           <button
             className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-all ml-1"
             onClick={() => onDeleteGroup(group.id)}

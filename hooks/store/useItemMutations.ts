@@ -379,7 +379,7 @@ export function useItemMutations({
           });
           notifyTabSync(newItem.board_id);
         }
-      } catch {
+      } catch (err) {
         dispatch({ type: "REMOVE_ITEM", payload: tempId });
       }
     },
