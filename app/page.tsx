@@ -393,8 +393,8 @@ export default function MondayClone() {
 
   if (state.loading || authLoading) {
     return (
-      <div className="flex h-screen w-screen bg-[#f6f7fb] dark:bg-[#181b34]">
-        <div className="w-16 bg-[#292f4c] shrink-0"></div>
+      <div className="flex h-screen w-screen bg-[#FAF9F6] dark:bg-[#181b34]">
+        <div className="w-16 bg-[#1A2C5B] shrink-0"></div>
         <div className="w-64 border-r border-gray-200 dark:border-slate-700 p-4 space-y-4 shrink-0">
           <div className="skeleton h-8 w-3/4 rounded-lg"></div>
           <div className="space-y-2 mt-6">

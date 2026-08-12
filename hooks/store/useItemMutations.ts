@@ -314,7 +314,7 @@ export function useItemMutations({
             items: currentItems,
             automations: boardAutomations,
           } as Board & { items: Item[]; automations: Automation[] };
-          evaluateTimeAutomations(enrichedBoard, [profile], supabase, true).catch(
+          evaluateTimeAutomations(enrichedBoard, [profile], supabase).catch(
             () => {}
           );
         }

@@ -4,51 +4,51 @@
    Design System — CSS Custom Properties
    ============================================================ */
 :root {
-  /* Surfaces */
+  /* Surfaces — Clean, slightly cool off-white from Host'lik */
   --surface-primary: #ffffff;
-  --surface-secondary: #f6f7fb;
-  --surface-tertiary: #ecedf5;
+  --surface-secondary: #F4F6F8;
+  --surface-tertiary: #E9ECEF;
   --surface-elevated: #ffffff;
-  --surface-overlay: rgba(0, 0, 0, 0.5);
+  --surface-overlay: rgba(26, 44, 91, 0.55);
 
-  /* Borders */
-  --border-subtle: #e6e9ef;
-  --border-default: #d0d4e4;
-  --border-strong: #c3c6d4;
+  /* Borders — Clean neutrals */
+  --border-subtle: #E2E8F0;
+  --border-default: #CBD5E1;
+  --border-strong: #94A3B8;
 
-  /* Text */
-  --text-primary: #323338;
-  --text-secondary: #676879;
-  --text-tertiary: #9699a6;
-  --text-disabled: #c5c7d0;
+  /* Text — Deep Navy from Host'lik (#1A2C5B) */
+  --text-primary: #1A2C5B;
+  --text-secondary: #475569;
+  --text-tertiary: #94A3B8;
+  --text-disabled: #CBD5E1;
   --text-on-primary: #ffffff;
 
-  /* Brand */
-  --accent-primary: #0073ea;
-  --accent-primary-hover: #0060c2;
-  --accent-secondary: #7c3aed;
-  --accent-secondary-hover: #6d28d9;
-  --accent-success: #00c875;
-  --accent-warning: #fdab3d;
-  --accent-danger: #e2445c;
+  /* Brand — Exact Host'lik Identity */
+  --accent-primary: #1A2C5B;
+  --accent-primary-hover: #121F40;
+  --accent-secondary: #F5A623;
+  --accent-secondary-hover: #E09015;
+  --accent-success: #16A34A;
+  --accent-warning: #F5A623;
+  --accent-danger: #DC2626;
 
-  /* Sidebar */
-  --sidebar-bg: #292f4c;
-  --sidebar-hover: rgba(255, 255, 255, 0.1);
-  --sidebar-active: rgba(255, 255, 255, 0.15);
+  /* Sidebar — Deep Navy */
+  --sidebar-bg: #1A2C5B;
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-active: rgba(255, 255, 255, 0.14);
 
   /* Row */
-  --row-hover: #f5f6fa;
-  --row-selected: #e6f4ff;
+  --row-hover: #F8FAFC;
+  --row-selected: #FFF8EB; /* Very light amber tint */
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 40px -4px rgba(0, 0, 0, 0.12);
+  /* Shadows — Premium layered */
+  --shadow-sm: 0 1px 2px rgba(26, 44, 91, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(26, 44, 91, 0.08), 0 2px 4px -2px rgba(26, 44, 91, 0.04);
+  --shadow-lg: 0 12px 28px -6px rgba(26, 44, 91, 0.12), 0 4px 8px -4px rgba(26, 44, 91, 0.06);
+  --shadow-xl: 0 24px 48px -8px rgba(26, 44, 91, 0.16);
 
-  --background: #ffffff;
-  --foreground: #323338;
+  --background: #F4F6F8;
+  --foreground: #1A2C5B;
 }
 
 @theme inline {
@@ -88,11 +88,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c5c7d0;
+  background: #C2BBB2;
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9699a6;
+  background: #94A3B8;
 }
 .dark ::-webkit-scrollbar-thumb {
   background: #3e4157;
@@ -152,12 +152,12 @@ body {
   animation: fadeIn 0.2s ease-out forwards;
 }
 .animate-shimmer {
-  background: linear-gradient(90deg, #e6e9ef 25%, #f0f1f5 50%, #e6e9ef 75%);
+  background: linear-gradient(90deg, #F4F6F8 25%, #E9ECEF 50%, #F4F6F8 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
 .dark .animate-shimmer {
-  background: linear-gradient(90deg, #2a2d45 25%, #353850 50%, #2a2d45 75%);
+  background: linear-gradient(90deg, #1e223d 25%, #2a2d45 50%, #1e223d 75%);
   background-size: 200% 100%;
 }
 .animate-pulse-soft {
@@ -177,8 +177,8 @@ body {
    Skeleton Loader
    ============================================================ */
 .skeleton {
-  border-radius: 4px;
-  background: linear-gradient(90deg, #e6e9ef 25%, #f0f1f5 50%, #e6e9ef 75%);
+  border-radius: 6px;
+  background: linear-gradient(90deg, #E9ECEF 25%, #CBD5E1 50%, #E9ECEF 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -445,17 +445,17 @@ body {
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  border-radius: 6px;
+  border-radius: 9999px;
   font-size: 13px;
-  font-weight: 500;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  font-weight: 600;
+  background: linear-gradient(135deg, #1A2C5B 0%, #121F40 100%);
   color: white;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
 }
 .btn-automate:hover {
-  background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+  background: linear-gradient(135deg, #F5A623 0%, #E09015 100%);
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.3);
   transform: translateY(-1px);
 }
 
@@ -712,3 +712,124 @@ body {
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
 }
+
+/* ============================================================
+   Premium UI Utilities — UI UX Pro Max Inspired
+   ============================================================ */
+
+/* Glassmorphic Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Card Hover Lift */
+.card-hover-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -6px rgba(15, 23, 42, 0.12),
+              0 4px 8px -4px rgba(15, 23, 42, 0.06);
+}
+
+/* Premium Focus Ring (Navy/Terracotta branded) */
+.focus-ring-premium:focus-visible {
+  outline: 2px solid #1A2C5B;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.dark .focus-ring-premium:focus-visible {
+  outline-color: #F5A623;
+}
+
+/* Premium Dropdown/Menu */
+.dropdown-premium {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.14),
+              0 4px 8px -4px rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+}
+.dark .dropdown-premium {
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.4),
+              0 4px 8px -4px rgba(0, 0, 0, 0.2);
+}
+
+/* Micro-interaction: Subtle press */
+.press-effect:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease-out;
+}
+
+/* Gradient Border Bottom (for headers) */
+.border-gradient-bottom {
+  position: relative;
+}
+.border-gradient-bottom::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, #1A2C5B 0%, #F5A623 50%, transparent 100%);
+  opacity: 0.15;
+}
+.dark .border-gradient-bottom::after {
+  opacity: 0.25;
+}
+
+/* Pill Tab (active state for view tabs) */
+.pill-tab {
+  position: relative;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pill-tab:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+.dark .pill-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.pill-tab.active {
+  background: #1A2C5B;
+  color: #ffffff;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.25);
+}
+.dark .pill-tab.active {
+  background: #F5A623;
+  box-shadow: 0 2px 8px -2px rgba(194, 65, 12, 0.35);
+}
+
+/* Smooth Entrance Animation */
+@keyframes fadeUpIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fadeUpIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-fade-up-delay-1 { animation-delay: 0.06s; opacity: 0; }
+.animate-fade-up-delay-2 { animation-delay: 0.12s; opacity: 0; }
+.animate-fade-up-delay-3 { animation-delay: 0.18s; opacity: 0; }

@@ -41,14 +41,17 @@ export default function BoardCardsView({
 
   if (groups.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-        No groups found on this board.
+      <div className="flex-1 overflow-y-auto w-full bg-[#F4F6F8] dark:bg-transparent">
+        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+          No groups found on this board.
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-8 max-w-7xl mx-auto pb-32">
+    <div className="flex-1 overflow-y-auto w-full bg-[#F4F6F8] dark:bg-transparent">
+      <div className="p-4 sm:p-6 space-y-8 max-w-7xl mx-auto pb-32">
       {groups.map((group) => {
         const groupItems = filteredItems.filter((i) => i.group_id === group.id);
 
@@ -80,7 +83,9 @@ export default function BoardCardsView({
                   <div
                     key={item.id}
                     onClick={() => onSelectItem(item)}
-                    className="group relative bg-white dark:bg-[#1e223d] border border-gray-200/80 dark:border-slate-700/80 hover:border-blue-500 dark:hover:border-blue-500 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col overflow-hidden"
+                    className={`group relative bg-white dark:bg-[#1e223d] border border-gray-200/80 dark:border-slate-700/80 hover:border-blue-500 dark:hover:border-blue-500 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${
+                      activeStatusId?.startsWith(item.id + '-') ? 'z-50' : 'z-10'
+                    }`}
                   >
                     {/* Card Header (Title & Menu) */}
                     <div className="p-4 flex items-start justify-between border-b border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-800/30">
@@ -141,7 +146,7 @@ export default function BoardCardsView({
                             </div>
                             {/* Property Value (CellRenderer) */}
                             <div 
-                               className="flex-1 flex items-center bg-white dark:bg-[#1e223d] relative overflow-hidden group/cell" 
+                               className="flex-1 flex items-center bg-white dark:bg-[#1e223d] relative group/cell" 
                                onClick={(e) => e.stopPropagation()} // Prevent card click when clicking cells
                             >
                               {/* Override CellRenderer fixed widths using CSS magic within this container */}
@@ -168,10 +173,10 @@ export default function BoardCardsView({
               })}
 
               {/* Add New Card Input */}
-              <div className="bg-white dark:bg-[#1e223d] border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 flex flex-col justify-center min-h-[120px] transition-all self-start">
-                <div className="flex flex-col space-y-3">
+              <div className="w-full bg-white dark:bg-[#1e223d] border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 flex flex-col justify-center min-h-[120px] transition-all self-start">
+                <div className="flex flex-col space-y-3 w-full">
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Add a new item to {group.title}</span>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 w-full">
                     <input
                       type="text"
                       value={newItemNames[group.id] || ""}
@@ -185,7 +190,7 @@ export default function BoardCardsView({
                         if (e.key === "Enter") handleCreateItem(group.id);
                       }}
                       placeholder="e.g. New Task..."
-                      className="flex-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      className="flex-1 min-w-0 w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     />
                     <button
                       onClick={() => handleCreateItem(group.id)}
@@ -201,6 +206,7 @@ export default function BoardCardsView({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

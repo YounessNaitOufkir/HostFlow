@@ -232,27 +232,40 @@ export async function evaluateTimeAutomations(
 
     // 2. SLA Warning Rule: Due Date is today AND Status != Working on it and != Done
     else if (slaAlertRule && itemDateStr === todayStr && currentStatus !== "Working on it" && currentStatus !== "Done") {
-      result.triggeredCount++;
-      const msg = `⏰ Due Date SLA Alert: '${item.name}' is due today and is not marked 'Working on it'.`;
-      result.messages.push(msg);
+      const slaSentKey = `_sla_sent_${todayStr}`;
+      if (!values[slaSentKey]) {
+        result.triggeredCount++;
+        const msg = `⏰ Due Date SLA Alert: '${item.name}' is due today and is not marked 'Working on it'.`;
+        result.messages.push(msg);
 
-      if (recipientUserId) {
-        await supabase.from("notifications").insert({
-          user_id: recipientUserId,
-          message: msg,
-          read: false,
-          board_id: board.id,
-          item_id: item.id,
+        if (recipientUserId) {
+          await supabase.from("notifications").insert({
+            user_id: recipientUserId,
+            message: msg,
+            read: false,
+            board_id: board.id,
+            item_id: item.id,
+          });
+        }
+
+        await sendEmail({
+          to: recipientEmail,
+          subject: `⏰ [HostFlow SLA Alert] Task '${item.name}' is due today!`,
+          html: `<p>Hi ${recipientName},</p>
+                 <p>The task <b>${item.name}</b> on board <b>${board.name}</b> is due <b>today (${todayStr})</b>.</p>
+                 <p>Current Status: <b>${currentStatus || "Not Started"}</b>.</p>`,
         });
-      }
 
-      await sendEmail({
-        to: recipientEmail,
-        subject: `⏰ [HostFlow SLA Alert] Task '${item.name}' is due today!`,
-        html: `<p>Hi ${recipientName},</p>
-               <p>The task <b>${item.name}</b> on board <b>${board.name}</b> is due <b>today (${todayStr})</b>.</p>
-               <p>Current Status: <b>${currentStatus || "Not Started"}</b>.</p>`,
-      });
+        const newColumnValues = { ...values, [slaSentKey]: true };
+        if (typeof window === "undefined") {
+          try {
+            const { createClient } = require("@supabase/supabase-js");
+            // Supabase update would go here if in background worker
+            await supabase.from("items").update({ column_values: newColumnValues }).eq("id", item.id);
+          } catch (e) {}
+        }
+        result.updatedItems.push({ id: item.id, column_values: newColumnValues });
+      }
     }
   }
 

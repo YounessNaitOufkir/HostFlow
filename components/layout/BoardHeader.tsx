@@ -69,10 +69,10 @@ export default function BoardHeader({
   return (
     <>
       {/* Board Header */}
-      <div className="px-6 pt-5 pb-3 shrink-0">
+      <div className="px-6 pt-5 pb-3 shrink-0 border-gradient-bottom">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight" style={{ letterSpacing: '-0.025em' }}>
               {boardName}
             </h1>
             <div className="relative" ref={menuRef}>
@@ -85,13 +85,13 @@ export default function BoardHeader({
                 </button>
               </Tooltip>
               {isMenuOpen && (
-                <div className="absolute top-full mt-1 left-0 w-48 bg-white dark:bg-[#25284a] border border-gray-200 dark:border-slate-700 rounded shadow-lg z-50 py-1">
+                <div className="absolute top-full mt-1 left-0 w-48 dropdown-premium z-50 py-1.5">
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);
                       if (onDuplicateBoard) onDuplicateBoard();
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50"
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-lg mx-0"
                   >
                     Save as Template (Duplicate)
                   </button>
@@ -100,7 +100,7 @@ export default function BoardHeader({
                       setIsMenuOpen(false);
                       if (onImportData) onImportData();
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50"
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-lg mx-0"
                   >
                     Import from Monday.com
                   </button>
@@ -116,40 +116,40 @@ export default function BoardHeader({
         </div>
 
         {/* View Tabs */}
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 bg-gray-100/60 dark:bg-slate-800/40 rounded-full p-1">
           <button
             onClick={() => onSetMainView("board")}
-            className={`view-tab ${mainView === "board" ? "active" : ""}`}
+            className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "board" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
             <LayoutList size={14} /> Main Table
           </button>
           <button
             onClick={() => onSetMainView("kanban")}
-            className={`view-tab ${mainView === "kanban" ? "active" : ""}`}
+            className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "kanban" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
             <Columns3 size={14} /> Kanban
           </button>
           <button
             onClick={() => onSetMainView("dashboard")}
-            className={`view-tab ${mainView === "dashboard" ? "active" : ""}`}
+            className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "dashboard" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
             <LayoutDashboard size={14} /> Dashboard
           </button>
           <button
             onClick={() => onSetMainView("calendar")}
-            className={`view-tab ${mainView === "calendar" ? "active" : ""}`}
+            className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "calendar" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
             <Calendar size={14} /> Calendar
           </button>
           <button
             onClick={() => onSetMainView("gantt")}
-            className={`view-tab ${mainView === "gantt" ? "active" : ""}`}
+            className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "gantt" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
             <GripVertical size={14} /> Gantt
           </button>
           <button
             onClick={() => onSetMainView("cards")}
-            className={`view-tab ${mainView === "cards" ? "active" : ""}`}
+            className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "cards" ? "active" : "text-gray-600 dark:text-gray-400"}`}
             title="Mobile-friendly touch cards view"
           >
             <Smartphone size={14} /> Cards

@@ -93,11 +93,11 @@ export default function Sidebar({
       {/* ======================================= */}
       {/* 1. Icon Rail (left-most 60px sidebar)  */}
       {/* ======================================= */}
-      <div className="w-[60px] bg-[#292f4c] text-white flex flex-col items-center py-4 justify-between shrink-0 relative z-50">
+      <div className="w-[60px] bg-[#1A2C5B] text-white flex flex-col items-center py-4 justify-between shrink-0 relative z-50">
         <div className="flex flex-col items-center space-y-3 w-full">
           <Tooltip content="Toggle Sidebar" side="right">
             <div
-              className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-bold text-lg select-none cursor-pointer hover:from-blue-400 hover:to-blue-500 transition-all shadow-lg shadow-blue-500/20"
+              className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#F5A623] to-[#E09015] flex items-center justify-center font-bold text-lg select-none cursor-pointer hover:from-[#FFB540] hover:to-[#F5A623] transition-all shadow-lg shadow-amber-500/30 press-effect text-white"
               onClick={onToggleSidebar}
             >
               H
@@ -155,7 +155,7 @@ export default function Sidebar({
       {/* 2. Workspace Sidebar (board list)       */}
       {/* ======================================= */}
       {showWorkspaceSidebar && (
-        <div className="w-[260px] bg-white dark:bg-[#1e2140] border-r border-gray-200 dark:border-slate-700/50 flex flex-col shrink-0 z-10">
+        <div className="w-[260px] bg-white/95 dark:bg-[#1e2140]/95 backdrop-blur-xl border-r border-gray-200/80 dark:border-slate-700/50 flex flex-col shrink-0 z-10">
           {/* Workspace Picker */}
           <div 
             ref={workspacePickerRef}
