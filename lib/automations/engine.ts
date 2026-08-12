@@ -263,7 +263,24 @@ export async function evaluateTimeAutomations(
             // Supabase update would go here if in background worker
             await supabase.from("items").update({ column_values: newColumnValues }).eq("id", item.id);
           } catch (e) {}
+        } else {
+          // If running in browser, check if Telegram notification is requested
+          const telegramCol = board.columns.find(
+            (c) => c.type === "checkbox" && c.title.toLowerCase().includes("telegram")
+          );
+          
+          if (telegramCol && values[telegramCol.id] === true) {
+            fetch("/api/webhooks/dispatch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                event: "sla_alert",
+                task: item
+              })
+            }).catch(err => console.error("Webhook dispatch failed", err));
+          }
         }
+        
         result.updatedItems.push({ id: item.id, column_values: newColumnValues });
       }
     }

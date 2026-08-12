@@ -61,10 +61,10 @@ import ItemPanel from "@/components/ItemPanel";
 import AutomationsModal from "@/components/AutomationsModal";
 import { BoardSkeleton } from "@/components/skeletons/BoardSkeleton";
 import { SidebarSkeleton } from "@/components/skeletons/SidebarSkeleton";
-import AdminModal from "@/components/AdminModal";
+
 import EmptyState from "@/components/EmptyState";
 import ProfileSettingsModal from "@/components/ProfileSettingsModal";
-import SettingsModal from "@/components/SettingsModal";
+import AdminSettingsModal from "@/components/AdminSettingsModal";
 import ReadabilityModal from "@/components/ReadabilityModal";
 import TaskCreateModal from "@/components/TaskCreateModal";
 
@@ -73,7 +73,7 @@ import type { ColumnType } from "@/types";
 export default function MondayClone() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const [showProfileSettings, setShowProfileSettings] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
   const [showReadabilityModal, setShowReadabilityModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -458,9 +458,8 @@ export default function MondayClone() {
         onDeleteWorkspace={store.deleteWorkspace}
         onCreateWorkspace={() => store.createWorkspace(profile)}
         onSignOut={signOut}
-        onOpenAdmin={() => store.dispatch({ type: "SET_SHOW_ADMIN", payload: true })}
+        onOpenAdmin={() => setShowAdminSettingsModal(true)}
         onOpenProfileSettings={() => setShowProfileSettings(true)}
-        onOpenSettings={() => setShowSettingsModal(true)}
         onDuplicateWorkspace={handleDuplicateWorkspace}
         onImportData={() => setShowImportModal(true)}
       />
@@ -722,9 +721,7 @@ export default function MondayClone() {
       )}
 
       {/* Admin Modal */}
-      {state.showAdminModal && (
-        <AdminModal onClose={() => dispatch({ type: "SET_SHOW_ADMIN", payload: false })} />
-      )}
+
 
       {/* Profile Settings Modal */}
       {showProfileSettings && profile && (
@@ -736,9 +733,9 @@ export default function MondayClone() {
       )}
 
       {/* Comprehensive Settings Modal */}
-      {showSettingsModal && (
-        <SettingsModal
-          onClose={() => setShowSettingsModal(false)}
+      {showAdminSettingsModal && (
+        <AdminSettingsModal
+          onClose={() => setShowAdminSettingsModal(false)}
           organizationSettings={state.organizationSettings}
           teams={state.teams}
           globalStatusLabels={state.globalStatusLabels}
