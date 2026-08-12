@@ -21,6 +21,7 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
   const mockBoard: Board = {
     id: "board-auto-1",
     name: "Automations Test Board",
+    description: "",
     columns: [
       { id: "col-status", title: "Status", type: "status" },
       { id: "col-date", title: "Due Date", type: "date" },
@@ -49,8 +50,7 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
       id: "user-admin",
       email: "younessnaitoufkir@gmail.com",
       full_name: "Youness Admin",
-      role: "admin",
-    },
+      role: "admin", avatar_initials: "AD", color: "bg-red-500" },
   ];
 
   const createWrapper = () => {

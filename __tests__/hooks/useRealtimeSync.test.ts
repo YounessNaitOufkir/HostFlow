@@ -40,6 +40,7 @@ describe("useRealtimeSync — Batch 4.2", () => {
   const mockBoard: Board = {
     id: "board-rt-1",
     name: "Realtime Board",
+    description: "",
     columns: [],
   };
 
@@ -92,7 +93,7 @@ describe("useRealtimeSync — Batch 4.2", () => {
     );
     expect(itemCall).toBeDefined();
 
-    const debouncedFn = itemCall[2];
+    const debouncedFn = itemCall![2];
 
     // Fire multiple times quickly
     debouncedFn();
