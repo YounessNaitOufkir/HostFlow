@@ -6,6 +6,7 @@ describe("Timeline & Date Shifting Automation — Batch 3.3", () => {
   const mockBoard: Board = {
     id: "board-time-1",
     name: "Timeline Shifting Board",
+    description: "",
     columns: [
       { id: "col-date", title: "Due Date", type: "date" },
       { id: "col-timeline", title: "Sprint Timeline", type: "timeline" },

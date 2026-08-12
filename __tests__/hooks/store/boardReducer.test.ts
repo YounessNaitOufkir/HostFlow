@@ -188,9 +188,9 @@ describe("boardReducer", () => {
   it("handles UI toggle actions (SET_HIDDEN_COLUMNS, SET_SHOW_AUTOMATIONS, SET_SHOW_ADMIN)", () => {
     let state = boardReducer(initialBoardStoreState, {
       type: "SET_HIDDEN_COLUMNS",
-      payload: { status: true },
+      payload: { status: ["status"] },
     });
-    expect(state.hiddenColumns.status).toBe(true);
+    expect(state.hiddenColumns.status).toEqual(["status"]);
 
     state = boardReducer(state, {
       type: "SET_SHOW_AUTOMATIONS",

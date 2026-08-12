@@ -10,24 +10,21 @@ describe("Admin Rights & Platform Owner Safety Protection — Batch 4.4", () => 
     email: "younessnaitoufkir@gmail.com",
     full_name: "Youness Owner",
     role: "member", // testing recovery state when role wasn't admin
-    avatar_initials: "YO",
-  };
+    avatar_initials: "YO", color: "bg-blue-500" };
 
   const regularUserProfile: Profile = {
     id: "user-reg-1",
     email: "randomuser@example.com",
     full_name: "Random Member",
     role: "member",
-    avatar_initials: "RM",
-  };
+    avatar_initials: "RM", color: "bg-blue-500" };
 
   const adminUserProfile: Profile = {
     id: "user-admin-1",
     email: "otheradmin@example.com",
     full_name: "Other Admin",
     role: "admin",
-    avatar_initials: "OA",
-  };
+    avatar_initials: "OA", color: "bg-blue-500" };
 
   const mockCallbacks = {
     onSignOut: vi.fn(),
