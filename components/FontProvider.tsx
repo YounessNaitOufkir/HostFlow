@@ -14,10 +14,10 @@ export interface FontOption {
 
 export const FONT_OPTIONS: FontOption[] = [
   {
-    id: "inter",
-    name: "Inter",
-    description: "Modern UI default with clean, professional geometry",
-    cssValue: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    id: "plus-jakarta",
+    name: "Plus Jakarta Sans",
+    description: "Modern UI default with clean, friendly SaaS geometry",
+    cssValue: "var(--font-inter), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
     sampleText: "The quick brown fox jumps over the lazy dog",
     badge: "Default",
   },
@@ -60,24 +60,27 @@ interface FontContextType {
 }
 
 const FontContext = createContext<FontContextType>({
-  currentFont: "inter",
+  currentFont: "plus-jakarta",
   setFont: () => {},
   fontOptions: FONT_OPTIONS,
 });
 
 export function FontProvider({ children }: { children: React.ReactNode }) {
-  const [currentFont, setCurrentFontState] = useState<string>("inter");
+  const [currentFont, setCurrentFontState] = useState<string>("plus-jakarta");
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem("hostflow_font");
-      if (saved && FONT_OPTIONS.some((f) => f.id === saved)) {
+      // If user had 'inter' saved, upgrade them to 'plus-jakarta'
+      if (saved === "inter") {
+        applyFont("plus-jakarta", false);
+      } else if (saved && FONT_OPTIONS.some((f) => f.id === saved)) {
         applyFont(saved, false);
       } else {
-        applyFont("inter", false);
+        applyFont("plus-jakarta", false);
       }
     } catch {
-      applyFont("inter", false);
+      applyFont("plus-jakarta", false);
     }
   }, []);
 

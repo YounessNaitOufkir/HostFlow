@@ -85,7 +85,7 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
       >
         <Bell size={20} />
         {unreadCount > 0 && (
-          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-[#292f4c]"></span>
+          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-[#1A2C5B]"></span>
         )}
       </div>
 

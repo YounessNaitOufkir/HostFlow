@@ -45,7 +45,7 @@ export default function MyWorkView({ items, boards, onSelectItem }: MyWorkViewPr
   return (
     <div className="flex-1 flex flex-col bg-gray-50 dark:bg-slate-800 overflow-y-auto">
       <div className="p-8 pb-4">
-        <div className="flex items-center space-x-3 text-[#292f4c]">
+        <div className="flex items-center space-x-3 text-[#1A2C5B] dark:text-white">
           <LayoutDashboard size={32} />
           <h1 className="text-3xl font-bold tracking-tight">My Work</h1>
         </div>
@@ -65,7 +65,7 @@ export default function MyWorkView({ items, boards, onSelectItem }: MyWorkViewPr
           <div className="space-y-8">
             {Object.keys(itemsByBoard).map((boardId) => (
               <div key={boardId} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-slate-600 overflow-hidden">
-                <div className="bg-[#292f4c]/5 border-b border-gray-200 dark:border-slate-600 px-6 py-4">
+                <div className="bg-[#1A2C5B]/5 border-b border-gray-200 dark:border-slate-600 px-6 py-4">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center">
                     <span className="w-2 h-2 rounded-full bg-blue-500 mr-2"></span>
                     {getBoardName(boardId)}
