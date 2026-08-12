@@ -65,18 +65,18 @@ export default function MyWorkView({ items, boards, onSelectItem }: MyWorkViewPr
           <div className="space-y-8">
             {Object.keys(itemsByBoard).map((boardId) => (
               <div key={boardId} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-slate-600 overflow-hidden">
-                <div className="bg-[#1A2C5B]/5 border-b border-gray-200 dark:border-slate-600 px-6 py-4">
+                <div className="bg-[#1A2C5B]/5 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-600 px-6 py-4">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center">
                     <span className="w-2 h-2 rounded-full bg-blue-500 mr-2"></span>
                     {getBoardName(boardId)}
                   </h2>
                 </div>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100 dark:divide-slate-800">
                   {itemsByBoard[boardId].map((item) => (
                     <div
                       key={item.id}
                       onClick={() => onSelectItem(item)}
-                      className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:bg-slate-800 cursor-pointer transition-colors group"
+                      className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
                     >
                       <div className="flex items-center space-x-4">
                         <div className="w-6 h-6 rounded border border-gray-300 dark:border-slate-500 bg-gray-50 dark:bg-slate-800 flex flex-col justify-between p-0.5 group-hover:border-blue-400">

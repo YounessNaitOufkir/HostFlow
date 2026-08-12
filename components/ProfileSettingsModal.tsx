@@ -84,7 +84,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#25284a] rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-[#252849] rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700/50 flex justify-between items-center bg-gray-50/50 dark:bg-white/[0.02]">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Profile Settings</h2>
           <button 
@@ -106,7 +106,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
           <div className="flex flex-col items-center">
             <div className="relative group">
               <div 
-                className="w-24 h-24 rounded-full overflow-hidden shadow-md border-4 border-white dark:border-[#25284a] flex items-center justify-center text-white text-3xl font-bold"
+                className="w-24 h-24 rounded-full overflow-hidden shadow-md border-4 border-white dark:border-[#252849] flex items-center justify-center text-white text-3xl font-bold"
                 style={{ backgroundColor: profile.color }}
               >
                 {profile.avatar_url ? (

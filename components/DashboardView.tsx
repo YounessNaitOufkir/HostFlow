@@ -91,7 +91,7 @@ export default function DashboardView({ board, groups, items }: DashboardViewPro
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-[#f5f6f8] dark:bg-slate-950 p-8">
+    <div className="flex-1 overflow-auto bg-[#F4F6F8] dark:bg-[#181b34] p-8">
       <div className="max-w-[1200px] mx-auto space-y-8">
         
         <div className="flex items-center justify-between">

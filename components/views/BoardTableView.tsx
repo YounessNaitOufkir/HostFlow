@@ -178,8 +178,8 @@ export default function BoardTableView({
             {groups.length === 0 ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-gray-500">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 flex items-center justify-center mb-4 shadow-lg">
-                  <LayoutIcon size={28} className="text-blue-500 dark:text-blue-400" />
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-amber-100 dark:from-blue-900/30 dark:to-amber-900/30 flex items-center justify-center mb-4 shadow-lg">
+                  <LayoutIcon size={28} className="text-blue-500 dark:text-amber-500" />
                 </div>
                 <p className="text-lg font-medium mb-1 text-gray-600 dark:text-gray-300">
                   No groups yet

@@ -83,7 +83,7 @@ export default function BoardCardsView({
                   <div
                     key={item.id}
                     onClick={() => onSelectItem(item)}
-                    className={`group relative bg-white dark:bg-[#1e223d] border border-gray-200/80 dark:border-slate-700/80 hover:border-blue-500 dark:hover:border-blue-500 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${
+                    className={`group relative bg-white dark:bg-[#1e2140] border border-gray-200/80 dark:border-slate-700/80 hover:border-blue-500 dark:hover:border-blue-500 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${
                       activeStatusId?.startsWith(item.id + '-') ? 'z-50' : 'z-10'
                     }`}
                   >
@@ -146,7 +146,7 @@ export default function BoardCardsView({
                             </div>
                             {/* Property Value (CellRenderer) */}
                             <div 
-                               className="flex-1 flex items-center bg-white dark:bg-[#1e223d] relative group/cell" 
+                               className="flex-1 flex items-center bg-white dark:bg-[#1e2140] relative group/cell" 
                                onClick={(e) => e.stopPropagation()} // Prevent card click when clicking cells
                             >
                               {/* Override CellRenderer fixed widths using CSS magic within this container */}
@@ -173,7 +173,7 @@ export default function BoardCardsView({
               })}
 
               {/* Add New Card Input */}
-              <div className="w-full bg-white dark:bg-[#1e223d] border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 flex flex-col justify-center min-h-[120px] transition-all self-start">
+              <div className="w-full bg-white dark:bg-[#1e2140] border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 flex flex-col justify-center min-h-[120px] transition-all self-start">
                 <div className="flex flex-col space-y-3 w-full">
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Add a new item to {group.title}</span>
                   <div className="flex items-center space-x-2 w-full">

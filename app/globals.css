@@ -66,6 +66,40 @@
   }
 }
 
+/* Dark mode variable overrides */
+.dark {
+  --surface-primary: #181b34;
+  --surface-secondary: #1e2140;
+  --surface-tertiary: #252849;
+  --surface-elevated: #1e2140;
+  --surface-overlay: rgba(0, 0, 0, 0.6);
+
+  --border-subtle: #2a2d45;
+  --border-default: #3e4157;
+  --border-strong: #575b75;
+
+  --text-primary: #E2E8F0;
+  --text-secondary: #94A3B8;
+  --text-tertiary: #64748B;
+  --text-disabled: #475569;
+
+  --accent-primary: #1A2C5B;
+  --accent-secondary: #F5A623;
+
+  --sidebar-bg: #1A2C5B;
+
+  --row-hover: rgba(255, 255, 255, 0.04);
+  --row-selected: rgba(245, 166, 35, 0.08);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 12px 28px -6px rgba(0, 0, 0, 0.4), 0 4px 8px -4px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 24px 48px -8px rgba(0, 0, 0, 0.5);
+
+  --background: #181b34;
+  --foreground: #d5d8df;
+}
+
 /* ============================================================
    Base Styles
    ============================================================ */
@@ -178,7 +212,7 @@ body {
    ============================================================ */
 .skeleton {
   border-radius: 6px;
-  background: linear-gradient(90deg, #E9ECEF 25%, #CBD5E1 50%, #E9ECEF 75%);
+  background: linear-gradient(90deg, #F5F1EA 25%, #EBE5D9 50%, #F5F1EA 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -335,6 +369,12 @@ body {
 .kanban-lane::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+.dark .kanban-lane::-webkit-scrollbar-thumb {
+  background: #3e4157;
+}
+.dark .kanban-lane::-webkit-scrollbar-thumb:hover {
+  background: #575b75;
+}
 
 /* ============================================================
    Premium Interactive States
@@ -348,11 +388,15 @@ body {
   content: '';
   position: absolute;
   left: 0;
-  top: 4px;
-  bottom: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 60%;
   width: 3px;
-  border-radius: 0 3px 3px 0;
   background: var(--accent-primary);
+  border-radius: 0 4px 4px 0;
+}
+.dark .board-item-active::before {
+  background: var(--accent-secondary);
 }
 
 /* View tab pill */
@@ -377,7 +421,7 @@ body {
 .view-tab.active {
   background: var(--accent-primary);
   color: white;
-  box-shadow: 0 1px 3px rgba(0, 115, 234, 0.3);
+  box-shadow: 0 1px 3px rgba(26, 44, 91, 0.3);
 }
 .dark .view-tab {
   color: #9699a6;
@@ -414,7 +458,7 @@ body {
 .filter-chip:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(0, 115, 234, 0.15);
+  box-shadow: 0 0 0 2px rgba(26, 44, 91, 0.15);
 }
 .dark .filter-chip {
   background: #1e2140;
@@ -813,7 +857,7 @@ body {
 }
 .dark .pill-tab.active {
   background: #F5A623;
-  box-shadow: 0 2px 8px -2px rgba(194, 65, 12, 0.35);
+  box-shadow: 0 2px 8px -2px rgba(245, 166, 35, 0.35);
 }
 
 /* Smooth Entrance Animation */

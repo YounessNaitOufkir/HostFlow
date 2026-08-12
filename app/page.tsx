@@ -393,7 +393,7 @@ export default function MondayClone() {
 
   if (state.loading || authLoading) {
     return (
-      <div className="flex h-screen w-screen bg-[#FAF9F6] dark:bg-[#181b34]">
+      <div className="flex h-screen w-screen bg-[#F4F6F8] dark:bg-[#181b34]">
         <div className="w-16 bg-[#1A2C5B] shrink-0"></div>
         <div className="w-64 border-r border-gray-200 dark:border-slate-700 p-4 space-y-4 shrink-0">
           <div className="skeleton h-8 w-3/4 rounded-lg"></div>
@@ -433,7 +433,7 @@ export default function MondayClone() {
   // Main Layout
   // ============================================================
   return (
-    <div className="flex h-screen w-screen overflow-visible bg-[#f6f7fb] dark:bg-[#181b34]">
+    <div className="flex h-screen w-screen overflow-visible bg-[#F4F6F8] dark:bg-[#181b34]">
       {/* Sidebar */}
       {workspacesLoading && state.workspaces.length === 0 ? (
         <SidebarSkeleton />

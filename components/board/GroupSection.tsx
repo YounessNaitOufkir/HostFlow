@@ -426,7 +426,7 @@ const GroupSection = memo(function GroupSection({
 
       {/* Table Card */}
       {!isCollapsed && (
-        <div className="bg-white dark:bg-[#15172a] rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm flex flex-col transition-colors">
+        <div className="bg-white dark:bg-[#181b34] rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm flex flex-col transition-colors">
         {/* Column Headers */}
         <div className="flex rounded-t-xl border-b border-gray-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
           <div

@@ -87,7 +87,10 @@ export function useMyWorkQuery(
         if (!board) return false;
         const peopleCols = board.columns.filter((c) => c.type === "people");
         return peopleCols.some((col) => {
-          const val = item.column_values?.[col.id];
+          let val = item.column_values?.[col.id];
+          if (typeof val === 'string') {
+            try { val = JSON.parse(val); } catch(e) {}
+          }
           return Array.isArray(val) && val.includes(profile.id);
         });
       });

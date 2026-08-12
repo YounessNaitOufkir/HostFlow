@@ -173,7 +173,7 @@ export default function Sidebar({
 
             {isWorkspaceMenuOpen && (
               <div 
-                className="absolute top-full left-0 w-full dropdown-menu rounded-t-none z-50 shadow-xl bg-white dark:bg-[#25284a] border border-gray-200 dark:border-slate-700/50"
+                className="absolute top-full left-0 w-full dropdown-menu rounded-t-none z-50 shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50"
                 onClick={(e) => e.stopPropagation()}
               >
               {workspaces.map((ws) => (
