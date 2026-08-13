@@ -469,6 +469,15 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
           reportMutationError(notifError, "Failed to send mention notifications", { table: "notifications" });
         } else {
           console.log("Successfully sent notifications to:", mentionedIds);
+          // Send Telegram alert asynchronously
+          fetch('/api/telegram/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userIds: mentionedIds,
+              message: `💬 *New Mention*\n${currentUser.name} mentioned you in an update on *${item.name}*`,
+            })
+          }).catch(console.error);
           // Trigger local refresh for instant UI feedback
           window.dispatchEvent(new CustomEvent('notification-added'));
         }
@@ -525,6 +534,15 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
         if (notifError) {
           reportMutationError(notifError, "Failed to send mention notifications", { table: "notifications" });
         } else {
+          // Send Telegram alert asynchronously
+          fetch('/api/telegram/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userIds: mentionedIds,
+              message: `💬 *New Mention*\n${currentUser.name} mentioned you in a reply on *${item.name}*`,
+            })
+          }).catch(console.error);
           window.dispatchEvent(new CustomEvent('notification-added'));
         }
       }

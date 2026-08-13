@@ -144,7 +144,29 @@ export async function POST(request: Request) {
           `<b>Commands:</b>\n` +
           `/start — Link your account\n` +
           `/status — Check your connection status\n` +
+          `/stop — Disable all notifications\n` +
           `/help — Show this help message`
+      );
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── Handle /stop ──────────────────────────────────────────
+    if (text === "/stop") {
+      const supabase = createAdminClient();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ telegram_notifications_enabled: false })
+        .eq("telegram_chat_id", chatId);
+
+      if (error) {
+        console.error("[Telegram Webhook] Error stopping notifications:", error);
+        await sendTelegramMessage(chatId, "❌ Failed to disable notifications. Please try again later.");
+        return NextResponse.json({ ok: true });
+      }
+
+      await sendTelegramMessage(
+        chatId,
+        "🔕 <b>Notifications Disabled</b>\n\nYou will no longer receive alerts from HostFlow.\nYou can re-enable them anytime from your HostFlow Profile Settings, or by clicking the Connect button again."
       );
       return NextResponse.json({ ok: true });
     }
