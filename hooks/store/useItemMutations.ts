@@ -303,7 +303,18 @@ export function useItemMutations({
             item_id: itemToUpdate.id,
           }));
           await supabase.from("notifications").insert(notifications);
+          
+          // Send Telegram alert asynchronously
+          fetch('/api/telegram/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userIds: newlyAssigned,
+              message: `🔔 *New Assignment*\n${profile.full_name} assigned you to the task *${itemToUpdate.name}*`,
+            })
+          }).catch(console.error);
         }
+
 
         if (
           columnDef &&
