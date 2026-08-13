@@ -58,11 +58,12 @@ export default async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If there is no user and the route is not /login or /update-password, redirect to /login
+  // If there is no user and the route is not /login, /update-password, or an API route, redirect to /login
   if (
     !user && 
     !request.nextUrl.pathname.startsWith("/login") && 
-    !request.nextUrl.pathname.startsWith("/update-password")
+    !request.nextUrl.pathname.startsWith("/update-password") &&
+    !request.nextUrl.pathname.startsWith("/api/")
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
