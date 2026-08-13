@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { X, Upload, Loader2, Camera, Shield, User, Bell, Type, Check } from "lucide-react";
+import TelegramConnectButton from "@/components/TelegramConnectButton";
 import { useFont } from "@/components/FontProvider";
 import { toast } from "sonner";
 
@@ -245,6 +246,13 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
                   </div>
                   <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
                 </div>
+              </div>
+
+              {/* Telegram Integration */}
+              <div className="pt-4 border-t border-gray-100 dark:border-slate-700/50">
+                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">Telegram Alerts</h4>
+                <p className="text-xs text-gray-500 mb-3">Receive task notifications directly in Telegram.</p>
+                <TelegramConnectButton profile={profile} onProfileUpdated={onProfileUpdated} />
               </div>
             </div>
           )}

@@ -91,6 +91,8 @@ export interface Profile {
   is_onboarded?: boolean;
   role?: UserRole;
   allowed_boards?: string[];
+  telegram_chat_id?: string | null;
+  telegram_notifications_enabled?: boolean;
 }
 
 export interface Board {
