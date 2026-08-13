@@ -109,7 +109,7 @@ export function useUpdateEditor(profiles: Profile[], placeholderText: string = "
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[100px] px-4 py-3',
+        class: 'prose-editor prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[100px] px-4 py-3 text-slate-900 dark:text-slate-100',
       },
     },
   });
