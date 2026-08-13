@@ -609,7 +609,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
                         return (
                           <>
                             <div 
-                              className={`absolute top-1/2 rounded-sm group/bar flex items-center border border-white/20 transition-all ${onUpdateItem && !isResizingThis ? 'cursor-grab active:cursor-grabbing' : ''} ${isDraggingThis ? 'opacity-80 scale-105 shadow-xl z-50' : ''}`}
+                              className={`absolute top-1/2 rounded-sm group/bar overflow-hidden flex items-center border border-white/20 transition-all ${onUpdateItem && !isResizingThis ? 'cursor-grab active:cursor-grabbing' : ''} ${isDraggingThis ? 'opacity-80 scale-105 shadow-xl z-50' : ''}`}
                               style={{ 
                                 left: `calc(${barLeftPx}% + 4px)`, 
                                 width: `calc(${barWidthPx}% - 8px)`,
@@ -645,7 +645,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
                                 {format(gi.start, "MMM d")} - {format(gi.end, "MMM d")}
                               </span>
                               {/* Shimmer effect */}
-                              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover/bar:animate-[shimmer_1.5s_infinite] z-0 pointer-events-none"></div>
+                              <div className="absolute inset-0 opacity-0 group-hover/bar:opacity-100 bg-gradient-to-r from-transparent via-white/30 to-transparent bg-[length:200%_100%] group-hover/bar:animate-[shimmer_1.5s_infinite] z-0 pointer-events-none transition-opacity"></div>
 
                               {/* Right resize handle */}
                               {onUpdateItem && gi.colType === 'timeline' && (
