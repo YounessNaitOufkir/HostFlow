@@ -31,11 +31,11 @@ export async function POST(request: Request) {
 
     const payload = await request.json();
 
-    // Fetch user's webhooks
+    // Fetch global webhooks (board_id IS NULL)
     const { data: webhooks, error } = await supabase
       .from('webhooks')
-      .select('target_url')
-      .eq('user_id', user.id);
+      .select('endpoint_url')
+      .is('board_id', null);
 
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch webhooks' }, { status: 500 });
@@ -46,25 +46,32 @@ export async function POST(request: Request) {
     }
 
     // Format message for Telegram bot
-    const message = `[HostFlow Update] ${payload.event}\nTask: ${payload.task.title}`;
+    const message = `[HostFlow Update] ${payload.event}\nTask: ${payload.task.name || payload.task.title || 'Unknown Task'}`;
 
     // Dispatch to all webhooks
     let successCount = 0;
     for (const hook of webhooks) {
       try {
-        await fetch(hook.target_url, {
+        // Extract chat_id from the endpoint_url if provided (e.g. ?chat_id=12345)
+        let chatId = 'default';
+        try {
+          const url = new URL(hook.endpoint_url);
+          if (url.searchParams.has('chat_id')) {
+            chatId = url.searchParams.get('chat_id') as string;
+          }
+        } catch (e) {}
+
+        await fetch(hook.endpoint_url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: message,
-            // The bot expects a chat_id. Let's let the bot handle broadcasting to all its users
-            // if chat_id is missing, but for now we can just provide a dummy or empty.
-            chat_id: 'default'
+            chat_id: chatId
           }),
         });
         successCount++;
       } catch (err) {
-        console.error('Failed to dispatch webhook to', hook.target_url, err);
+        console.error('Failed to dispatch webhook to', hook.endpoint_url, err);
       }
     }
 
