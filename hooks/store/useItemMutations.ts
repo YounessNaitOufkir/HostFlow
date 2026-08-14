@@ -624,6 +624,28 @@ export function useItemMutations({
     [dispatch, trashItems]
   );
 
+  const permanentlyDeleteItem = useCallback(
+    async (itemId: string) => {
+      dispatch({ type: "REMOVE_TRASH_ITEM", payload: itemId });
+      try {
+        const { error } = await supabase
+          .from("items")
+          .delete()
+          .eq("id", itemId);
+        if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ["myWorkItems"] });
+        toast.success("Item permanently deleted");
+      } catch (err) {
+        reportMutationError(err, "Failed to permanently delete item", {
+          table: "items",
+          operation: "delete",
+        });
+        toast.error("Failed to permanently delete item");
+      }
+    },
+    [dispatch, queryClient]
+  );
+
   const addLink = useCallback(
     async (
       sourceItemId: string,
