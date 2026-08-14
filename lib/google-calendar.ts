@@ -73,7 +73,7 @@ export async function syncTaskToGoogleCalendar(userId: string, task: { id: strin
     // We can store the google_event_id in a new column on the item or just search by extended properties
     const res = await calendar.events.list({
       calendarId: 'primary',
-      privateExtendedProperty: `hostflow_task_id=${task.id}`,
+      privateExtendedProperty: [`hostflow_task_id=${task.id}`],
     });
 
     const existingEvents = res.data.items;
