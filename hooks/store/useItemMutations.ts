@@ -353,7 +353,7 @@ export function useItemMutations({
                     name: updatedValues.name || itemToUpdate.name,
                     start: taskStart,
                     end: taskEnd,
-                    boardName: activeBoard.title,
+                    boardName: activeBoard.name,
                   }
                 })
               }).catch(console.error);
