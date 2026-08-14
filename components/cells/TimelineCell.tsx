@@ -134,8 +134,39 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
     }
   }
 
+  // Calculate if popup should open upwards
+  const [openUpwards, setOpenUpwards] = useState(false);
+  const cellRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isEditing && cellRef.current) {
+      const rect = cellRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      // If there is less than 350px below and more space above, open upwards
+      if (spaceBelow < 380 && rect.top > spaceBelow) {
+        setOpenUpwards(true);
+      } else {
+        setOpenUpwards(false);
+      }
+    }
+  }, [isEditing]);
+
+  // Handle keyboard events (Enter to save)
+  useEffect(() => {
+    if (!isEditing) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isEditing, range]); // Depend on range so save gets the latest state
+
   return (
     <div
+      ref={cellRef}
       className={`${column.width ? '' : 'w-48'} h-full border-r border-gray-200 dark:border-slate-700 shrink-0 relative flex items-center justify-center p-1 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/50 group ${isEditing ? "z-50" : ""}`} 
       style={{ width: column.width ? `${column.width}px` : undefined }}
       onClick={(e) => {
@@ -158,7 +189,7 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
       {isEditing && (
         <div 
           ref={popupRef}
-          className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200 cursor-default"
+          className={`absolute ${openUpwards ? "bottom-full mb-2" : "top-full mt-2"} left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200 cursor-default`}
           onClick={(e) => e.stopPropagation()}
         >
           <style dangerouslySetInnerHTML={{__html: `
@@ -224,9 +255,9 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
             </button>
             <button 
               onClick={handleSave} 
-              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
             >
-              Apply Timeline
+              Apply <span className="opacity-70 text-[10px] bg-white/20 px-1.5 py-0.5 rounded ml-1">Enter</span>
             </button>
           </div>
         </div>

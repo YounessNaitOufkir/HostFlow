@@ -315,6 +315,51 @@ export function useItemMutations({
           }).catch(console.error);
         }
 
+        // --- Google Calendar Sync ---
+        const isDateColumn = columnDef?.type === "date" || columnDef?.type === "timeline";
+        if (isPeopleColumn || isDateColumn || columnId === "name") {
+          // If we changed people, dates, or the task name, we should sync to GCal for all assignees.
+          // Find all assignees in the updated values:
+          const peopleColIds = activeBoard.columns.filter(c => c.type === "people").map(c => c.id);
+          const allAssignees = new Set<string>();
+          peopleColIds.forEach(cId => {
+            const val = updatedValues[cId];
+            if (Array.isArray(val)) val.forEach(id => allAssignees.add(id));
+          });
+          
+          if (allAssignees.size > 0) {
+            // Find the best date to use
+            let taskStart: string | undefined;
+            let taskEnd: string | undefined;
+            
+            const timelineCol = activeBoard.columns.find(c => c.type === "timeline");
+            const dateCol = activeBoard.columns.find(c => c.type === "date");
+            
+            if (timelineCol && updatedValues[timelineCol.id]) {
+              taskStart = updatedValues[timelineCol.id].start;
+              taskEnd = updatedValues[timelineCol.id].end;
+            } else if (dateCol && updatedValues[dateCol.id]) {
+              taskStart = updatedValues[dateCol.id];
+            }
+
+            if (taskStart) {
+              fetch('/api/integrations/google/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userIds: Array.from(allAssignees),
+                  task: {
+                    id: itemId,
+                    name: updatedValues.name || itemToUpdate.name,
+                    start: taskStart,
+                    end: taskEnd,
+                    boardName: activeBoard.title,
+                  }
+                })
+              }).catch(console.error);
+            }
+          }
+        }
 
         if (
           columnDef &&
@@ -450,6 +495,56 @@ export function useItemMutations({
           .eq("id", item.id);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["myWorkItems"] });
+
+        // Google Calendar Sync on Rename
+        if (item.column_values) {
+          const { data: board } = await supabase
+            .from('boards')
+            .select('title, columns')
+            .eq('id', item.board_id)
+            .single();
+            
+          if (board && board.columns) {
+            const peopleColIds = (board.columns as Column[]).filter((c) => c.type === "people").map((c) => c.id);
+            const allAssignees = new Set<string>();
+            peopleColIds.forEach((cId) => {
+              const val = item.column_values[cId];
+              if (Array.isArray(val)) val.forEach((id: string) => allAssignees.add(id));
+            });
+            
+            if (allAssignees.size > 0) {
+              let taskStart: string | undefined;
+              let taskEnd: string | undefined;
+              
+              const timelineCol = (board.columns as Column[]).find((c) => c.type === "timeline");
+              const dateCol = (board.columns as Column[]).find((c) => c.type === "date");
+              
+              if (timelineCol && item.column_values[timelineCol.id]) {
+                taskStart = item.column_values[timelineCol.id].start;
+                taskEnd = item.column_values[timelineCol.id].end;
+              } else if (dateCol && item.column_values[dateCol.id]) {
+                taskStart = item.column_values[dateCol.id];
+              }
+
+              if (taskStart) {
+                fetch('/api/integrations/google/sync', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    userIds: Array.from(allAssignees),
+                    task: {
+                      id: item.id,
+                      name: newName,
+                      start: taskStart,
+                      end: taskEnd,
+                      boardName: board.title,
+                    }
+                  })
+                }).catch(console.error);
+              }
+            }
+          }
+        }
       } catch (err) {
         reportMutationError(err, "Failed to rename item", {
           table: "items",

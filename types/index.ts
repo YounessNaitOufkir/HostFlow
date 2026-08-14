@@ -93,6 +93,9 @@ export interface Profile {
   allowed_boards?: string[];
   telegram_chat_id?: string | null;
   telegram_notifications_enabled?: boolean;
+  email_notifications_enabled?: boolean;
+  daily_digest_enabled?: boolean;
+  in_app_alerts_enabled?: boolean;
 }
 
 export interface Board {
