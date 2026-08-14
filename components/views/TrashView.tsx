@@ -4,12 +4,13 @@ import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { Item, Group } from "@/types";
-import { Trash2, RotateCcw, AlertTriangle, MessageSquare } from "lucide-react";
+import { Trash2, RotateCcw, AlertTriangle, MessageSquare, Trash } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import { Update } from "@/types";
 import DOMPurify from "dompurify";
 import { reportFetchError, reportMutationError } from "@/lib/errorReporting";
+import { useAuth } from "@/components/AuthProvider";
 
 const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
@@ -18,9 +19,12 @@ interface TrashViewProps {
   groups: Group[];
   allItems: Item[];
   onRestore: (itemId: string) => void;
+  onDeletePermanently: (itemId: string) => void;
 }
 
-export default function TrashView({ trashItems, groups, allItems, onRestore }: TrashViewProps) {
+export default function TrashView({ trashItems, groups, allItems, onRestore, onDeletePermanently }: TrashViewProps) {
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const allItemIds = allItems.map(i => i.id);
@@ -57,6 +61,20 @@ export default function TrashView({ trashItems, groups, allItems, onRestore }: T
       }
     } catch (err) {
       reportMutationError(err, "Failed to restore update", { table: "updates", operation: "update" });
+    }
+  };
+
+
+  const handleDeleteUpdatePermanently = async (id: string) => {
+    if (!window.confirm("Are you sure you want to permanently delete this update? This action cannot be undone.")) return;
+    try {
+      const { error } = await supabase.from("updates").delete().eq("id", id);
+      if (error) throw error;
+      queryClient.setQueryData<Update[]>(queryKeys.trashUpdates(allItemIds), (old = []) =>
+        old.filter(u => u.id !== id)
+      );
+    } catch (err) {
+      reportMutationError(err, "Failed to permanently delete update", { table: "updates", operation: "delete" });
     }
   };
 
@@ -132,12 +150,26 @@ export default function TrashView({ trashItems, groups, allItems, onRestore }: T
                           {item.deleted_at ? format(new Date(item.deleted_at), "MMM d, yyyy HH:mm") : "Unknown"}
                         </td>
                         <td className="px-6 py-3 text-right">
-                          <button
-                            onClick={() => onRestore(item.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
-                          >
-                            <RotateCcw size={14} /> Restore
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => onRestore(item.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                            >
+                              <RotateCcw size={14} /> Restore
+                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to permanently delete this task? This action cannot be undone.")) {
+                                    onDeletePermanently(item.id);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                              >
+                                <Trash size={14} /> Delete
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -159,12 +191,22 @@ export default function TrashView({ trashItems, groups, allItems, onRestore }: T
                           {update.deleted_at ? format(new Date(update.deleted_at), "MMM d, yyyy HH:mm") : "Unknown"}
                         </td>
                         <td className="px-6 py-3 text-right">
-                          <button
-                            onClick={() => handleRestoreUpdate(update.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
-                          >
-                            <RotateCcw size={14} /> Restore
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleRestoreUpdate(update.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                            >
+                              <RotateCcw size={14} /> Restore
+                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteUpdatePermanently(update.id)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                              >
+                                <Trash size={14} /> Delete
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
