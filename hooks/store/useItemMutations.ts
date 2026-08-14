@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import type { Board, Item, ItemLink, Profile, Automation } from "@/types";
+import type { Board, Item, ItemLink, Profile, Automation, Column } from "@/types";
 import type { BoardStoreDispatch } from "./types";
 import { reportMutationError } from "@/lib/errorReporting";
 import { evaluateEventAutomations, evaluateTimeAutomations } from "@/lib/automations/engine";
