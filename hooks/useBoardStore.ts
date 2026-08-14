@@ -170,6 +170,7 @@ export function useBoardStore() {
     addItem: itemMutations.addItem,
     deleteItem: itemMutations.deleteItem,
     restoreItem: itemMutations.restoreItem,
+    permanentlyDeleteItem: itemMutations.permanentlyDeleteItem,
     duplicateItem: itemMutations.duplicateItem,
     renameItem: itemMutations.renameItem,
     // Item Link operations

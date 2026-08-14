@@ -487,6 +487,7 @@ export default function MondayClone() {
           groups={state.groups}
           allItems={[...state.items, ...state.trashItems]}
           onRestore={store.restoreItem}
+          onDeletePermanently={store.permanentlyDeleteItem}
         />
       ) : hasNoWorkspaces && !state.loading ? (
         <div className="flex-1 overflow-auto">

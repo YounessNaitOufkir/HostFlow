@@ -754,6 +754,7 @@ export function useItemMutations({
     renameItem,
     deleteItem,
     restoreItem,
+    permanentlyDeleteItem,
     addLink,
     removeLink,
     handleDragEnd,
