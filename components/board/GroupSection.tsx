@@ -636,7 +636,10 @@ const GroupSection = memo(function GroupSection({
               className="w-8 shrink-0 border-r border-gray-200 dark:border-slate-700/50"
               style={{ backgroundColor: group.color + "15" }}
             ></div>
-            <div className="flex-1 p-2 pl-4">
+            <div 
+              className="p-2 pl-4 shrink-0 border-r border-gray-200 dark:border-slate-700/50"
+              style={{ width: `${activeItemNameWidth}px` }}
+            >
               <input
                 autoFocus
                 placeholder="Item name..."
@@ -655,11 +658,17 @@ const GroupSection = memo(function GroupSection({
             </div>
           </div>
         ) : (
-          <div
-            className="flex items-center px-4 py-2 cursor-pointer text-gray-400 hover:text-blue-500 hover:bg-blue-50/50 dark:hover:bg-white/[0.02] transition-colors text-sm rounded-b-lg"
-            onClick={() => onSetAddingToGroup(group.id)}
-          >
-            <Plus size={14} className="mr-1.5" /> Add Item
+          <div className="flex border-b border-gray-100 dark:border-slate-700/50">
+            <div
+              className="w-8 shrink-0 border-r border-gray-200 dark:border-slate-700/50"
+            ></div>
+            <div
+              className="flex items-center px-4 py-2 cursor-pointer text-gray-400 hover:text-blue-500 hover:bg-blue-50/50 dark:hover:bg-white/[0.02] transition-colors text-sm"
+              style={{ width: `${activeItemNameWidth}px` }}
+              onClick={() => onSetAddingToGroup(group.id)}
+            >
+              <Plus size={14} className="mr-1.5" /> Add Item
+            </div>
           </div>
         )}
 

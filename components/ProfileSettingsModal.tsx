@@ -5,6 +5,7 @@ import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { X, Upload, Loader2, Camera, Shield, User, Bell, Type, Check } from "lucide-react";
 import TelegramConnectButton from "@/components/TelegramConnectButton";
+import GoogleCalendarConnectButton from "@/components/GoogleCalendarConnectButton";
 import { useFont } from "@/components/FontProvider";
 import { toast } from "sonner";
 
@@ -17,6 +18,9 @@ interface ProfileSettingsModalProps {
 export default function ProfileSettingsModal({ profile, onClose, onProfileUpdated }: ProfileSettingsModalProps) {
   const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "readability">("profile");
   const [fullName, setFullName] = useState(profile.full_name);
+  const [emailNotifications, setEmailNotifications] = useState(profile.email_notifications_enabled ?? true);
+  const [dailyDigest, setDailyDigest] = useState(profile.daily_digest_enabled ?? true);
+  const [inAppAlerts, setInAppAlerts] = useState(profile.in_app_alerts_enabled ?? true);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,13 +69,31 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
   };
 
   const handleSave = async () => {
+    if (!fullName.trim()) return;
+    
+    const hasNameChanged = fullName !== profile.full_name;
+    const hasEmailChanged = emailNotifications !== (profile.email_notifications_enabled ?? true);
+    const hasDailyDigestChanged = dailyDigest !== (profile.daily_digest_enabled ?? true);
+    const hasInAppAlertsChanged = inAppAlerts !== (profile.in_app_alerts_enabled ?? true);
+    
+    // If nothing changed, just close the modal
+    if (!hasNameChanged && !hasEmailChanged && !hasDailyDigestChanged && !hasInAppAlertsChanged) {
+      onClose();
+      return;
+    }
+    
     try {
       setSaving(true);
       setError(null);
       
       const { error } = await supabase
         .from('profiles')
-        .update({ full_name: fullName })
+        .update({ 
+          full_name: fullName,
+          email_notifications_enabled: emailNotifications,
+          daily_digest_enabled: dailyDigest,
+          in_app_alerts_enabled: inAppAlerts
+        })
         .eq('id', profile.id);
 
       if (error) throw error;
@@ -84,6 +106,18 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
       setSaving(false);
     }
   };
+
+  // Handle Enter key to save
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !saving) {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [fullName, saving, profile.full_name]);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -230,21 +264,21 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
                     <h4 className="font-medium text-gray-900 dark:text-white text-sm">Email Notifications</h4>
                     <p className="text-xs text-gray-500">Receive emails when you are assigned a task.</p>
                   </div>
-                  <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
+                  <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-medium text-gray-900 dark:text-white text-sm">Daily Digest</h4>
                     <p className="text-xs text-gray-500">Morning summary of tasks due today.</p>
                   </div>
-                  <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" />
+                  <input type="checkbox" checked={dailyDigest} onChange={(e) => setDailyDigest(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-medium text-gray-900 dark:text-white text-sm">In-App Alerts</h4>
                     <p className="text-xs text-gray-500">Show notification dots while using the app.</p>
                   </div>
-                  <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
+                  <input type="checkbox" checked={inAppAlerts} onChange={(e) => setInAppAlerts(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
                 </div>
               </div>
 
@@ -253,6 +287,13 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
                 <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">Telegram Alerts</h4>
                 <p className="text-xs text-gray-500 mb-3">Receive task notifications directly in Telegram.</p>
                 <TelegramConnectButton profile={profile} onProfileUpdated={onProfileUpdated} />
+              </div>
+
+              {/* Google Calendar Integration */}
+              <div className="pt-4 border-t border-gray-100 dark:border-slate-700/50">
+                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">Google Calendar Sync</h4>
+                <p className="text-xs text-gray-500 mb-3">Sync your assigned task deadlines directly to your Google Calendar.</p>
+                <GoogleCalendarConnectButton profile={profile} />
               </div>
             </div>
           )}
@@ -280,7 +321,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || !fullName.trim() || fullName === profile.full_name}
+            disabled={saving || !fullName.trim()}
             className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
           >
             {saving && <Loader2 size={14} className="animate-spin" />}

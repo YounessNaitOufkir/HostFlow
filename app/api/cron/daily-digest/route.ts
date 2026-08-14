@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { notifyUsersViaTelegram } from "@/app/actions/telegram-notifications";
 
-// Helper to check if a date string is today or overdue
-function isDueTodayOrOverdue(dateString: string) {
-  if (!dateString) return false;
+// Helper to get due state of a date string
+function getDueState(dateString: string): "today" | "overdue" | "future" | "none" {
+  if (!dateString) return "none";
   const itemDate = new Date(dateString);
   const today = new Date();
   
@@ -12,7 +12,10 @@ function isDueTodayOrOverdue(dateString: string) {
   itemDate.setHours(0, 0, 0, 0);
   today.setHours(0, 0, 0, 0);
   
-  return itemDate.getTime() <= today.getTime();
+  const diff = itemDate.getTime() - today.getTime();
+  if (diff < 0) return "overdue";
+  if (diff === 0) return "today";
+  return "future";
 }
 
 export async function GET(request: Request) {
@@ -29,11 +32,12 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient();
 
-    // 2. Fetch profiles with Telegram enabled
+    // 2. Fetch profiles with Telegram enabled AND Daily Digest enabled
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, telegram_chat_id, telegram_notifications_enabled")
+      .select("id, telegram_chat_id, telegram_notifications_enabled, daily_digest_enabled")
       .eq("telegram_notifications_enabled", true)
+      .eq("daily_digest_enabled", true)
       .not("telegram_chat_id", "is", null);
 
     if (profilesError || !profiles || profiles.length === 0) {
@@ -62,7 +66,8 @@ export async function GET(request: Request) {
     }
 
     // 5. Build a mapping of user -> Due Tasks
-    const userTasks: Record<string, typeof items> = {};
+    type TaskEntry = { item: any; state: "today" | "overdue" };
+    const userTasks: Record<string, TaskEntry[]> = {};
     activeUserIds.forEach(id => { userTasks[id] = []; });
 
     items.forEach(item => {
@@ -72,20 +77,31 @@ export async function GET(request: Request) {
       // Find people columns and date columns for this board
       const peopleCols = (board.columns || []).filter((c: any) => c.type === "people").map((c: any) => c.id);
       const dateCols = (board.columns || []).filter((c: any) => c.type === "date").map((c: any) => c.id);
+      const timelineCols = (board.columns || []).filter((c: any) => c.type === "timeline").map((c: any) => c.id);
 
-      if (peopleCols.length === 0 || dateCols.length === 0) return;
+      if (peopleCols.length === 0 || (dateCols.length === 0 && timelineCols.length === 0)) return;
 
-      // Check if item has a due date that is today or overdue
-      let hasDueToday = false;
+      let taskState: "today" | "overdue" | "future" | "none" = "none";
+
       for (const colId of dateCols) {
         const val = item.column_values?.[colId];
-        if (typeof val === 'string' && isDueTodayOrOverdue(val)) {
-          hasDueToday = true;
-          break;
+        if (typeof val === 'string') {
+          const state = getDueState(val);
+          if (state === "overdue") taskState = "overdue";
+          else if (state === "today" && taskState !== "overdue") taskState = "today";
         }
       }
 
-      if (!hasDueToday) return;
+      for (const colId of timelineCols) {
+        const val = item.column_values?.[colId];
+        if (val && typeof val === 'object' && typeof val.end === 'string') {
+          const state = getDueState(val.end);
+          if (state === "overdue") taskState = "overdue";
+          else if (state === "today" && taskState !== "overdue") taskState = "today";
+        }
+      }
+
+      if (taskState !== "today" && taskState !== "overdue") return;
 
       // Check who is assigned
       for (const colId of peopleCols) {
@@ -94,8 +110,8 @@ export async function GET(request: Request) {
           assignees.forEach(userId => {
             if (userTasks[userId]) {
               // Avoid duplicates if a user is in multiple people columns
-              if (!userTasks[userId].find(t => t.id === item.id)) {
-                userTasks[userId].push(item);
+              if (!userTasks[userId].find(t => t.item.id === item.id)) {
+                userTasks[userId].push({ item, state: taskState });
               }
             }
           });
@@ -108,12 +124,25 @@ export async function GET(request: Request) {
     for (const userId of Object.keys(userTasks)) {
       const tasks = userTasks[userId];
       if (tasks.length > 0) {
-        const taskList = tasks.map(t => `- *${t.name}*`).join("\n");
-        const message = `📋 *Your Daily HostFlow Digest*\nYou have ${tasks.length} task(s) due today or overdue:\n\n${taskList}`;
+        const todayTasks = tasks.filter(t => t.state === "today");
+        const overdueTasks = tasks.filter(t => t.state === "overdue");
         
+        let message = `📋 *Your Daily HostFlow Digest*\nYou have ${tasks.length} task(s) needing attention:\n\n`;
+        
+        if (todayTasks.length > 0) {
+          message += `🚨 *Due Today (${todayTasks.length}):*\n`;
+          message += todayTasks.map(t => `- ${t.item.name}`).join("\n");
+          message += `\n\n`;
+        }
+        
+        if (overdueTasks.length > 0) {
+          message += `⚠️ *Overdue (${overdueTasks.length}):*\n`;
+          message += overdueTasks.map(t => `- ${t.item.name}`).join("\n");
+        }
+
         // Since we already filtered for activeUserIds above, notifyUsersViaTelegram will work.
         // We use notifyUsersViaTelegram to actually send the message.
-        notifyUsersViaTelegram([userId], message);
+        notifyUsersViaTelegram([userId], message.trim());
         sentCount++;
       }
     }

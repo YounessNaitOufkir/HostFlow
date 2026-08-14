@@ -71,7 +71,7 @@ import TaskCreateModal from "@/components/TaskCreateModal";
 import type { ColumnType } from "@/types";
 
 export default function MondayClone() {
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
   const [showReadabilityModal, setShowReadabilityModal] = useState(false);
@@ -728,7 +728,10 @@ export default function MondayClone() {
         <ProfileSettingsModal
           profile={profile}
           onClose={() => setShowProfileSettings(false)}
-          onProfileUpdated={() => queryClient.invalidateQueries({ queryKey: queryKeys.profiles() })}
+          onProfileUpdated={() => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.profiles() });
+            refreshProfile();
+          }}
         />
       )}
 

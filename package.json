@@ -36,6 +36,7 @@
     "dompurify": "^3.4.12",
     "emoji-picker-react": "^4.19.1",
     "framer-motion": "^12.42.2",
+    "googleapis": "^174.0.1",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "next-themes": "^0.4.6",
