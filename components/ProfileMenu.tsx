@@ -7,6 +7,7 @@ import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileMenuProps {
   profile: Profile;
@@ -66,76 +67,84 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
         )}
       </div>
 
-      {isOpen && (
-        <div className="absolute left-full ml-4 bottom-0 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 animate-in fade-in zoom-in-95 duration-200">
-          <div className="p-4 border-b border-gray-100 dark:border-slate-700">
-            <p className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{profile.email}</p>
-          </div>
-          <div className="p-2 space-y-1">
-            {profile.role === "admin" && (
-              <div 
-                onClick={() => { setIsOpen(false); onOpenAdmin(); }}
-                className="flex items-center px-3 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md cursor-pointer transition-colors font-medium"
-              >
-                <Shield size={16} className="mr-3" />
-                Admin Settings
-              </div>
-            )}
-            {profile.role !== "admin" && profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
-              <div 
-                onClick={handleRestoreAdmin}
-                className="flex items-center px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-md cursor-pointer transition-colors font-semibold border border-amber-200 dark:border-amber-800/50 my-1"
-              >
-                <Shield size={16} className="mr-3" />
-                Restore Admin Rights
-              </div>
-            )}
-            <div 
-              onClick={() => { setIsOpen(false); onOpenProfileSettings(); }}
-              className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
-            >
-              <User size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
-              My Profile
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="absolute left-full ml-4 bottom-0 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50"
+          >
+            <div className="p-4 border-b border-gray-100 dark:border-slate-700">
+              <p className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{profile.email}</p>
             </div>
-
-            <div 
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
-            >
-              {theme === 'dark' ? (
-                <Sun size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
-              ) : (
-                <Moon size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
+            <div className="p-2 space-y-1">
+              {profile.role === "admin" && (
+                <div 
+                  onClick={() => { setIsOpen(false); onOpenAdmin(); }}
+                  className="flex items-center px-3 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md cursor-pointer transition-colors font-medium"
+                >
+                  <Shield size={16} className="mr-3" />
+                  Admin Settings
+                </div>
               )}
-              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              {profile.role !== "admin" && profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
+                <div 
+                  onClick={handleRestoreAdmin}
+                  className="flex items-center px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-md cursor-pointer transition-colors font-semibold border border-amber-200 dark:border-amber-800/50 my-1"
+                >
+                  <Shield size={16} className="mr-3" />
+                  Restore Admin Rights
+                </div>
+              )}
+              <div 
+                onClick={() => { setIsOpen(false); onOpenProfileSettings(); }}
+                className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
+              >
+                <User size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
+                My Profile
+              </div>
+
+              <div 
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
+              >
+                {theme === 'dark' ? (
+                  <Sun size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
+                ) : (
+                  <Moon size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
+                )}
+                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              </div>
+              <div
+                onClick={() => {
+                  setIsOpen(false);
+                  if (onOpenReadability) onOpenReadability();
+                  else window.dispatchEvent(new CustomEvent("open-readability"));
+                }}
+                className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
+              >
+                <Type size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
+                Readability & Font
+              </div>
             </div>
-            <div
-              onClick={() => {
-                setIsOpen(false);
-                if (onOpenReadability) onOpenReadability();
-                else window.dispatchEvent(new CustomEvent("open-readability"));
-              }}
-              className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
-            >
-              <Type size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
-              Readability & Font
+            <div className="p-2 border-t border-gray-100 dark:border-slate-700">
+              <div 
+                onClick={() => {
+                  setIsOpen(false);
+                  onSignOut();
+                }}
+                className="flex items-center px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md cursor-pointer transition-colors"
+              >
+                <LogOut size={16} className="mr-3" />
+                Log out
+              </div>
             </div>
-          </div>
-          <div className="p-2 border-t border-gray-100 dark:border-slate-700">
-            <div 
-              onClick={() => {
-                setIsOpen(false);
-                onSignOut();
-              }}
-              className="flex items-center px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md cursor-pointer transition-colors"
-            >
-              <LogOut size={16} className="mr-3" />
-              Log out
-            </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
     </Tooltip>
   );

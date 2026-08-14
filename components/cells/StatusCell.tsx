@@ -3,6 +3,7 @@
 import React from "react";
 import { Item, Column, STATUS_OPTIONS } from "@/types";
 import { Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface StatusCellProps {
   item: Item;
@@ -45,22 +46,30 @@ export default function StatusCell({
         <span>{value || ""}</span>
       </div>
 
-      {activeStatusId === cellKey && (
-        <div className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} w-[140px] dropdown-menu p-1.5 z-50 flex flex-col space-y-0.5`}>
-          {currentOptions.map((opt) => (
-            <button
-              key={opt.label}
-              onClick={(e) => {
-                e.stopPropagation();
-                onUpdate(item.id, column.id, opt.label);
-              }}
-              className={`${opt.color} text-white text-xs font-semibold py-2 px-3 rounded-[3px] text-center hover:opacity-90 transition-all shadow-sm`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <AnimatePresence>
+        {activeStatusId === cellKey && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} w-[140px] dropdown-menu p-1.5 z-50 flex flex-col space-y-0.5`}
+          >
+            {currentOptions.map((opt) => (
+              <button
+                key={opt.label}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate(item.id, column.id, opt.label);
+                }}
+                className={`${opt.color} text-white text-xs font-semibold py-2 px-3 rounded-[3px] text-center hover:opacity-90 transition-all shadow-sm`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

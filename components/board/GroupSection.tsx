@@ -2,7 +2,7 @@
 
 import React, { memo, useMemo, useState, useRef, useEffect } from "react";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown,
   Trash2,
@@ -533,66 +533,72 @@ const GroupSection = memo(function GroupSection({
           >
             <Plus size={16} className="text-gray-400 hover:text-blue-500 transition-colors" />
 
-            {showAddColumnMenu === group.id && (
-              <div
-                className="absolute top-full right-0 mt-1 w-56 dropdown-menu py-2 z-50 max-h-80 overflow-y-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Essential columns */}
-                <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  Essential
-                </div>
-                {essentialCols.map((def) => {
-                  const Icon = COLUMN_ICON_MAP[def.type] || Hash;
-                  return (
-                    <button
-                      key={def.type}
-                      onClick={() => onAddColumn(def.type)}
-                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-                    >
-                      <Icon size={14} className="mr-2.5 text-gray-400" />
-                      {def.label}
-                    </button>
-                  );
-                })}
+            <AnimatePresence>
+              {showAddColumnMenu === group.id && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute top-full right-0 mt-1 w-56 dropdown-menu py-2 z-50 max-h-80 overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Essential columns */}
+                  <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    Essential
+                  </div>
+                  {essentialCols.map((def) => {
+                    const Icon = COLUMN_ICON_MAP[def.type] || Hash;
+                    return (
+                      <button
+                        key={def.type}
+                        onClick={() => onAddColumn(def.type)}
+                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
+                      >
+                        <Icon size={14} className="mr-2.5 text-gray-400" />
+                        {def.label}
+                      </button>
+                    );
+                  })}
 
-                <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
-                <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  Advanced
-                </div>
-                {advancedCols.map((def) => {
-                  const Icon = COLUMN_ICON_MAP[def.type] || Hash;
-                  return (
-                    <button
-                      key={def.type}
-                      onClick={() => onAddColumn(def.type)}
-                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-                    >
-                      <Icon size={14} className="mr-2.5 text-gray-400" />
-                      {def.label}
-                    </button>
-                  );
-                })}
+                  <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
+                  <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    Advanced
+                  </div>
+                  {advancedCols.map((def) => {
+                    const Icon = COLUMN_ICON_MAP[def.type] || Hash;
+                    return (
+                      <button
+                        key={def.type}
+                        onClick={() => onAddColumn(def.type)}
+                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
+                      >
+                        <Icon size={14} className="mr-2.5 text-gray-400" />
+                        {def.label}
+                      </button>
+                    );
+                  })}
 
-                <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
-                <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  Computed
-                </div>
-                {computedCols.map((def) => {
-                  const Icon = COLUMN_ICON_MAP[def.type] || Hash;
-                  return (
-                    <button
-                      key={def.type}
-                      onClick={() => onAddColumn(def.type)}
-                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-                    >
-                      <Icon size={14} className="mr-2.5 text-gray-400" />
-                      {def.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                  <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
+                  <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    Computed
+                  </div>
+                  {computedCols.map((def) => {
+                    const Icon = COLUMN_ICON_MAP[def.type] || Hash;
+                    return (
+                      <button
+                        key={def.type}
+                        onClick={() => onAddColumn(def.type)}
+                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
+                      >
+                        <Icon size={14} className="mr-2.5 text-gray-400" />
+                        {def.label}
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 

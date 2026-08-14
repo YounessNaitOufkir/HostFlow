@@ -4,7 +4,7 @@ import React, { memo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { GripVertical, MoreHorizontal, Copy, Trash2, MessageCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Item, Column, Profile } from "@/types";
 import CellRenderer from "@/components/cells/CellRenderer";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -122,7 +122,11 @@ const ItemRow = memo(function ItemRow({
   return (
     <Draggable draggableId={item.id} index={index}>
       {(provided, snapshot) => (
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, height: 0, overflow: "hidden", transition: { duration: 0.2 } }}
+          transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index * 0.03, 0.4) }}
           ref={provided.innerRef}
           {...provided.draggableProps}
           className={`flex border-b border-gray-100 dark:border-slate-800/60 group/row transition-colors ${
@@ -240,31 +244,37 @@ const ItemRow = memo(function ItemRow({
             )}
 
             {/* Context menu dropdown */}
-            {isMenuOpen && (
-              <div
-                className="absolute top-full right-0 mt-1 w-44 dropdown-menu py-1 z-50"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  onClick={() => onDuplicateItem(item)}
-                  className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+            <AnimatePresence>
+              {isMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute top-full right-0 mt-1 w-44 dropdown-menu py-1 z-50"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Copy size={14} className="mr-2.5 text-gray-400" />
-                  Duplicate
-                </button>
-                <div className="border-t border-gray-100 dark:border-slate-800 my-0.5"></div>
-                <button
-                  onClick={() => {
-                    setItemMenuOpen(null);
-                    onDeleteItem(item.id);
-                  }}
-                  className="flex items-center w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                >
-                  <Trash2 size={14} className="mr-2.5" />
-                  Delete
-                </button>
-              </div>
-            )}
+                  <button
+                    onClick={() => onDuplicateItem(item)}
+                    className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Copy size={14} className="mr-2.5 text-gray-400" />
+                    Duplicate
+                  </button>
+                  <div className="border-t border-gray-100 dark:border-slate-800 my-0.5"></div>
+                  <button
+                    onClick={() => {
+                      setItemMenuOpen(null);
+                      onDeleteItem(item.id);
+                    }}
+                    className="flex items-center w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <Trash2 size={14} className="mr-2.5" />
+                    Delete
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Dynamic cells */}
@@ -293,7 +303,7 @@ const ItemRow = memo(function ItemRow({
 
           {/* Spacer for the + button column */}
           <div className="w-16 shrink-0"></div>
-        </div>
+        </motion.div>
       )}
     </Draggable>
   );

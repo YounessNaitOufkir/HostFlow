@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Bell, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Notification } from "@/types";
-
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -84,58 +84,66 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
         className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-900/20 cursor-pointer text-gray-300 hover:text-white transition relative"
       >
         <Bell size={20} />
-        {unreadCount > 0 && (
+      {unreadCount > 0 && (
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-[#1A2C5B]"></span>
         )}
       </div>
 
-      {isOpen && (
-        <div className="absolute left-full ml-4 bottom-0 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 animate-in fade-in zoom-in-95 duration-200 max-h-96 flex flex-col">
-          <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center shrink-0">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-100">Notifications</h3>
-            {unreadCount > 0 && (
-              <button 
-                onClick={markAllAsRead}
-                className="text-xs text-blue-500 hover:text-blue-600 font-medium"
-              >
-                Mark all read
-              </button>
-            )}
-          </div>
-          <div className="overflow-y-auto flex-1 p-2 space-y-1">
-            {notifications.length === 0 ? (
-              <div className="py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
-                No notifications yet.
-              </div>
-            ) : (
-              Array.from(new Map(notifications.map(n => [n.id, n])).values()).map((n) => (
-                <div 
-                  key={n.id}
-                  onClick={() => {
-                    if (!n.read) markAsRead(n.id);
-                    if (onNotificationClick && (n.board_id || n.item_id)) {
-                      onNotificationClick(n.board_id, n.item_id);
-                      setIsOpen(false);
-                    }
-                  }}
-                  className={`p-3 rounded-md transition-colors ${
-                    n.read 
-                      ? 'bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 opacity-75' 
-                      : 'bg-blue-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-slate-700 cursor-pointer'
-                  }`}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="absolute left-full ml-4 bottom-0 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 max-h-96 flex flex-col"
+          >
+            <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center shrink-0">
+              <h3 className="font-semibold text-gray-800 dark:text-gray-100">Notifications</h3>
+              {unreadCount > 0 && (
+                <button 
+                  onClick={markAllAsRead}
+                  className="text-xs text-blue-500 hover:text-blue-600 font-medium"
                 >
-                  <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
-                    {n.message}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  Mark all read
+                </button>
+              )}
+            </div>
+            <div className="overflow-y-auto flex-1 p-2 space-y-1">
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+                  No notifications yet.
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+              ) : (
+                Array.from(new Map(notifications.map(n => [n.id, n])).values()).map((n) => (
+                  <div 
+                    key={n.id}
+                    onClick={() => {
+                      if (!n.read) markAsRead(n.id);
+                      if (onNotificationClick && (n.board_id || n.item_id)) {
+                        onNotificationClick(n.board_id, n.item_id);
+                        setIsOpen(false);
+                      }
+                    }}
+                    className={`p-3 rounded-md transition-colors ${
+                      n.read 
+                        ? 'bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 opacity-75' 
+                        : 'bg-blue-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-slate-700 cursor-pointer'
+                    }`}
+                  >
+                    <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
+                      {n.message}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
