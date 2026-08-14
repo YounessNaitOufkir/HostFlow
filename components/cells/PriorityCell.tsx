@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Item, Column } from "@/types";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface PriorityCellProps {
   item: Item;
@@ -62,26 +63,32 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
         <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
       </div>
 
-      {isOpen && (
-        <div
-          ref={dropdownRef}
-          className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} left-1/2 -translate-x-1/2 w-40 dropdown-menu py-1.5 z-50 flex flex-col`}
-        >
-          {PRIORITY_OPTIONS.map((opt) => (
-            <div
-              key={opt.label}
-              onClick={() => handleSelect(opt.label)}
-              className={`px-4 py-2 text-sm cursor-pointer flex items-center group transition-colors hover:bg-gray-50 dark:hover:bg-slate-800`}
-            >
-              <div className={`w-4 h-4 rounded-sm mr-3 ${opt.color}`}></div>
-              <span className="text-gray-700 dark:text-gray-200 group-hover:font-medium flex items-center">
-                {opt.label}
-                {opt.label === "Critical" && <span className="ml-1.5 text-[11px] leading-none">⚠️</span>}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            ref={dropdownRef}
+            className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} left-1/2 -translate-x-1/2 w-40 dropdown-menu py-1.5 z-50 flex flex-col`}
+          >
+            {PRIORITY_OPTIONS.map((opt) => (
+              <div
+                key={opt.label}
+                onClick={() => handleSelect(opt.label)}
+                className={`px-4 py-2 text-sm cursor-pointer flex items-center group transition-colors hover:bg-gray-50 dark:hover:bg-slate-800`}
+              >
+                <div className={`w-4 h-4 rounded-sm mr-3 ${opt.color}`}></div>
+                <span className="text-gray-700 dark:text-gray-200 group-hover:font-medium flex items-center">
+                  {opt.label}
+                  {opt.label === "Critical" && <span className="ml-1.5 text-[11px] leading-none">⚠️</span>}
+                </span>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
