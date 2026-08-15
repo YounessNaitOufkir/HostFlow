@@ -6,7 +6,7 @@ import { Plus, Layout as LayoutIcon } from "lucide-react";
 import type { Board, Item, Column, ColumnType, Group, Profile, Automation } from "@/types";
 import GroupSection from "@/components/board/GroupSection";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { evaluateTimeAutomations } from "@/lib/automations/engine";
+
 import { supabase } from "@/lib/supabase";
 
 interface BoardTableViewProps {
@@ -129,26 +129,7 @@ export default function BoardTableView({
     }
   }, [boardId]);
 
-  // Run automatic time-based SLA & Overdue check once per board load / day
-  React.useEffect(() => {
-    if (typeof window === "undefined" || !boardId || !boardAutomations || boardAutomations.length === 0) return;
-    try {
-      const today = new Date().toISOString().split("T")[0];
-      const checkKey = `hostflow_sla_checked_${boardId}_${today}`;
-      if (!sessionStorage.getItem(checkKey)) {
-        sessionStorage.setItem(checkKey, "true");
-        const activeBoard = {
-          id: boardId,
-          name: boardName,
-          description: "",
-          columns,
-          items: allItems,
-          automations: boardAutomations,
-        } as Board & { items: Item[]; automations: Automation[] };
-        evaluateTimeAutomations(activeBoard, profiles, supabase).catch(() => {});
-      }
-    } catch (e) {}
-  }, [boardId, boardAutomations, columns, allItems, profiles]);
+
 
   const handleResizeItemNameColumn = useCallback((newWidth: number) => {
     setItemNameWidth(newWidth);
