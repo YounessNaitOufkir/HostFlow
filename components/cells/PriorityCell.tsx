@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Item, Column } from "@/types";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface PriorityCellProps {
@@ -83,7 +84,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
                 }}
                 className={`w-full text-left px-3 py-2 text-[13px] text-white transition-colors ${opt.color} hover:opacity-90 flex items-center justify-between`}
               >
-                <span className="truncate">{opt.label === "Empty" ? "" : (opt.label || "\u00A0")}</span>
+                <TruncatedText className="truncate">{opt.label === "Empty" ? "" : (opt.label || "\u00A0")}</TruncatedText>
                 {(opt.label === "Critical" || opt.label === "Critique") && <span className="text-[11px] ml-1 shrink-0">⚠️</span>}
               </button>
             ))}

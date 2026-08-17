@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { Profile, Workspace, Board, UserRole } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { reportMutationError } from "@/lib/errorReporting";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface AdminModalProps {
   onClose: () => void;
@@ -261,14 +262,14 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</h3>
+                              <TruncatedText as="h3" className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</TruncatedText>
                               {profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
                                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-md border border-amber-300 dark:border-amber-500/30">
                                   Owner
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{profile.email}</p>
+                            <TruncatedText as="p" className="text-xs text-gray-500 dark:text-gray-400 truncate">{profile.email}</TruncatedText>
                           </div>
                         </div>
                         
@@ -323,7 +324,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                             <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold shrink-0" style={{ backgroundColor: profile.color }}>
                               {profile.avatar_initials}
                             </div>
-                            <span className="text-sm font-medium truncate">{profile.full_name}</span>
+                            <TruncatedText className="text-sm font-medium truncate">{profile.full_name}</TruncatedText>
                           </button>
                         ))}
                       </div>

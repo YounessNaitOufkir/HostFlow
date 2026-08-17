@@ -30,5 +30,10 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "inspect.ts",
+    "recover_statuses.ts",
+    "migrate_imported_board.ts"
+  ]
 }

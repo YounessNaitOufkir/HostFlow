@@ -33,6 +33,8 @@ import {
   useMyWorkQuery,
 } from "@/hooks/queries/useGlobalQueries";
 import { useBoardDataQuery } from "@/hooks/queries/useBoardDataQuery";
+import { supabase } from "@/lib/supabase";
+import type { Board } from "@/types";
 
 import { duplicateBoard, duplicateWorkspace } from "@/lib/templateUtils";
 import { executeImport } from "@/lib/importUtils";
@@ -150,10 +152,21 @@ export default function MondayClone() {
     await refreshData();
     
     if (config.target === "new_board" && targetBoardId) {
-      const newBoard = state.boards.find(b => b.id === targetBoardId) || null;
+      let newBoard: Board | null = state.boards.find(b => b.id === targetBoardId) || null;
+      if (!newBoard) {
+        const { data: fetchedBoard } = await supabase.from("boards").select("*").eq("id", targetBoardId).single();
+        if (fetchedBoard) {
+          const board: Board = fetchedBoard;
+          newBoard = board;
+          dispatch({ type: "SET_BOARDS", payload: [...state.boards, board] });
+        }
+      }
+      
       if (newBoard) {
-        dispatch({ type: "SET_ACTIVE_BOARD", payload: newBoard });
+        store.switchBoard(newBoard);
+        dispatch({ type: "SET_MAIN_VIEW", payload: "board" });
       } else {
+        localStorage.setItem("monday_clone_active_board_id", targetBoardId);
         window.location.reload();
       }
     }
@@ -199,7 +212,18 @@ export default function MondayClone() {
       if (!state.activeBoard) {
         const savedBoardId = typeof window !== "undefined" ? localStorage.getItem("monday_clone_active_board_id") : null;
         const savedBoard = savedBoardId ? boardsData.find((b) => b.id === savedBoardId) : null;
-        const firstBoard = savedBoard || boardsData[0] || null;
+        
+        const activeWorkspaceId = state.activeWorkspace?.id;
+
+        const workspaceBoards = activeWorkspaceId
+          ? boardsData.filter(b => b.workspace_id === activeWorkspaceId)
+          : boardsData;
+
+        const validSavedBoard = savedBoard && (!activeWorkspaceId || savedBoard.workspace_id === activeWorkspaceId)
+          ? savedBoard
+          : null;
+          
+        const firstBoard = validSavedBoard || workspaceBoards[0] || null;
         dispatch({ type: "SET_ACTIVE_BOARD", payload: firstBoard });
       } else {
         const updated = boardsData.find((b) => b.id === state.activeBoard?.id);
@@ -211,7 +235,7 @@ export default function MondayClone() {
       dispatch({ type: "SET_ACTIVE_BOARD", payload: null });
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [boardsData, boardsLoading, state.activeBoard?.id, dispatch]);
+  }, [boardsData, boardsLoading, state.activeBoard?.id, state.activeWorkspace?.id, dispatch]);
 
   const { data: boardData, isLoading: isBoardDataLoading } = useBoardDataQuery(state.activeBoard?.id || null);
   useEffect(() => {
@@ -502,10 +526,17 @@ export default function MondayClone() {
             workspace={state.activeWorkspace}
             workspaces={state.workspaces}
             boards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
-            onSelectBoard={(board) => store.switchBoard(board)}
+            onSelectBoard={(board) => {
+              if (state.activeBoard?.id === board.id) {
+                dispatch({ type: "SET_MAIN_VIEW", payload: "board" });
+              } else {
+                store.switchBoard(board);
+              }
+            }}
             onSelectWorkspace={(ws) => dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: ws })}
             onCreateBoard={() => store.createBoard(state.activeWorkspace?.id, profile)}
             onCreateWorkspace={() => store.createWorkspace(profile)}
+            onImportData={() => setShowImportModal(true)}
           />
         </div>
       ) : state.mainView === "workspace_gantt" ? (
@@ -758,3 +789,4 @@ export default function MondayClone() {
     </div>
   );
 }
+// added for logging

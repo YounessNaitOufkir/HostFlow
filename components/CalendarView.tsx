@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Board, Item, Group, Column, STATUS_OPTIONS, PRIORITY_OPTIONS, Profile } from "@/types";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { 
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, 
   addMonths, subMonths, getDay, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, subDays 
@@ -373,9 +374,8 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                               width: `calc(${width}% - 8px)`,
                               backgroundColor: layout.color
                             }}
-                            title={layout.item.name}
                           >
-                            {layout.item.name}
+                            <TruncatedText className="truncate block w-full">{layout.item.name}</TruncatedText>
                           </div>
                         );
                       })}
@@ -464,7 +464,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                   <div key={col.id} className="grid grid-cols-12 gap-4 items-center group min-h-[32px]">
                     <div className="col-span-4 flex items-center gap-2 text-gray-600 dark:text-gray-400">
                       <Icon size={16} className={iconColor} />
-                      <span className="text-sm font-medium truncate" title={col.title}>{col.title}</span>
+                      <TruncatedText className="text-sm font-medium truncate">{col.title}</TruncatedText>
                     </div>
                     <div className="col-span-8 flex items-center bg-gray-50 dark:bg-slate-800/50 min-h-[36px] rounded p-1">
                       {/* Render Cell Value */}
@@ -527,16 +527,16 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                           const text = depNames.length > 0 ? depNames.join(", ") : val.linked_item_name || "Linked Item";
                           
                           return (
-                            <div className="w-full text-center px-2 py-1 bg-blue-50/80 dark:bg-slate-800 text-blue-700 dark:text-blue-300 text-[13px] rounded border border-blue-100 dark:border-slate-700 truncate">
+                            <TruncatedText as="div" className="w-full text-center px-2 py-1 bg-blue-50/80 dark:bg-slate-800 text-blue-700 dark:text-blue-300 text-[13px] rounded border border-blue-100 dark:border-slate-700 truncate">
                               {text}
-                            </div>
+                            </TruncatedText>
                           );
                         }
                         
                         // Default fallback
-                        return <div className="text-[13px] px-2 text-gray-700 dark:text-gray-300 w-full text-center truncate">
+                        return <TruncatedText as="div" className="text-[13px] px-2 text-gray-700 dark:text-gray-300 w-full text-center truncate">
                           {typeof val === "object" ? JSON.stringify(val) : String(val)}
-                        </div>;
+                        </TruncatedText>;
                       })()}
                     </div>
                   </div>

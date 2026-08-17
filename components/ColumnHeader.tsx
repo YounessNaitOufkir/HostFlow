@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Column } from "@/types";
 import { GripVertical, Pencil, Trash2, X, Check } from "lucide-react";
 import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
@@ -134,9 +135,9 @@ export default function ColumnHeader({
         {/* Column title — clickable to open menu */}
         <button
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-          className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate hover:text-gray-700 dark:hover:text-gray-200 transition-colors px-3"
+          className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors px-3 min-w-0"
         >
-          {column.title}
+          <TruncatedText className="truncate block">{column.title}</TruncatedText>
         </button>
 
         {/* Resize Handle */}

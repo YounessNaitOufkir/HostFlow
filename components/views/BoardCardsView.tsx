@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Plus, MoreVertical, Copy, Trash2, ChevronRight } from "lucide-react";
 import type { Group, Item, Column, Profile } from "@/types";
 import CellRenderer from "@/components/cells/CellRenderer";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 export interface BoardCardsViewProps {
   groups: Group[];
@@ -90,7 +91,7 @@ export default function BoardCardsView({
                     {/* Card Header (Title & Menu) */}
                     <div className="p-4 flex items-start justify-between border-b border-gray-100 dark:border-slate-800/80 bg-gray-50/50 dark:bg-slate-800/30">
                       <h4 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pr-4">
-                        {item.name}
+                        <TruncatedText as="span" className="line-clamp-2">{item.name}</TruncatedText>
                       </h4>
                       
                       {/* Menu Button */}
@@ -140,9 +141,9 @@ export default function BoardCardsView({
                           <div key={col.id} className="flex border-b border-gray-100 dark:border-slate-800/50 last:border-0 min-h-[40px]">
                             {/* Property Label */}
                             <div className="w-[35%] max-w-[140px] bg-gray-50/50 dark:bg-slate-800/20 px-4 py-2.5 flex items-center border-r border-gray-100 dark:border-slate-800/50 shrink-0">
-                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 line-clamp-2" title={col.title}>
+                              <TruncatedText className="text-xs font-medium text-gray-500 dark:text-gray-400 line-clamp-2">
                                 {col.title}
-                              </span>
+                              </TruncatedText>
                             </div>
                             {/* Property Value (CellRenderer) */}
                             <div 

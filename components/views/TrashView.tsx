@@ -11,6 +11,7 @@ import { Update } from "@/types";
 import DOMPurify from "dompurify";
 import { reportFetchError, reportMutationError } from "@/lib/errorReporting";
 import { useAuth } from "@/components/AuthProvider";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
@@ -181,7 +182,12 @@ export default function TrashView({ trashItems, groups, allItems, onRestore, onD
                         <td className="px-6 py-3 font-medium text-gray-800 dark:text-gray-200">
                           <div className="flex items-center gap-2">
                             <MessageSquare size={14} className="text-blue-500" />
-                            <div className="line-clamp-1 max-w-sm text-sm opacity-80" dangerouslySetInnerHTML={{ __html: sanitizeHtml(update.body) }}></div>
+                            <TruncatedText
+                              as="div"
+                              className="line-clamp-1 max-w-sm text-sm opacity-80"
+                              tooltip={update.body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
+                              dangerouslySetInnerHTML={{ __html: sanitizeHtml(update.body) }}
+                            />
                           </div>
                         </td>
                         <td className="px-6 py-3">

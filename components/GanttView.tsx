@@ -4,6 +4,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { Board, Item, Group, ItemLink, Profile, STATUS_OPTIONS } from "@/types";
 import { format, differenceInDays, addDays, isSameDay, startOfWeek, endOfWeek, eachDayOfInterval, min, max } from "date-fns";
 import { ChevronDown, Palette } from "lucide-react";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface GanttViewProps {
   board: Board | null;
@@ -423,7 +424,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
           </div>
 
           {/* Grid Body */}
-          <div className="flex flex-col relative" style={{ pointerEvents: isResizing ? 'none' : 'auto' }}>
+          <div className="flex flex-col relative min-w-max" style={{ pointerEvents: isResizing ? 'none' : 'auto' }}>
             {/* Vertical lines for days (Background layer) */}
             <div className="absolute top-0 bottom-0 right-0 flex pointer-events-none opacity-40 z-0" style={{ left: `${isLeftColCollapsed ? 0 : leftColumnWidth}px`, minWidth: `${totalDays * DAY_WIDTH}px` }}>
               {daysArray.map((date, i) => {
@@ -473,7 +474,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
                            }} 
                          />
                          <div className="w-2.5 h-2.5 rounded-full mr-2.5 shrink-0 shadow-sm" style={{ backgroundColor: gi.color }}></div>
-                         <span className="font-semibold text-gray-700 dark:text-gray-200 text-sm truncate">{gi.groupTitle}</span>
+                         <TruncatedText className="font-semibold text-gray-700 dark:text-gray-200 text-sm truncate">{gi.groupTitle}</TruncatedText>
                        </div>
                        
                        <div className="flex-1 relative py-2" style={{ minWidth: `${totalDays * DAY_WIDTH}px` }}>
@@ -571,9 +572,9 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
                             title={`Group: ${gi.groupTitle}`} 
                           />
                         )}
-                        <span className="truncate text-[13px] font-normal text-gray-700 dark:text-slate-300 group-hover/row:text-blue-600 dark:group-hover/row:text-white transition-colors" title={gi.item.name}>
+                        <TruncatedText className="truncate text-[13px] font-normal text-gray-700 dark:text-slate-300 group-hover/row:text-blue-600 dark:group-hover/row:text-white transition-colors">
                           {gi.item.name}
-                        </span>
+                        </TruncatedText>
                       </div>
                       <div className="shrink-0 text-[13px] font-normal text-gray-600 dark:text-gray-400 whitespace-nowrap pl-2">
                         {isSameDay(gi.start, gi.end) 
@@ -746,7 +747,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
                     }
                   }
                 });
-
+                
                 return linksToDraw.map(link => {
                   const sourceGi = link.source;
                   const targetGi = link.target;

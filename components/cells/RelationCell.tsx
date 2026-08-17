@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Item, Column, ItemLink } from "@/types";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { useBoardStore } from "@/hooks/useBoardStore";
 import { Link2, Plus, X, Search, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -117,7 +118,7 @@ export default function RelationCell({ item, column }: RelationCellProps) {
                 key={linkedItem.id}
                 className="group/badge relative flex items-center text-[11px] bg-indigo-50/80 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-medium pl-2 pr-1 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-500/20 shadow-sm"
               >
-                <span className="truncate max-w-[80px]">{linkedItem.name}</span>
+                <TruncatedText className="truncate max-w-[80px]">{linkedItem.name}</TruncatedText>
                 <button
                   onClick={(e) => handleRemoveLink(e, linkedItem.id)}
                   className="ml-1 text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 transition-colors opacity-0 group-hover/badge:opacity-100"
@@ -177,7 +178,7 @@ export default function RelationCell({ item, column }: RelationCellProps) {
                   onClick={() => handleAddLink(res)}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700/50 rounded-lg flex items-center justify-between group/btn transition-colors"
                 >
-                  <span className="text-gray-700 dark:text-gray-200 truncate">{res.name}</span>
+                  <TruncatedText className="text-gray-700 dark:text-gray-200 truncate">{res.name}</TruncatedText>
                   <Link2 size={14} className="text-indigo-500 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
                 </button>
               ))}

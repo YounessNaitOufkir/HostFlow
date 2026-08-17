@@ -7,6 +7,7 @@ import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileMenuProps {
@@ -77,8 +78,8 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
             className="absolute left-full ml-4 bottom-0 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50"
           >
             <div className="p-4 border-b border-gray-100 dark:border-slate-700">
-              <p className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{profile.email}</p>
+              <TruncatedText as="p" className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</TruncatedText>
+              <TruncatedText as="p" className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{profile.email}</TruncatedText>
             </div>
             <div className="p-2 space-y-1">
               {profile.role === "admin" && (

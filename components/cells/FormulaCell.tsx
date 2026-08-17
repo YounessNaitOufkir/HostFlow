@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Item, Column } from "@/types";
 import { evaluateFormula, formatFormulaResult } from "@/lib/formulaEngine";
 import type { FormulaContext } from "@/lib/formulaEngine";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface FormulaCellProps {
   item: Item;
@@ -43,16 +44,18 @@ export default function FormulaCell({ item, column, boardItems, columns }: Formu
   return (
     <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 shrink-0 flex items-center justify-center px-2`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       {formula ? (
-        <span
+        <TruncatedText
           className={`text-sm font-medium truncate ${
             isError
               ? "text-red-500 dark:text-red-400 text-xs"
               : "text-gray-700 dark:text-gray-200"
           }`}
-          title={isError ? displayValue : `Formula: ${formula}`}
+          tooltip={isError ? displayValue : `${displayValue}
+
+Formula: ${formula}`}
         >
           {displayValue}
-        </span>
+        </TruncatedText>
       ) : (
         <span className="text-xs text-gray-400 dark:text-gray-500 italic">No formula</span>
       )}

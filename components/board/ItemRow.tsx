@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { Item, Column, Profile } from "@/types";
 import CellRenderer from "@/components/cells/CellRenderer";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface ItemRowProps {
   item: Item;
@@ -56,8 +57,6 @@ const ItemRow = memo(function ItemRow({
   const [isEditingName, setIsEditingName] = React.useState(false);
   const [editNameValue, setEditNameValue] = React.useState(item.name);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const nameSpanRef = React.useRef<HTMLSpanElement>(null);
-  const [isTruncated, setIsTruncated] = React.useState(false);
   const [updatesCount, setUpdatesCount] = React.useState(0);
 
   React.useEffect(() => {
@@ -97,12 +96,6 @@ const ItemRow = memo(function ItemRow({
       window.removeEventListener('update-restored', handleLocalUpdate);
     };
   }, [item.id]);
-
-  const handleNameMouseEnter = () => {
-    if (nameSpanRef.current) {
-      setIsTruncated(nameSpanRef.current.scrollWidth > nameSpanRef.current.clientWidth);
-    }
-  };
 
   React.useEffect(() => {
     if (isEditingName && inputRef.current) {
@@ -155,7 +148,6 @@ const ItemRow = memo(function ItemRow({
           <div
             className="p-2 pl-4 border-r border-gray-200 dark:border-slate-700/50 shrink-0 flex items-center relative group/name cursor-text transition-colors duration-100"
             style={{ width: `${itemNameWidth}px` }}
-            onMouseEnter={handleNameMouseEnter}
             onDoubleClick={() => {
               setEditNameValue(item.name);
               setIsEditingName(true);
@@ -178,25 +170,11 @@ const ItemRow = memo(function ItemRow({
                 className="w-full bg-white dark:bg-slate-900 border border-blue-500 rounded px-2 py-1 text-sm text-gray-900 dark:text-white outline-none"
               />
             ) : (
-              <>
-                <span 
-                  ref={nameSpanRef}
-                  className="text-sm text-gray-800 dark:text-gray-100 truncate flex-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors relative"
-                >
-                  {item.name}
-                </span>
-
-                {/* Premium Custom Tooltip */}
-                {isTruncated && (
-                  <div className="absolute bottom-[calc(100%+4px)] left-1/2 -translate-x-1/2 z-[200] w-max max-w-[400px] pointer-events-none opacity-0 group-hover/name:opacity-100 transition-opacity duration-200">
-                    <div className="bg-[#323338] dark:bg-white text-white dark:text-[#323338] text-[13px] font-medium px-3 py-1.5 rounded shadow-lg whitespace-normal leading-relaxed relative">
-                      {/* Small triangle arrow */}
-                      <div className="absolute -bottom-[4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-[#323338] dark:bg-white rotate-45 z-[-1]" />
-                      {item.name}
-                    </div>
-                  </div>
-                )}
-              </>
+              <TruncatedText
+                className="text-sm text-gray-800 dark:text-gray-100 truncate flex-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                {item.name}
+              </TruncatedText>
             )}
 
             {/* Updates indicator */}

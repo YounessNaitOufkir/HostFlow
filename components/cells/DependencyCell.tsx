@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Item, Column } from "@/types";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Link2, AlertCircle, X, CalendarClock } from "lucide-react";
 import { useBoardStore } from "@/hooks/useBoardStore";
 import { motion, AnimatePresence } from "framer-motion";
@@ -195,9 +196,9 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
         {dependentItems.length > 0 ? (
           <div className="flex gap-1.5 items-center px-1">
             {dependentItems.map((dep) => (
-              <span
+              <TruncatedText
                 key={dep.id}
-                title={dep.hasConflict ? "Date Conflict! This item ends after your start date." : dep.name}
+                tooltip={dep.hasConflict ? `${dep.name} — Date conflict: this item ends after your start date.` : dep.name}
                 className={`text-[13px] px-2.5 py-0.5 rounded-[4px] truncate max-w-[140px] shrink-0 ${
                   dep.hasConflict 
                     ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 ring-1 ring-red-500" 
@@ -205,7 +206,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
                 }`}
               >
                 {dep.hasConflict && "⚠️ "}{dep.name}
-              </span>
+              </TruncatedText>
             ))}
           </div>
         ) : (
@@ -250,9 +251,9 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
                   >
                     {isSelected && <span className="text-[10px]">✓</span>}
                   </div>
-                  <span className="text-gray-700 dark:text-gray-200 truncate">
+                  <TruncatedText className="text-gray-700 dark:text-gray-200 truncate">
                     {otherItem.name}
-                  </span>
+                  </TruncatedText>
                 </div>
               );
             })}
