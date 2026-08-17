@@ -40,8 +40,9 @@ describe("Admin Rights & Platform Owner Safety Protection — Batch 4.4", () => 
   it("shows 'Restore Admin Rights' ONLY to platform owner younessnaitoufkir@gmail.com when not admin", () => {
     render(<ProfileMenu profile={ownerProfile} {...mockCallbacks} />);
 
-    // Click avatar to open profile menu dropdown
-    const avatar = screen.getByTitle("Youness Owner");
+    // Open the dropdown via the avatar. It is queried by initials because the
+    // native title attribute was replaced by a custom Tooltip component.
+    const avatar = screen.getByText("YO");
     fireEvent.click(avatar);
 
     expect(screen.getByText("Restore Admin Rights")).toBeInTheDocument();
@@ -50,7 +51,7 @@ describe("Admin Rights & Platform Owner Safety Protection — Batch 4.4", () => 
   it("NEVER shows 'Restore Admin Rights' to any other non-admin user", () => {
     render(<ProfileMenu profile={regularUserProfile} {...mockCallbacks} />);
 
-    const avatar = screen.getByTitle("Random Member");
+    const avatar = screen.getByText("RM");
     fireEvent.click(avatar);
 
     expect(screen.queryByText("Restore Admin Rights")).not.toBeInTheDocument();
@@ -59,7 +60,7 @@ describe("Admin Rights & Platform Owner Safety Protection — Batch 4.4", () => 
   it("shows 'Admin Settings' menu item for active administrators", () => {
     render(<ProfileMenu profile={adminUserProfile} {...mockCallbacks} />);
 
-    const avatar = screen.getByTitle("Other Admin");
+    const avatar = screen.getByText("OA");
     fireEvent.click(avatar);
 
     expect(screen.getByText("Admin Settings")).toBeInTheDocument();

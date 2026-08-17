@@ -78,6 +78,17 @@ describe("errorReporting utilities", () => {
     reportFetchError(error, "Failed to load data", { table: "boards" });
 
     expect(Sentry.captureException).toHaveBeenCalledWith(error);
+    // parseDatabaseError recognises connectivity failures and replaces the
+    // caller's generic message with actionable guidance.
+    expect(toast.error).toHaveBeenCalledWith(
+      "Network error. Please check your connection and try again."
+    );
+  });
+
+  it("reportFetchError keeps the caller's message for unrecognised errors", () => {
+    const error = new Error("something unexpected happened");
+    reportFetchError(error, "Failed to load data", { table: "boards" });
+
     expect(toast.error).toHaveBeenCalledWith("Failed to load data");
   });
 
