@@ -30,6 +30,29 @@ interface ErrorContext {
   showToast?: boolean;
 }
 
+export function parseDatabaseError(error: unknown, fallbackMessage: string): string {
+  if (!error) return fallbackMessage;
+  const msg = typeof error === "string" ? error : (error as Error).message || "";
+  if (!msg) return fallbackMessage;
+
+  const lowerMsg = msg.toLowerCase();
+  
+  if (lowerMsg.includes("violates foreign key constraint")) {
+    return "This action failed because a required related record (like a group or board) could not be found.";
+  }
+  if (lowerMsg.includes("violates unique constraint") || lowerMsg.includes("duplicate key value")) {
+    return "A record with this information already exists.";
+  }
+  if (lowerMsg.includes("row-level security policy") || lowerMsg.includes("rls")) {
+    return "You do not have permission to perform this action.";
+  }
+  if (lowerMsg.includes("network error") || lowerMsg.includes("fetch error")) {
+    return "Network error. Please check your connection and try again.";
+  }
+  
+  return fallbackMessage;
+}
+
 /**
  * Report an error to Sentry and optionally show a toast to the user.
  *
@@ -44,9 +67,11 @@ export function reportError(error: unknown, context?: ErrorContext) {
     showToast = true,
   } = context || {};
 
+  const friendlyMessage = parseDatabaseError(error, userMessage);
+
   // 1. Always log in development
   if (process.env.NODE_ENV === "development") {
-    console.error(`[HostFlow Error] ${userMessage}`, error);
+    console.error(`[HostFlow Error] ${friendlyMessage}`, error);
   }
 
   // 2. Capture in Sentry with context
@@ -71,7 +96,7 @@ export function reportError(error: unknown, context?: ErrorContext) {
 
   // 3. Show user-facing toast
   if (showToast) {
-    toast.error(userMessage);
+    toast.error(friendlyMessage);
   }
 }
 
