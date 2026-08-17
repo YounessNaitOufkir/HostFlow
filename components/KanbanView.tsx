@@ -6,6 +6,7 @@ import { ChevronDown, Columns3, Link2 } from "lucide-react";
 
 import { Item, Column, Group, STATUS_OPTIONS, Profile } from "@/types";
 import { useBoardStore } from "@/hooks/useBoardStore";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 // ============================================================
 // Helpers
@@ -207,7 +208,7 @@ export default function KanbanView({
                                     className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2 cursor-pointer hover:text-blue-600 transition-colors line-clamp-2"
                                     onClick={() => onSelectItem(item)}
                                   >
-                                    {item.name}
+                                    <TruncatedText className="truncate block">{item.name}</TruncatedText>
                                   </div>
 
                                   {/* Column value chips */}
@@ -332,7 +333,7 @@ export default function KanbanView({
                                             key={col.id}
                                             className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full truncate max-w-[120px]"
                                           >
-                                            {String(val)}
+                                            <TruncatedText className="truncate block">{String(val)}</TruncatedText>
                                           </span>
                                         );
                                       })}
@@ -347,9 +348,9 @@ export default function KanbanView({
                                           className="w-2 h-2 rounded-full shrink-0"
                                           style={{ backgroundColor: group.color }}
                                         />
-                                        <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                                        <TruncatedText className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
                                           {group.title}
-                                        </span>
+                                        </TruncatedText>
                                       </div>
                                     )}
                                     

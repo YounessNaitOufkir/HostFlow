@@ -19,6 +19,7 @@ import NotificationsMenu from "@/components/NotificationsMenu";
 import ProfileMenu from "@/components/ProfileMenu";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSpring, animated } from "@react-spring/web";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface SidebarProps {
   // Data
@@ -88,14 +89,20 @@ export default function Sidebar({
   onOpenAdmin,
   onOpenProfileSettings,
   onNotificationClick,
+  onImportData,
 }: SidebarProps) {
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const workspacePickerRef = useRef<HTMLDivElement>(null);
+  const createMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (workspacePickerRef.current && !workspacePickerRef.current.contains(event.target as Node)) {
         setIsWorkspaceMenuOpen(false);
+      }
+      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
+        setIsCreateMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -189,9 +196,9 @@ export default function Sidebar({
                 onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
               >
                 <Briefcase size={15} className="mr-2.5 text-blue-500" />
-                <span className="truncate flex-1">
+                <TruncatedText className="truncate flex-1">
                   {activeWorkspace ? activeWorkspace.name : "Main Workspace"}
-                </span>
+                </TruncatedText>
                 <ChevronDown
                   size={13}
                   className={`text-gray-400 dark:text-gray-500 transition-transform ${isWorkspaceMenuOpen ? 'rotate-180' : ''}`}
@@ -220,7 +227,7 @@ export default function Sidebar({
                             setIsWorkspaceMenuOpen(false);
                           }}
                         >
-                          {ws.name}
+                          <TruncatedText className="truncate block">{ws.name}</TruncatedText>
                         </div>
                         <div className="hidden group-hover/ws:flex items-center gap-2">
                           <Pencil
@@ -279,15 +286,48 @@ export default function Sidebar({
                 </div>
 
                 {/* Boards Section */}
-                <div className="px-4 mb-2 mt-5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center">
+                <div className="px-4 mb-2 mt-5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center relative">
                   <span>Boards</span>
-                  <button
-                    onClick={onCreateBoard}
-                    className="hover:bg-gray-100 dark:hover:bg-white/[0.06] p-1 rounded transition-colors text-gray-400 hover:text-blue-500"
-                    title="Create Board"
-                  >
-                    <Plus size={14} />
-                  </button>
+                  <div ref={createMenuRef} className="relative">
+                    <button
+                      onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+                      className="hover:bg-gray-100 dark:hover:bg-white/[0.06] p-1 rounded transition-colors text-gray-400 hover:text-blue-500"
+                      title="Create Board"
+                    >
+                      <Plus size={14} />
+                    </button>
+                    
+                    <AnimatePresence>
+                      {isCreateMenuOpen && (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.15, ease: "easeOut" }}
+                          className="absolute top-full right-0 mt-1 w-48 dropdown-menu rounded-xl z-50 shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50 py-1"
+                        >
+                          <div
+                            onClick={() => {
+                              onCreateBoard();
+                              setIsCreateMenuOpen(false);
+                            }}
+                            className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
+                          >
+                            <LayoutGrid size={14} className="mr-2" /> Blank Board
+                          </div>
+                          <div
+                            onClick={() => {
+                              if (onImportData) onImportData();
+                              setIsCreateMenuOpen(false);
+                            }}
+                            className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
+                          >
+                            <Briefcase size={14} className="mr-2" /> Import from Excel
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 <div 
@@ -320,7 +360,13 @@ export default function Sidebar({
                       >
                         <div
                           className="flex items-center space-x-2.5 cursor-pointer flex-1 truncate mr-2"
-                          onClick={() => onSwitchBoard(b)}
+                          onClick={() => {
+                            if (activeBoard?.id === b.id) {
+                              onSetMainView("board");
+                            } else {
+                              onSwitchBoard(b);
+                            }
+                          }}
                         >
                           <Layout
                             size={15}
@@ -330,7 +376,7 @@ export default function Sidebar({
                                 : "text-gray-400 dark:text-gray-500"
                             }
                           />
-                          <span className="truncate text-[13px]">{b.name}</span>
+                          <TruncatedText className="truncate text-[13px]">{b.name}</TruncatedText>
                         </div>
                         <div className="hidden group-hover/board:flex items-center gap-1.5">
                           <Pencil

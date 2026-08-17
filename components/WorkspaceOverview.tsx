@@ -3,6 +3,7 @@
 import React from "react";
 import { Workspace, Board } from "@/types";
 import { LayoutGrid, MoreHorizontal } from "lucide-react";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface WorkspaceOverviewProps {
   workspace: Workspace | null;
@@ -12,9 +13,10 @@ interface WorkspaceOverviewProps {
   onSelectWorkspace: (workspace: Workspace) => void;
   onCreateBoard?: () => void;
   onCreateWorkspace?: () => void;
+  onImportData?: () => void;
 }
 
-export default function WorkspaceOverview({ workspace, workspaces, boards, onSelectBoard, onSelectWorkspace, onCreateBoard, onCreateWorkspace }: WorkspaceOverviewProps) {
+export default function WorkspaceOverview({ workspace, workspaces, boards, onSelectBoard, onSelectWorkspace, onCreateBoard, onCreateWorkspace, onImportData }: WorkspaceOverviewProps) {
   if (!workspace) {
     return (
       <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#181b34] overflow-hidden">
@@ -48,7 +50,7 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {workspaces.map(ws => (
+                {workspaces.map((ws) => (
                   <div
                     key={ws.id}
                     onClick={() => onSelectWorkspace(ws)}
@@ -58,12 +60,9 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
                       <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform">
                         <LayoutGrid size={20} />
                       </div>
-                      <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreHorizontal size={18} />
-                      </button>
                     </div>
                     <h3 className="font-semibold text-gray-800 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                      {ws.name}
+                      <TruncatedText className="truncate block">{ws.name}</TruncatedText>
                     </h3>
                   </div>
                 ))}
@@ -87,7 +86,26 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
       {/* Content */}
       <div className="flex-1 overflow-auto bg-gray-50 dark:bg-[#0e111a]">
         <div className="p-8 max-w-5xl mx-auto">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Recent Boards</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Recent Boards</h2>
+            {boards.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={onImportData}
+                  className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg shadow-sm transition-colors text-sm"
+                >
+                  Import Board
+                </button>
+                <button
+                  onClick={onCreateBoard}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors text-sm"
+                >
+                  New Board
+                </button>
+              </div>
+            )}
+          </div>
+
           {boards.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-dashed border-gray-300 dark:border-slate-700 rounded-2xl bg-white/50 dark:bg-slate-900/20">
               <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
@@ -97,12 +115,20 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
               <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
                 Create a new board to start tracking tasks, managing projects, and collaborating with your team.
               </p>
-              <button
-                onClick={onCreateBoard}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors"
-              >
-                Create Board
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={onCreateBoard}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                >
+                  Create Board
+                </button>
+                <button
+                  onClick={onImportData}
+                  className="px-6 py-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg shadow-sm transition-colors"
+                >
+                  Import Board
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -121,11 +147,11 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
                     </button>
                   </div>
                   <h3 className="font-semibold text-gray-800 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-                    {board.name}
+                    <TruncatedText className="truncate block">{board.name}</TruncatedText>
                   </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  <TruncatedText as="p" className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {board.description || "No description"}
-                  </p>
+                  </TruncatedText>
                 </div>
               ))}
             </div>

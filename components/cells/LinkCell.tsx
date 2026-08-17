@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Item, Column } from "@/types";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { ExternalLink, Link2 } from "lucide-react";
 
 interface LinkCellProps {
@@ -89,7 +90,9 @@ export default function LinkCell({ item, column, onUpdate }: LinkCellProps) {
             className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate flex items-center gap-1"
           >
             <ExternalLink size={11} className="shrink-0" />
-            {value.label || new URL(value.url).hostname}
+            <TruncatedText className="truncate" tooltip={value.url}>
+              {value.label || new URL(value.url).hostname}
+            </TruncatedText>
           </a>
         </div>
       ) : (

@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# disposable admin/recovery scripts (use service_role key, never commit)
+/inspect.ts
+/recover_statuses.ts
+/migrate_imported_board.ts
+
+# Monday.com exports — contain real task data and credentials from the
+# updates sheet (serial keys, passwords, door codes). Never commit.
+/*.xlsx
+/*_Export/

@@ -44,6 +44,7 @@ import { Clock, Reply, Trash2 } from "lucide-react";
 import { reportError, reportFetchError, reportMutationError } from "@/lib/errorReporting";
 import { format } from "date-fns";
 import DOMPurify from "dompurify";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
@@ -628,7 +629,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
 
         return (
           <span key={col.id} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2.5 py-1 rounded-full max-w-[200px] truncate inline-flex items-center">
-            {col.title}: {depNames.join(", ")}
+            <TruncatedText className="truncate block">{col.title}: {depNames.join(", ")}</TruncatedText>
           </span>
         );
       }

@@ -3,6 +3,14 @@
 import React, { useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
+/**
+ * Visual surface shared by every tooltip in the app. Kept in one place so the
+ * sidebar tooltips and the truncated-text tooltips can never drift apart.
+ * Positioning, sizing and wrapping are left to the consumer.
+ */
+export const TOOLTIP_SURFACE_CLASS =
+  "z-[100] px-2.5 py-1.5 text-xs font-medium text-white bg-slate-900/95 dark:bg-slate-800 rounded-md shadow-lg border border-slate-700/60 pointer-events-none";
+
 export interface TooltipProps {
   content: React.ReactNode;
   side?: "top" | "bottom" | "left" | "right";
@@ -64,7 +72,7 @@ export function Tooltip({
             exit="hidden"
             variants={animationVariants}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className={`absolute z-[100] px-2.5 py-1.5 text-xs font-medium text-white bg-slate-900/95 dark:bg-slate-800 rounded-md shadow-lg border border-slate-700/60 pointer-events-none whitespace-nowrap ${positionStyles[side]} ${className}`}
+            className={`absolute ${TOOLTIP_SURFACE_CLASS} whitespace-nowrap ${positionStyles[side]} ${className}`}
           >
             {content}
           </motion.div>

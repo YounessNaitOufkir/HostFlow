@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Item, Column } from "@/types";
+import { TruncatedText, useTruncationTooltip } from "@/components/ui/TruncatedText";
 import { Tag } from "lucide-react";
 
 interface TagsCellProps {
@@ -13,20 +14,36 @@ interface TagsCellProps {
   setActiveStatusId?: (id: string | null) => void;
 }
 
-function TagItem({ tag, onRemove }: { tag: string, onRemove?: () => void }) {
-  const spanRef = React.useRef<HTMLSpanElement>(null);
-  const [isTruncated, setIsTruncated] = React.useState(false);
+const TAG_COLORS = [
+  "#ff628c", // Pink
+  "#fdab3d", // Orange
+  "#ffcb00", // Yellow
+  "#00c875", // Green
+  "#579bfc", // Blue
+  "#a25ddc", // Purple
+  "#0086c0", // Dark Blue
+  "#e2445c", // Red
+  "#037f4c", // Dark Green
+];
 
-  const handleMouseEnter = () => {
-    if (spanRef.current) {
-      setIsTruncated(spanRef.current.scrollWidth > spanRef.current.clientWidth);
-    }
-  };
+function getTagColor(tag: string) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
+function TagItem({ tag, onRemove }: { tag: string, onRemove?: () => void }) {
+  const { ref: spanRef, tooltip, handlers } = useTruncationTooltip<HTMLSpanElement>(tag);
 
   return (
-    <div className="group/tag relative flex items-center" onMouseEnter={handleMouseEnter}>
-      <span ref={spanRef} className="text-[13px] px-2.5 py-0.5 rounded-[4px] truncate max-w-[140px] shrink-0 bg-[#cce5ff] text-[#323338] dark:bg-[#cce5ff]/20 dark:text-[#cce5ff] flex items-center gap-1">
-        {tag}
+    <div className="group/tag relative flex items-center">
+      <span ref={spanRef} {...handlers} 
+        className="text-[13px] px-2 py-0.5 rounded-sm truncate max-w-[140px] shrink-0 text-white flex items-center gap-1"
+        style={{ backgroundColor: getTagColor(tag) }}
+      >
+        <span className="opacity-70 text-xs font-normal">#</span> {tag}
         {onRemove && (
           <button 
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
@@ -36,14 +53,7 @@ function TagItem({ tag, onRemove }: { tag: string, onRemove?: () => void }) {
           </button>
         )}
       </span>
-      {isTruncated && !onRemove && (
-        <div className="absolute bottom-[calc(100%+4px)] left-1/2 -translate-x-1/2 z-[200] w-max max-w-[300px] pointer-events-none opacity-0 group-hover/tag:opacity-100 transition-opacity duration-200">
-          <div className="bg-[#323338] dark:bg-white text-white dark:text-[#323338] text-[13px] font-medium px-3 py-1.5 rounded shadow-lg whitespace-normal leading-relaxed relative text-center">
-            <div className="absolute -bottom-[4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-[#323338] dark:bg-white rotate-45 z-[-1]" />
-            {tag}
-          </div>
-        </div>
-      )}
+      {tooltip}
     </div>
   );
 }
@@ -196,7 +206,7 @@ export default function TagsCell({ item, column, onUpdate, boardItems = [], acti
                   >
                     {isSelected && <span className="text-[10px]">✓</span>}
                   </div>
-                  <span className="text-[#323338] dark:text-[#cce5ff] truncate">{tag}</span>
+                  <TruncatedText className="text-[#323338] dark:text-[#cce5ff] truncate">{tag}</TruncatedText>
                 </div>
               );
             })}

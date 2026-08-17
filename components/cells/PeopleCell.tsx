@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Item, Column, Profile } from "@/types";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Plus, X } from "lucide-react";
 
 interface PeopleCellProps {
@@ -121,7 +122,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
                     user.avatar_initials
                   )}
                 </div>
-                <span className="text-gray-700 dark:text-gray-200 truncate">{user.full_name}</span>
+                <TruncatedText className="text-gray-700 dark:text-gray-200 truncate">{user.full_name}</TruncatedText>
                 {isSelected && (
                   <div className="ml-auto w-4 h-4 bg-blue-500 rounded-sm flex items-center justify-center shrink-0">
                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none">

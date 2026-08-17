@@ -78,7 +78,11 @@ export function boardReducer(
     case "SET_BOARDS":
       return { ...state, boards: action.payload };
     case "SET_ACTIVE_BOARD":
-      return { ...state, activeBoard: action.payload };
+      return { 
+        ...state, 
+        activeBoard: action.payload,
+        mainView: !action.payload && state.mainView === "board" ? "workspace_overview" : state.mainView
+      };
     case "UPDATE_BOARD":
       return {
         ...state,
@@ -94,13 +98,15 @@ export function boardReducer(
       return { ...state, boards: [...state.boards, action.payload] };
     case "REMOVE_BOARD": {
       const updated = state.boards.filter((b) => b.id !== action.payload);
+      const nextActiveBoard = state.activeBoard?.id === action.payload
+        ? updated.find(b => b.workspace_id === state.activeWorkspace?.id) || null
+        : state.activeBoard;
+        
       return {
         ...state,
         boards: updated,
-        activeBoard:
-          state.activeBoard?.id === action.payload
-            ? updated[0] || null
-            : state.activeBoard,
+        activeBoard: nextActiveBoard,
+        mainView: !nextActiveBoard && state.mainView === "board" ? "workspace_overview" : state.mainView,
       };
     }
     case "SET_BOARD_DATA":

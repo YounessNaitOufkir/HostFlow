@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Item, Column } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTruncationTooltip } from "@/components/ui/TruncatedText";
 
 interface ButtonCellProps {
   item: Item;
@@ -13,6 +14,8 @@ interface ButtonCellProps {
 export default function ButtonCell({ item, column, onUpdate }: ButtonCellProps) {
   const [isClicked, setIsClicked] = useState(false);
   const text = item.column_values[column.id] || "Click when done";
+
+  const { ref: labelRef, tooltip, handlers: labelHandlers } = useTruncationTooltip<HTMLSpanElement>(text);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -41,16 +44,20 @@ export default function ButtonCell({ item, column, onUpdate }: ButtonCellProps) 
           ) : (
             <motion.span
               key="default"
+              ref={labelRef}
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
               className="block truncate"
+              onMouseEnter={labelHandlers.onMouseEnter}
+              onMouseLeave={labelHandlers.onMouseLeave}
             >
               {text}
             </motion.span>
           )}
         </AnimatePresence>
       </button>
+      {tooltip}
     </div>
   );
 }

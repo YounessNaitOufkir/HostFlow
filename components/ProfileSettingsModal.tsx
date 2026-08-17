@@ -8,6 +8,7 @@ import TelegramConnectButton from "@/components/TelegramConnectButton";
 import GoogleCalendarConnectButton from "@/components/GoogleCalendarConnectButton";
 import { useFont } from "@/components/FontProvider";
 import { toast } from "sonner";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface ProfileSettingsModalProps {
   profile: Profile;
@@ -381,9 +382,9 @@ function ReadabilityTabContent() {
                   >
                     {option.name}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
+                  <TruncatedText as="p" className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
                     {option.description}
-                  </p>
+                  </TruncatedText>
                 </div>
                 <div
                   className="px-3 py-1 rounded bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700/60"

@@ -3,6 +3,7 @@
 import React from "react";
 import { X, Eye, Check, Type, Sparkles } from "lucide-react";
 import { useFont } from "@/components/FontProvider";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface ReadabilityModalProps {
   onClose: () => void;
@@ -112,9 +113,9 @@ export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
                       >
                         {option.name}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
+                      <TruncatedText as="p" className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
                         {option.description}
-                      </p>
+                      </TruncatedText>
                     </div>
                   </div>
                 );

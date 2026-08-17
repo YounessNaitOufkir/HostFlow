@@ -44,12 +44,27 @@ export function useBoardDataQuery(boardId: string | null, enabled = true) {
 
       if (allItems.length > 0) {
         const itemIds = allItems.map((i: Item) => i.id);
-        const { data: linksData, error: linksError } = await supabase
-          .from("item_links")
-          .select("*")
-          .or(`source_item_id.in.(${itemIds.join(",")}),target_item_id.in.(${itemIds.join(",")})`);
-        if (linksError) throw linksError;
-        if (linksData) fetchedLinks = linksData as ItemLink[];
+        
+        // Chunk itemIds to avoid URI Too Long error from Supabase
+        const CHUNK_SIZE = 50;
+        const chunks = [];
+        for (let i = 0; i < itemIds.length; i += CHUNK_SIZE) {
+          chunks.push(itemIds.slice(i, i + CHUNK_SIZE));
+        }
+        
+        for (const chunk of chunks) {
+          const { data: linksData, error: linksError } = await supabase
+            .from("item_links")
+            .select("*")
+            .or(`source_item_id.in.(${chunk.join(",")}),target_item_id.in.(${chunk.join(",")})`);
+            
+          if (linksError) {
+            console.error("Failed to fetch item links:", linksError);
+            // Don't throw, just ignore links if they fail so the board still loads
+            continue;
+          }
+          if (linksData) fetchedLinks.push(...(linksData as ItemLink[]));
+        }
       }
 
       return {

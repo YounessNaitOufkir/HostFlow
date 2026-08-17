@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Board } from "@/types";
 import { useWorkspaceGanttData } from "@/hooks/useWorkspaceGanttData";
 import GanttView from "./GanttView";
@@ -72,7 +73,7 @@ export default function WorkspaceGanttView({ allBoards }: WorkspaceGanttViewProp
                       : "hover:bg-gray-100 dark:hover:bg-slate-800/80 text-gray-700 dark:text-gray-300"
                   }`}
                 >
-                  <span className="truncate pr-2 font-medium">{board.name}</span>
+                  <TruncatedText className="truncate pr-2 font-medium">{board.name}</TruncatedText>
                   <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
                     isSelected ? "bg-blue-500 border-blue-500 text-white" : "border-gray-300 dark:border-slate-600"
                   }`}>

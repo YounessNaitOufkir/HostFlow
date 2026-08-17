@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, Folder, ArrowRight, Save, AlignLeft } from "lucide-react";
 import type { Board, Group, Profile, Item } from "@/types";
 import CellRenderer from "@/components/cells/CellRenderer";
+import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface TaskCreateModalProps {
   board: Board;
@@ -134,7 +135,7 @@ export default function TaskCreateModal({
               <div key={col.id} className={`grid grid-cols-12 gap-4 items-center group min-h-[32px] ${isColActive ? "relative z-50" : "relative z-0"}`}>
                 <div className="col-span-4 flex items-center gap-2 text-gray-600 dark:text-gray-400">
                   <AlignLeft size={16} className="text-gray-400 shrink-0" />
-                  <span className="text-sm font-medium truncate" title={col.title}>{col.title}</span>
+                  <TruncatedText className="text-sm font-medium truncate">{col.title}</TruncatedText>
                 </div>
                 <div 
                   className="col-span-8 flex items-center bg-gray-50 dark:bg-slate-800/50 min-h-[36px] rounded group-hover:bg-gray-100 dark:group-hover:bg-slate-800 transition-colors cursor-pointer"
