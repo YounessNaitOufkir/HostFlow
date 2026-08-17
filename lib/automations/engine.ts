@@ -112,12 +112,14 @@ export async function evaluateTimeAutomations(
   };
 
   const automations = (board as any).automations || [];
-  // Default time rules to active so manual "Run SLA Check Now" always audits the board, unless explicitly disabled
-  const slaAlertRule = !automations.some(
-    (a: Automation) => a.action_type === "sla_alert" && a.enabled === false
+  // Time rules are opt-in: a board only gets SLA/overdue behaviour if it has an
+  // enabled automation of that type. Callers MUST pass board.automations —
+  // omitting it means no rules fire, never "all rules fire".
+  const slaAlertRule = automations.some(
+    (a: Automation) => a.action_type === "sla_alert" && a.enabled !== false
   );
-  const overdueRule = !automations.some(
-    (a: Automation) => a.action_type === "overdue_tagging" && a.enabled === false
+  const overdueRule = automations.some(
+    (a: Automation) => a.action_type === "overdue_tagging" && a.enabled !== false
   );
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -171,8 +173,9 @@ export async function evaluateTimeAutomations(
     const recipientName = targetProfile?.full_name || "Team Member";
     const recipientUserId = targetProfile?.id;
 
+    const isDoneStatus = currentStatus && /done|terminé|termine|achevée|achevee|completed|fait/i.test(currentStatus);
     // 1. Overdue Tagging Rule: Due Date has passed (< todayStr) AND Status != Done
-    if (overdueRule && itemDateStr < todayStr && currentStatus !== "Done") {
+    if (overdueRule && itemDateStr < todayStr && !isDoneStatus) {
       const isAlreadyOverdue = currentStatus === "Overdue";
       if (!isAlreadyOverdue || forceNotify) {
         result.triggeredCount++;
@@ -231,7 +234,7 @@ export async function evaluateTimeAutomations(
     }
 
     // 2. SLA Warning Rule: Due Date is today AND Status != Working on it and != Done
-    else if (slaAlertRule && itemDateStr === todayStr && currentStatus !== "Working on it" && currentStatus !== "Done") {
+    else if (slaAlertRule && itemDateStr === todayStr && currentStatus !== "Working on it" && !isDoneStatus) {
       const slaSentKey = `_sla_sent_${todayStr}`;
       if (!values[slaSentKey]) {
         result.triggeredCount++;
