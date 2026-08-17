@@ -22,7 +22,8 @@ export type ColumnType =
   | "checkbox"
   | "link"
   | "rating"
-  | "relation";
+  | "relation"
+  | "button";
 
 // ============================================================
 // Column Settings (per-type configuration)
@@ -43,6 +44,8 @@ export interface ColumnSettings {
   currencySymbol?: string;
   /** Custom status labels (overrides default STATUS_OPTIONS) */
   statusLabels?: StatusOption[];
+  /** Custom priority labels (overrides default PRIORITY_OPTIONS) */
+  priorityLabels?: StatusOption[];
   /** Default value for new items */
   defaultValue?: CellValue;
   /** Link display: "url" shows raw URL, "button" shows clickable button */

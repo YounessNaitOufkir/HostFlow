@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import * as xlsx from "xlsx";
 import { Upload, X, AlertCircle } from "lucide-react";
 import { Board, Column } from "@/types";
+import { parseDatabaseError } from "@/lib/errorReporting";
 
 interface ImportModalProps {
   onClose: () => void;
@@ -13,17 +14,119 @@ interface ImportModalProps {
   activeBoardColumns: Column[];
 }
 
+/** One row of Monday's "updates" sheet, normalized. */
+export interface ImportUpdate {
+  /** Monday's item ID, used to attach the update to the imported item */
+  mondayItemId: string;
+  itemName: string;
+  /** Monday display name of the author; matched against profiles.full_name */
+  author: string;
+  /** ISO timestamp, or null when Monday's date could not be parsed */
+  createdAt: string | null;
+  body: string;
+  /** Monday's own post IDs, used to rebuild reply threading */
+  postId: string;
+  parentPostId: string;
+  /** Set when Monday exported an attachment but no text */
+  assetIds: string;
+}
+
 export interface ImportConfig {
   target: "new_board" | "existing_board";
   newBoardName?: string;
   data: any[];
   headers: string[];
+  /** Parsed from the workbook's "updates" sheet, when present */
+  updates?: ImportUpdate[];
+}
+
+const MONDAY_MONTHS: Record<string, number> = {
+  january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+  july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
+};
+
+/**
+ * Parses Monday's update timestamps, e.g. "18/February/2026  03:18:11 PM".
+ * Treated as local wall-clock time. Falls back to Date parsing, then null.
+ */
+function parseMondayTimestamp(raw: any): string | null {
+  if (!raw) return null;
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw.toISOString();
+
+  const s = String(raw).trim();
+  const m = s.match(/^(\d{1,2})\/([A-Za-z]+)\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
+  if (m) {
+    const month = MONDAY_MONTHS[m[2].toLowerCase()];
+    if (month !== undefined) {
+      let hour = parseInt(m[4], 10) % 12;
+      if (m[7].toUpperCase() === "PM") hour += 12;
+      const d = new Date(parseInt(m[3], 10), month, parseInt(m[1], 10), hour, parseInt(m[5], 10), parseInt(m[6], 10));
+      if (!isNaN(d.getTime())) return d.toISOString();
+    }
+  }
+
+  const fallback = new Date(s);
+  return isNaN(fallback.getTime()) ? null : fallback.toISOString();
+}
+
+/**
+ * Reads Monday's "updates" sheet. Locates the header row by looking for the
+ * "Item ID" column rather than assuming a fixed offset, since Monday prefixes
+ * the sheet with a board title row.
+ */
+function parseMondayUpdates(rawData: any[][]): ImportUpdate[] {
+  if (!rawData || rawData.length === 0) return [];
+
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(rawData.length, 10); i++) {
+    const row = rawData[i] || [];
+    if (row.some((c: any) => String(c || "").trim().toLowerCase() === "item id")) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx === -1) return [];
+
+  // Monday emits two columns both named "Content Type"; indexOf keeps the first,
+  // which is what we want for every field we actually read.
+  const headers = (rawData[headerIdx] || []).map((h: any) => String(h || "").trim().toLowerCase());
+  const col = (name: string) => headers.indexOf(name);
+  const idIdx = col("item id");
+  const nameIdx = col("item name");
+  const userIdx = col("user");
+  const createdIdx = col("created at");
+  const bodyIdx = col("update content");
+  const assetIdx = col("asset ids");
+  const postIdx = col("post id");
+  const parentIdx = col("parent post id");
+
+  const at = (row: any[], i: number) => (i >= 0 && row[i] != null ? String(row[i]).trim() : "");
+
+  const updates: ImportUpdate[] = [];
+  for (let i = headerIdx + 1; i < rawData.length; i++) {
+    const row = rawData[i] || [];
+    const mondayItemId = at(row, idIdx);
+    if (!mondayItemId) continue;
+
+    updates.push({
+      mondayItemId,
+      itemName: at(row, nameIdx),
+      author: at(row, userIdx),
+      createdAt: parseMondayTimestamp(createdIdx >= 0 ? row[createdIdx] : null),
+      body: bodyIdx >= 0 && row[bodyIdx] != null ? String(row[bodyIdx]) : "",
+      postId: at(row, postIdx),
+      parentPostId: at(row, parentIdx),
+      assetIds: at(row, assetIdx),
+    });
+  }
+  return updates;
 }
 
 export default function ImportModal({ onClose, onImport, activeBoard, activeBoardColumns }: ImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [data, setData] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
+  const [updates, setUpdates] = useState<ImportUpdate[]>([]);
   const [target, setTarget] = useState<"new_board" | "existing_board">("new_board");
   const [newBoardName, setNewBoardName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -41,17 +144,86 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
 
     const extension = uploadedFile.name.split('.').pop()?.toLowerCase();
 
+    const parseMondayRawData = (rawData: any[][]) => {
+      let currentGroup = "Imported Group";
+      let finalHeaders: string[] = [];
+      let parsedData: any[] = [];
+      let foundHeaders = false;
+
+      for (const row of rawData) {
+        // Skip completely empty rows
+        if (!row || row.length === 0 || row.every((cell: any) => cell === "" || cell === null)) continue;
+        
+        const nonEmpties = row.filter((cell: any) => cell !== "" && cell !== null).length;
+        
+        // Check if this row looks like a header row
+        const firstCellStr = String(row[0] || "").toLowerCase().trim();
+        if (!foundHeaders && nonEmpties > 2 && (firstCellStr === "name" || firstCellStr === "item name" || firstCellStr === "task")) {
+          finalHeaders = row.map((h: any, i: number) => h ? String(h).trim() : `Column_${i}`);
+          if (!finalHeaders.find(h => h.toLowerCase() === "group")) {
+             finalHeaders.push("Group");
+          }
+          foundHeaders = true;
+          continue;
+        }
+
+        // If we already found headers, and this row is just repeating them (Monday repeats headers for each group), skip it
+        if (foundHeaders && String(row[0]).trim() === finalHeaders[0]) {
+          continue;
+        }
+
+        // If it's a row with only 1 value in the first column, it's likely a Group Title or Board Description
+        if (nonEmpties === 1 && row[0]) {
+          currentGroup = String(row[0]).trim();
+          continue;
+        }
+
+        // If it's a data row and we have headers
+        if (foundHeaders && nonEmpties > 0) {
+          // SKIP summary rows (Monday often puts empty names for group summaries)
+          if (!row[0] || String(row[0]).trim() === "") continue;
+
+          const rowObj: any = {};
+          for (let i = 0; i < finalHeaders.length; i++) {
+            if (finalHeaders[i] !== "Group") {
+              let cellVal = row[i];
+              // Format dates properly if xlsx parsed them as Date objects.
+              // xlsx builds Dates at LOCAL midnight, so toISOString() would shift
+              // them to the previous day for any timezone east of UTC. Read the
+              // local calendar parts instead so the date matches what the sheet shows.
+              if (cellVal instanceof Date) {
+                const y = cellVal.getFullYear();
+                const m = String(cellVal.getMonth() + 1).padStart(2, "0");
+                const d = String(cellVal.getDate()).padStart(2, "0");
+                cellVal = `${y}-${m}-${d}`;
+              }
+              rowObj[finalHeaders[i]] = cellVal;
+            }
+          }
+          rowObj["Group"] = currentGroup;
+          parsedData.push(rowObj);
+        }
+      }
+      
+      return { parsedData, finalHeaders };
+    };
+
     if (extension === "csv") {
       Papa.parse(uploadedFile, {
-        header: true,
+        header: false, // Must be false so we can parse Monday's weird structure
         skipEmptyLines: true,
         complete: (results) => {
           if (results.errors.length > 0) {
             setError("Error parsing CSV file.");
             return;
           }
-          setData(results.data);
-          setHeaders(results.meta.fields || []);
+          const { parsedData, finalHeaders } = parseMondayRawData(results.data as any[][]);
+          if (parsedData.length > 0) {
+            setData(parsedData);
+            setHeaders(finalHeaders);
+          } else {
+            setError("Could not find any valid data in the CSV.");
+          }
         },
         error: (err) => {
           setError(err.message);
@@ -61,66 +233,29 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
       try {
         const arrayBuffer = await uploadedFile.arrayBuffer();
         const workbook = xlsx.read(arrayBuffer, { type: "array", cellDates: true });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
         
-        // Parse as 2D array to handle Monday.com's weird visual grouping
-        const rawData = xlsx.utils.sheet_to_json<any[]>(worksheet, { header: 1, defval: "" });
-        
-        let currentGroup = "Imported Group";
-        let finalHeaders: string[] = [];
-        let parsedData: any[] = [];
-        let foundHeaders = false;
-
-        for (const row of rawData) {
-          // Skip completely empty rows
-          if (!row || row.length === 0 || row.every((cell: any) => cell === "" || cell === null)) continue;
-          
-          const nonEmpties = row.filter((cell: any) => cell !== "" && cell !== null).length;
-          
-          // Check if this row looks like a header row (e.g. starts with "Name", "Item Name", or "Task")
-          const firstCellStr = String(row[0] || "").toLowerCase().trim();
-          if (!foundHeaders && nonEmpties > 2 && (firstCellStr === "name" || firstCellStr === "item name" || firstCellStr === "task")) {
-            finalHeaders = row.map((h: any, i: number) => h ? String(h).trim() : `Column_${i}`);
-            if (!finalHeaders.find(h => h.toLowerCase() === "group")) {
-               finalHeaders.push("Group");
-            }
-            foundHeaders = true;
-            continue;
-          }
-
-          // If we already found headers, and this row is just repeating them (Monday repeats headers for each group), skip it
-          if (foundHeaders && String(row[0]).trim() === finalHeaders[0]) {
-            continue;
-          }
-
-          // If it's a row with only 1 value in the first column, it's likely a Group Title or Board Description
-          if (nonEmpties === 1 && row[0]) {
-            currentGroup = String(row[0]).trim();
-            continue;
-          }
-
-          // If it's a data row and we have headers
-          if (foundHeaders && nonEmpties > 0) {
-            const rowObj: any = {};
-            for (let i = 0; i < finalHeaders.length; i++) {
-              if (finalHeaders[i] !== "Group") {
-                let cellVal = row[i];
-                // Format dates properly if xlsx parsed them as Date objects
-                if (cellVal instanceof Date) {
-                  cellVal = cellVal.toISOString().split('T')[0];
-                }
-                rowObj[finalHeaders[i]] = cellVal;
-              }
-            }
-            rowObj["Group"] = currentGroup;
-            parsedData.push(rowObj);
-          }
+        // Find the sheet that likely contains the tasks (avoiding the Updates sheet)
+        let sheetName = workbook.SheetNames[0];
+        const taskSheet = workbook.SheetNames.find(s => !s.toLowerCase().includes("update"));
+        if (taskSheet) {
+          sheetName = taskSheet;
         }
         
+        const worksheet = workbook.Sheets[sheetName];
+        const rawData = xlsx.utils.sheet_to_json<any[]>(worksheet, { header: 1, defval: "" });
+        
+        const { parsedData, finalHeaders } = parseMondayRawData(rawData);
+
+        // Monday exports item updates on a separate sheet, keyed by item ID
+        const updatesSheet = workbook.SheetNames.find(s => s.toLowerCase().includes("update"));
+        const parsedUpdates = updatesSheet
+          ? parseMondayUpdates(xlsx.utils.sheet_to_json<any[]>(workbook.Sheets[updatesSheet], { header: 1, defval: "" }))
+          : [];
+
         if (parsedData.length > 0) {
           setData(parsedData);
           setHeaders(finalHeaders);
+          setUpdates(parsedUpdates);
         } else {
           setError("Could not find any valid data in the spreadsheet.");
         }
@@ -146,11 +281,12 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
         target,
         newBoardName,
         data,
-        headers
+        headers,
+        updates
       });
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to import data.");
+      setError(parseDatabaseError(err, err.message || "Failed to import data."));
       setIsImporting(false);
     }
   };
@@ -202,11 +338,14 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
                   </div>
                   <div>
                     <p className="font-medium text-sm text-gray-900 dark:text-white">{file.name}</p>
-                    <p className="text-xs text-gray-500">{data.length} rows detected</p>
+                    <p className="text-xs text-gray-500">
+                      {data.length} rows detected
+                      {updates.length > 0 && ` · ${updates.length} update${updates.length === 1 ? "" : "s"}`}
+                    </p>
                   </div>
                 </div>
                 <button 
-                  onClick={() => { setFile(null); setData([]); setHeaders([]); }}
+                  onClick={() => { setFile(null); setData([]); setHeaders([]); setUpdates([]); }}
                   className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white underline"
                 >
                   Change File
@@ -237,7 +376,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
                       placeholder="New Board Name"
                       value={newBoardName}
                       onChange={(e) => setNewBoardName(e.target.value)}
-                      className="w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                 )}

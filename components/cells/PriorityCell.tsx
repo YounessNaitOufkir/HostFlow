@@ -43,12 +43,13 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
     if (setActiveStatusId) setActiveStatusId(null);
   };
 
-  const currentOption = PRIORITY_OPTIONS.find((o) => o.label === value) || PRIORITY_OPTIONS[4];
+  const currentOptions = column.settings?.priorityLabels || PRIORITY_OPTIONS;
+  const currentOption = currentOptions.find((o: any) => o.label === value) || currentOptions[currentOptions.length - 1];
 
   return (
     <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative ${isOpen ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <div
-        className={`w-full h-full flex items-center justify-center text-sm cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-500 transition-colors ${currentOption.color}`}
+        className={`w-full h-full flex items-center justify-center text-white text-sm cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-500 transition-colors ${currentOption.color}`}
         onClick={(e) => {
           e.stopPropagation();
           if (setActiveStatusId) setActiveStatusId(isOpen ? null : cellKey);
@@ -56,7 +57,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
       >
         <span className="flex items-center">
           {value === "Empty" ? "" : value}
-          {value === "Critical" && <span className="ml-1.5 text-[11px] leading-none">⚠️</span>}
+          {(value === "Critical" || value === "Critique") && <span className="ml-1.5 text-[11px] leading-none">⚠️</span>}
         </span>
         
         {/* Fold indicator */}
@@ -71,20 +72,20 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
             ref={dropdownRef}
-            className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} left-1/2 -translate-x-1/2 w-40 dropdown-menu py-1.5 z-50 flex flex-col`}
+            className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} w-[140px] dropdown-menu z-50 flex flex-col bg-white dark:bg-slate-900 shadow-2xl rounded overflow-hidden border border-gray-200 dark:border-slate-700`}
           >
-            {PRIORITY_OPTIONS.map((opt) => (
-              <div
+            {currentOptions.map((opt: any) => (
+              <button
                 key={opt.label}
-                onClick={() => handleSelect(opt.label)}
-                className={`px-4 py-2 text-sm cursor-pointer flex items-center group transition-colors hover:bg-gray-50 dark:hover:bg-slate-800`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelect(opt.label);
+                }}
+                className={`w-full text-left px-3 py-2 text-[13px] text-white transition-colors ${opt.color} hover:opacity-90 flex items-center justify-between`}
               >
-                <div className={`w-4 h-4 rounded-sm mr-3 ${opt.color}`}></div>
-                <span className="text-gray-700 dark:text-gray-200 group-hover:font-medium flex items-center">
-                  {opt.label}
-                  {opt.label === "Critical" && <span className="ml-1.5 text-[11px] leading-none">⚠️</span>}
-                </span>
-              </div>
+                <span className="truncate">{opt.label === "Empty" ? "" : (opt.label || "\u00A0")}</span>
+                {(opt.label === "Critical" || opt.label === "Critique") && <span className="text-[11px] ml-1 shrink-0">⚠️</span>}
+              </button>
             ))}
           </motion.div>
         )}
