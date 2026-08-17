@@ -9,8 +9,10 @@ describe("Skeleton UI Component", () => {
     const el = screen.getByTestId("skeleton-default");
 
     expect(el).toBeInTheDocument();
-    expect(el).toHaveClass("animate-pulse");
-    expect(el).toHaveClass("rounded-md");
+    // The shimmer animation lives in the .skeleton class in globals.css,
+    // not Tailwind's animate-pulse (changed in the loader restyle).
+    expect(el).toHaveClass("skeleton");
+    expect(el).toHaveClass("rounded-[6px]");
   });
 
   it("renders circular variant with rounded-full class", () => {
@@ -24,7 +26,7 @@ describe("Skeleton UI Component", () => {
     render(<Skeleton data-testid="skeleton-text" variant="text" />);
     const el = screen.getByTestId("skeleton-text");
 
-    expect(el).toHaveClass("rounded");
+    expect(el).toHaveClass("rounded-[6px]");
     expect(el).toHaveClass("h-4");
     expect(el).toHaveClass("w-full");
   });
