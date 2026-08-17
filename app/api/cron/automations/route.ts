@@ -44,17 +44,32 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Failed to fetch items" }, { status: 500 });
     }
 
+    // 5. Fetch the configured automations. Without these, evaluateTimeAutomations
+    // sees an empty rule list and every time-based rule is a no-op.
+    const { data: automations, error: automationsError } = await supabase
+      .from("automations")
+      .select("*");
+
+    if (automationsError || !automations) {
+      return NextResponse.json({ error: "Failed to fetch automations" }, { status: 500 });
+    }
+
     let totalTriggered = 0;
-    
-    // 5. Evaluate time automations for each board
+
+    // 6. Evaluate time automations for each board
     for (const board of boards) {
       const boardItems = items.filter(item => item.board_id === board.id);
-      
+      const boardAutomations = automations.filter(a => a.board_id === board.id);
+
+      // Nothing configured for this board — skip it rather than evaluating blind
+      if (boardAutomations.length === 0) continue;
+
       const activeBoard = {
         ...board,
-        items: boardItems
+        items: boardItems,
+        automations: boardAutomations
       };
-      
+
       const result = await evaluateTimeAutomations(activeBoard, profiles, supabase);
       totalTriggered += result.triggeredCount;
     }
