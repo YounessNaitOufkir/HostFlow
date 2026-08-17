@@ -24,6 +24,7 @@ import {
   Clock,
   AlertTriangle,
   Calculator,
+  MousePointerClick,
 } from "lucide-react";
 import type { ColumnType, CellValue } from "@/types";
 import type { LucideIcon } from "lucide-react";
@@ -216,6 +217,17 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     icon: Link2,
     widthClass: "w-48",
     defaultValue: [],
+    isAggregatable: false,
+    isReadOnly: false,
+    category: "advanced",
+  },
+  button: {
+    type: "button",
+    label: "Button",
+    defaultTitle: "Button",
+    icon: MousePointerClick,
+    widthClass: "w-32",
+    defaultValue: "Click when done",
     isAggregatable: false,
     isReadOnly: false,
     category: "advanced",
