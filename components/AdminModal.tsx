@@ -33,7 +33,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
     queryKey: queryKeys.adminData(),
     queryFn: async () => {
       const [profilesRes, workspacesRes, boardsRes, wsMembersRes, bMembersRes] = await Promise.all([
-        supabase.from("profiles").select("*").order("full_name"),
+        supabase.from("user_directory").select("*").order("full_name"),
         supabase.from("workspaces").select("*").order("name"),
         supabase.from("boards").select("*").order("name"),
         supabase.from("workspace_members").select("user_id, workspace_id"),

@@ -1,0 +1,211 @@
+"use client";
+
+import React, { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { X, Lock, Globe, Check, Loader2, UserPlus } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Workspace } from "@/types";
+import { reportMutationError } from "@/lib/errorReporting";
+import { TruncatedText } from "@/components/ui/TruncatedText";
+
+interface DirectoryUser {
+  id: string;
+  full_name: string | null;
+  avatar_initials: string | null;
+  color: string | null;
+}
+
+interface WorkspaceMembersModalProps {
+  workspace: Workspace;
+  currentUserId: string;
+  onClose: () => void;
+}
+
+/**
+ * Manage who can reach a workspace.
+ *
+ * For a private workspace this is the only way in: nobody, administrators
+ * included, sees it unless its creator adds them here.
+ *
+ * People are listed from `user_directory`, which never exposes email addresses.
+ */
+export default function WorkspaceMembersModal({
+  workspace,
+  currentUserId,
+  onClose,
+}: WorkspaceMembersModalProps) {
+  const [users, setUsers] = useState<DirectoryUser[]>([]);
+  const [memberIds, setMemberIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [dirRes, memberRes] = await Promise.all([
+      supabase
+        .from("user_directory")
+        .select("id, full_name, avatar_initials, color")
+        .order("full_name"),
+      supabase
+        .from("workspace_members")
+        .select("user_id")
+        .eq("workspace_id", workspace.id),
+    ]);
+
+    if (dirRes.error) setError("Could not load the people list.");
+    setUsers((dirRes.data as DirectoryUser[]) || []);
+    setMemberIds(
+      new Set((memberRes.data || []).map((m: { user_id: string }) => m.user_id))
+    );
+    setLoading(false);
+  }, [workspace.id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const toggle = async (userId: string, isMember: boolean) => {
+    setBusyId(userId);
+    setError(null);
+    try {
+      if (isMember) {
+        const { error } = await supabase
+          .from("workspace_members")
+          .delete()
+          .eq("workspace_id", workspace.id)
+          .eq("user_id", userId);
+        if (error) throw error;
+        setMemberIds((prev) => {
+          const next = new Set(prev);
+          next.delete(userId);
+          return next;
+        });
+      } else {
+        const { error } = await supabase
+          .from("workspace_members")
+          .insert({ workspace_id: workspace.id, user_id: userId, role: "member" });
+        if (error) throw error;
+        setMemberIds((prev) => new Set(prev).add(userId));
+      }
+    } catch (err: unknown) {
+      reportMutationError(err, "Could not change workspace access", {
+        table: "workspace_members",
+        operation: isMember ? "delete" : "insert",
+      });
+      setError("Could not change access. You may not have permission on this workspace.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const body = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 flex flex-col max-h-[80vh]">
+        <div className="flex items-start justify-between p-5 border-b border-gray-100 dark:border-slate-800">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              {workspace.is_private ? (
+                <Lock size={15} className="text-amber-500 shrink-0" />
+              ) : (
+                <Globe size={15} className="text-blue-500 shrink-0" />
+              )}
+              <TruncatedText className="truncate">{workspace.name}</TruncatedText>
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {workspace.is_private
+                ? "Private. Only people you add here can see it, administrators included."
+                : "Shared. Administrators can already see this workspace."}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0 ml-3"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mx-5 mt-4 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-300 text-xs">
+            {error}
+          </div>
+        )}
+
+        <div className="p-3 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-10 text-gray-400">
+              <Loader2 size={18} className="animate-spin" />
+            </div>
+          ) : users.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+              No other people to show yet.
+            </p>
+          ) : (
+            users.map((u) => {
+              const isMember = memberIds.has(u.id);
+              const isSelf = u.id === currentUserId;
+              return (
+                <div
+                  key={u.id}
+                  className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors"
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
+                    style={{ backgroundColor: u.color || "#579bfc" }}
+                  >
+                    {u.avatar_initials ||
+                      (u.full_name || "?").slice(0, 2).toUpperCase()}
+                  </div>
+                  <TruncatedText className="truncate flex-1 text-sm text-gray-800 dark:text-gray-200">
+                    {u.full_name || "Unnamed user"}
+                    {isSelf && <span className="text-gray-400 text-xs"> (you)</span>}
+                  </TruncatedText>
+
+                  <button
+                    disabled={busyId === u.id || isSelf}
+                    onClick={() => toggle(u.id, isMember)}
+                    title={
+                      isSelf
+                        ? "You always have access to workspaces you create"
+                        : undefined
+                    }
+                    className={`text-xs font-medium px-2.5 py-1 rounded-md border transition-colors shrink-0 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isMember
+                        ? "border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                        : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 hover:border-blue-300 hover:text-blue-600"
+                    }`}
+                  >
+                    {busyId === u.id ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : isMember ? (
+                      <>
+                        <Check size={12} /> Has access
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={12} /> Invite
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="p-4 border-t border-gray-100 dark:border-slate-800 flex justify-end bg-gray-50 dark:bg-slate-800/30 rounded-b-xl">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document !== "undefined" ? createPortal(body, document.body) : null;
+}

@@ -49,7 +49,9 @@ export function useProfilesQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.profiles(),
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*");
+      // user_directory, not profiles: it exposes names without emails and is
+      // already scoped to people you share a workspace or board with.
+      const { data, error } = await supabase.from("user_directory").select("*");
       if (error) throw error;
       return (data || []) as Profile[];
     },

@@ -10,6 +10,8 @@ import {
   Trash2,
   ChevronDown,
   Briefcase,
+  Lock,
+  Users2,
   LayoutGrid,
   CalendarDays,
 } from "lucide-react";
@@ -20,6 +22,7 @@ import ProfileMenu from "@/components/ProfileMenu";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSpring, animated } from "@react-spring/web";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import WorkspaceMembersModal from "@/components/WorkspaceMembersModal";
 
 interface SidebarProps {
   // Data
@@ -93,6 +96,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [membersModalWs, setMembersModalWs] = useState<Workspace | null>(null);
   const workspacePickerRef = useRef<HTMLDivElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
@@ -195,9 +199,13 @@ export default function Sidebar({
                 className="h-[52px] border-b border-gray-200 dark:border-slate-700/50 flex items-center px-4 font-semibold text-[13px] text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors relative"
                 onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
               >
-                <Briefcase size={15} className="mr-2.5 text-blue-500" />
+                {activeWorkspace?.is_private ? (
+                  <Lock size={15} className="mr-2.5 text-amber-500 shrink-0" />
+                ) : (
+                  <Briefcase size={15} className="mr-2.5 text-blue-500 shrink-0" />
+                )}
                 <TruncatedText className="truncate flex-1">
-                  {activeWorkspace ? activeWorkspace.name : "Main Workspace"}
+                  {activeWorkspace ? activeWorkspace.name : "All workspaces"}
                 </TruncatedText>
                 <ChevronDown
                   size={13}
@@ -227,9 +235,28 @@ export default function Sidebar({
                             setIsWorkspaceMenuOpen(false);
                           }}
                         >
-                          <TruncatedText className="truncate block">{ws.name}</TruncatedText>
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            {ws.is_private && (
+                              <Lock
+                                size={11}
+                                className="text-amber-500 shrink-0"
+                              />
+                            )}
+                            <TruncatedText className="truncate block">{ws.name}</TruncatedText>
+                          </span>
                         </div>
                         <div className="hidden group-hover/ws:flex items-center gap-2">
+                          <Users2
+                            size={13}
+                            role="button"
+                            aria-label={`Manage access to ${ws.name}`}
+                            className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMembersModalWs(ws);
+                              setIsWorkspaceMenuOpen(false);
+                            }}
+                          />
                           <Pencil
                             size={13}
                             className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
@@ -407,6 +434,14 @@ export default function Sidebar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {membersModalWs && profile && (
+        <WorkspaceMembersModal
+          workspace={membersModalWs}
+          currentUserId={profile.id}
+          onClose={() => setMembersModalWs(null)}
+        />
+      )}
     </>
   );
 }

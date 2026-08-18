@@ -458,18 +458,17 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
 
       const mentionedIds = Array.from(extractMentionIds(editorJson));
       if (mentionedIds.length > 0) {
-        const notificationsToInsert = mentionedIds.map((id) => ({
-          user_id: id,
+        // Notifying other users goes through notify_users, which authorises the
+        // recipient list server-side; a direct insert is no longer permitted.
+        const { error: notifError } = await supabase.rpc("notify_users", {
+          recipient_ids: mentionedIds,
           message: `${currentUser.name} mentioned you in an update on "${item.name}"`,
-          read: false,
           board_id: item.board_id,
           item_id: item.id,
-        }));
-        const { error: notifError } = await supabase.from("notifications").insert(notificationsToInsert);
+        });
         if (notifError) {
           reportMutationError(notifError, "Failed to send mention notifications", { table: "notifications" });
         } else {
-          console.log("Successfully sent notifications to:", mentionedIds);
           // Send Telegram alert asynchronously
           fetch('/api/telegram/notify', {
             method: 'POST',
@@ -524,14 +523,12 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
 
       const mentionedIds = Array.from(extractMentionIds(editorJson));
       if (mentionedIds.length > 0) {
-        const notificationsToInsert = mentionedIds.map((id) => ({
-          user_id: id,
+        const { error: notifError } = await supabase.rpc("notify_users", {
+          recipient_ids: mentionedIds,
           message: `${currentUser.name} mentioned you in a reply on "${item.name}"`,
-          read: false,
           board_id: item.board_id,
           item_id: item.id,
-        }));
-        const { error: notifError } = await supabase.from("notifications").insert(notificationsToInsert);
+        });
         if (notifError) {
           reportMutationError(notifError, "Failed to send mention notifications", { table: "notifications" });
         } else {

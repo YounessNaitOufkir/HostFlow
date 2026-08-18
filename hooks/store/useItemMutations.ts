@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import type { Board, Item, ItemLink, Profile, Automation, Column } from "@/types";
 import type { BoardStoreDispatch } from "./types";
 import { reportMutationError } from "@/lib/errorReporting";
-import { evaluateEventAutomations, evaluateTimeAutomations } from "@/lib/automations/engine";
+import { evaluateEventAutomations } from "@/lib/automations/engine";
 import { notifyTabSync } from "@/hooks/useRealtimeSync";
 import { toast } from "sonner";
 
@@ -296,13 +296,13 @@ export function useItemMutations({
         });
 
         if (newlyAssigned.length > 0) {
-          const notifications = newlyAssigned.map((userId: string) => ({
-            user_id: userId,
+          // Authorised server-side; see notify_users in stage 3.
+          await supabase.rpc("notify_users", {
+            recipient_ids: newlyAssigned,
             message: `${profile.full_name} assigned you to the task "${itemToUpdate.name}".`,
             board_id: activeBoard.id,
             item_id: itemToUpdate.id,
-          }));
-          await supabase.from("notifications").insert(notifications);
+          });
           
           // Send Telegram alert asynchronously
           fetch('/api/telegram/notify', {
@@ -361,21 +361,15 @@ export function useItemMutations({
           }
         }
 
-        if (
-          columnDef &&
-          (columnDef.type === "date" ||
-            columnDef.type === "timeline" ||
-            columnDef.type === "status")
-        ) {
-          const enrichedBoard = {
-            ...activeBoard,
-            items: currentItems,
-            automations: boardAutomations,
-          } as Board & { items: Item[]; automations: Automation[] };
-          evaluateTimeAutomations(enrichedBoard, [profile], supabase).catch(
-            () => {}
-          );
-        }
+        // Time-based automations deliberately do NOT run here.
+        //
+        // They are owned by /api/cron/automations. This client-side call was
+        // left behind when they moved server-side, and it evaluated EVERY item
+        // on the board on every single cell edit — which is how 74 items were
+        // flipped to Overdue in one burst. It also cannot write notifications
+        // for other users any more, since that now requires notify_users().
+        //
+        // Event-driven automations still run from their own call sites.
 
         notifyTabSync(activeBoard.id);
       } catch (err) {
