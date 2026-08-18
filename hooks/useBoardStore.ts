@@ -5,7 +5,6 @@
 // ============================================================
 //
 // Composes domain-specific hooks from ./store/:
-// - useBoardFetching (workspaces, boards, profile, etc.)
 // - useWorkspaceMutations (create/rename/delete workspace)
 // - useBoardMutations (create/rename/delete/switch board)
 // - useGroupMutations (add/rename/delete group, colors)
@@ -16,7 +15,6 @@
 import { useReducer, useEffect, useCallback } from "react";
 import { usePromptModal } from "@/hooks/usePromptModal";
 import { boardReducer, initialBoardStoreState } from "./store/boardReducer";
-import { useBoardFetching } from "./store/useBoardFetching";
 import { useWorkspaceMutations } from "./store/useWorkspaceMutations";
 import { useBoardMutations } from "./store/useBoardMutations";
 import { useGroupMutations } from "./store/useGroupMutations";
@@ -91,7 +89,6 @@ export function useBoardStore() {
   ]);
 
   // --- Composed Domain Hooks ---
-  const fetching = useBoardFetching(dispatch);
   const workspaceMutations = useWorkspaceMutations({
     dispatch,
     requestPrompt,
@@ -136,13 +133,6 @@ export function useBoardStore() {
   return {
     state,
     dispatch,
-    // Data fetching
-    fetchWorkspaces: fetching.fetchWorkspaces,
-    fetchProfiles: fetching.fetchProfiles,
-    fetchBoards: fetching.fetchBoards,
-    fetchBoardData: fetching.fetchBoardData,
-    fetchGlobalSettings: fetching.fetchGlobalSettings,
-    fetchMyWorkItems: fetching.fetchMyWorkItems,
     // Board navigation
     switchBoard: boardMutations.switchBoard,
     // Column operations
