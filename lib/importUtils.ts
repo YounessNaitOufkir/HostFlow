@@ -104,8 +104,13 @@ export async function executeImport(
     let targetColumns = activeBoardColumns || [];
     let defaultGroupId = "";
 
-    // Pre-fetch profiles for mapping people columns
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name");
+    // Pre-fetch people for mapping the assignee column.
+    //
+    // This must read user_directory, not profiles: profiles is restricted to
+    // your own row (plus the platform owner), so an ordinary import would match
+    // only the importing user and silently leave every other assignee blank.
+    // The same map decides update authorship.
+    const { data: profiles } = await supabase.from("user_directory").select("id, full_name");
     const userMap: Record<string, string> = {};
     if (profiles) {
       profiles.forEach(p => {
