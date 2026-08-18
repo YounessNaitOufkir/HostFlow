@@ -163,7 +163,6 @@ export default function TaskCreateModal({
                       profiles={profiles}
                       boardItems={items}
                       columns={board.columns}
-                      dropdownDirection="down"
                     />
                   </div>
                 </div>

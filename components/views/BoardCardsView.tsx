@@ -161,7 +161,6 @@ export default function BoardCardsView({
                                   profiles={profiles}
                                   boardItems={filteredItems}
                                   columns={columns}
-                                  dropdownDirection="down"
                                 />
                               </div>
                             </div>

@@ -11,7 +11,6 @@ interface PriorityCellProps {
   activeStatusId?: string | null;
   setActiveStatusId?: (id: string | null) => void;
   onUpdate: (itemId: string, columnId: string, value: any) => void;
-  dropdownDirection?: "up" | "down";
 }
 
 const PRIORITY_OPTIONS = [
@@ -22,11 +21,20 @@ const PRIORITY_OPTIONS = [
   { label: "Empty", color: "bg-[#c4c4c4] text-white" },
 ];
 
-export default function PriorityCell({ item, column, activeStatusId, setActiveStatusId, onUpdate, dropdownDirection = "down" }: PriorityCellProps) {
+export default function PriorityCell({ item, column, activeStatusId, setActiveStatusId, onUpdate }: PriorityCellProps) {
   const value = item.column_values?.[column.id] || "Empty";
   const cellKey = `${item.id}-${column.id}`;
   const isOpen = activeStatusId === cellKey;
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [dropdownDirection, setDropdownDirection] = useState<"up" | "down">("down");
+  // Kept true through the exit animation so the popup keeps its stacking
+  // priority (z-50) until it has actually faded out — otherwise it gets
+  // clipped behind the next row the instant `isOpen` flips to false.
+  const [isElevated, setIsElevated] = useState(false);
+  useEffect(() => {
+    if (isOpen) setIsElevated(true);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !setActiveStatusId) return;
@@ -47,13 +55,25 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
   const currentOptions = column.settings?.priorityLabels || PRIORITY_OPTIONS;
   const currentOption = currentOptions.find((o: any) => o.label === value) || currentOptions[currentOptions.length - 1];
 
+  const handleToggle = () => {
+    if (!isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const estimatedHeight = currentOptions.length * 36 + 8;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setDropdownDirection(spaceBelow < estimatedHeight && spaceAbove > spaceBelow ? "up" : "down");
+    }
+    if (setActiveStatusId) setActiveStatusId(isOpen ? null : cellKey);
+  };
+
   return (
-    <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative ${isOpen ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
+    <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative ${isElevated ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <div
+        ref={triggerRef}
         className={`w-full h-full flex items-center justify-center text-white text-sm cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-500 transition-colors ${currentOption.color}`}
         onClick={(e) => {
           e.stopPropagation();
-          if (setActiveStatusId) setActiveStatusId(isOpen ? null : cellKey);
+          handleToggle();
         }}
       >
         <span className="flex items-center">
@@ -65,7 +85,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
         <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
       </div>
 
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={() => setIsElevated(false)}>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
