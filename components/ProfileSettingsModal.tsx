@@ -207,7 +207,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
               <div className="mt-1 inline-flex px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-medium capitalize border border-blue-100 dark:border-blue-500/20">
                 {profile.role || "Member"}
               </div>
-              {profile.role !== "admin" && profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
+              {profile.role !== "admin" && profile.is_owner && (
                 <div className="mt-2.5">
                   <button
                     type="button"

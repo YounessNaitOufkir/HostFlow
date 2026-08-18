@@ -148,7 +148,7 @@ export default function WorkspaceMembersModal({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {isPrivate
                 ? "Private. Only people you add here can see it, administrators included."
-                : "Shared. Administrators can see this workspace without being added."}
+                : "Shared. Everyone on the team can see this workspace already, so there is nobody to invite."}
             </p>
 
             <button
@@ -194,6 +194,12 @@ export default function WorkspaceMembersModal({
         )}
 
         <div className="p-3 overflow-y-auto">
+          {!isPrivate && !loading && (
+            <p className="px-2 pb-3 text-xs text-gray-500 dark:text-gray-400">
+              Everyone below can already open this workspace. Switch it to private
+              if you want to choose who sees it.
+            </p>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-10 text-gray-400">
               <Loader2 size={18} className="animate-spin" />
@@ -223,32 +229,40 @@ export default function WorkspaceMembersModal({
                     {isSelf && <span className="text-gray-400 text-xs"> (you)</span>}
                   </TruncatedText>
 
-                  <button
-                    disabled={busyId === u.id || isSelf}
-                    onClick={() => toggle(u.id, isMember)}
-                    title={
-                      isSelf
-                        ? "You always have access to workspaces you create"
-                        : undefined
-                    }
-                    className={`text-xs font-medium px-2.5 py-1 rounded-md border transition-colors shrink-0 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isMember
-                        ? "border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                        : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 hover:border-blue-300 hover:text-blue-600"
-                    }`}
-                  >
-                    {busyId === u.id ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : isMember ? (
-                      <>
-                        <Check size={12} /> Has access
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus size={12} /> Invite
-                      </>
-                    )}
-                  </button>
+                  {/* On a shared workspace everyone already has access, so there
+                      is nothing to grant — show state rather than an action. */}
+                  {!isPrivate ? (
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-md border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 shrink-0 flex items-center gap-1">
+                      <Check size={12} /> Has access
+                    </span>
+                  ) : (
+                    <button
+                      disabled={busyId === u.id || isSelf}
+                      onClick={() => toggle(u.id, isMember)}
+                      title={
+                        isSelf
+                          ? "You always have access to workspaces you create"
+                          : undefined
+                      }
+                      className={`text-xs font-medium px-2.5 py-1 rounded-md border transition-colors shrink-0 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        isMember
+                          ? "border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                          : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 hover:border-blue-300 hover:text-blue-600"
+                      }`}
+                    >
+                      {busyId === u.id ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : isMember ? (
+                        <>
+                          <Check size={12} /> Has access
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus size={12} /> Invite
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               );
             })
