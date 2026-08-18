@@ -104,6 +104,15 @@ export default function Sidebar({
   // board as soon as activeBoard becomes null.
   const isBoardOpen = (boardId: string) =>
     activeBoard?.id === boardId && mainView === "board";
+
+  // Mirrors can_manage_workspace() in the database. You can see a private
+  // workspace you hold a board grant inside, but you cannot rename or delete it
+  // — so offering those buttons produced a delete that silently did nothing and
+  // looked like it had worked. A global admin role is not enough on its own;
+  // private workspaces belong to whoever created them.
+  const canManageWorkspace = (ws: Workspace) =>
+    ws.created_by === profile?.id ||
+    (!ws.is_private && profile?.role === "admin");
   const workspacePickerRef = useRef<HTMLDivElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
@@ -264,23 +273,29 @@ export default function Sidebar({
                               setIsWorkspaceMenuOpen(false);
                             }}
                           />
-                          <Pencil
-                            size={13}
-                            className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRenameWorkspace(ws);
-                            }}
-                          />
-                          {profile?.role === "admin" && (
-                            <Trash2
-                              size={13}
-                              className="text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteWorkspace(ws);
-                              }}
-                            />
+                          {canManageWorkspace(ws) && (
+                            <>
+                              <Pencil
+                                size={13}
+                                role="button"
+                                aria-label={`Rename ${ws.name}`}
+                                className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRenameWorkspace(ws);
+                                }}
+                              />
+                              <Trash2
+                                size={13}
+                                role="button"
+                                aria-label={`Delete ${ws.name}`}
+                                className="text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteWorkspace(ws);
+                                }}
+                              />
+                            </>
                           )}
                         </div>
                       </div>
