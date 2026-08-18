@@ -22,18 +22,13 @@ export default function EmptyState({ profile, onCreateWorkspace }: EmptyStatePro
     const handleRequestAccess = async () => {
         setRequesting(true);
         try {
-            // Find admins
-            const { data: admins } = await supabase.from("profiles").select("id").eq("role", "admin");
-            if (admins && admins.length > 0) {
-                // Send a notification to all admins
-                const notifications = admins.map((admin: any) => ({
-                    user_id: admin.id,
-                    message: `${profile.full_name} is requesting access to a workspace.`,
-                }));
-                await supabase.from("notifications").insert(notifications);
+            // Notifying admins requires reading their rows and writing rows they
+            // own, so it runs server-side in request_workspace_access().
+            const { error } = await supabase.rpc("request_workspace_access");
+            if (!error) {
                 showToast("Request sent successfully! An admin will review it shortly.", "success");
             } else {
-                showToast("No admins found in the system to notify.", "error");
+                showToast("Could not send your request. Please try again.", "error");
             }
         } catch (err) {
             reportMutationError(err, "Failed to send access request", { table: "notifications", operation: "insert" });

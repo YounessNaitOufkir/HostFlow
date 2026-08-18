@@ -82,6 +82,8 @@ export interface Workspace {
   icon?: string | null;
   created_at: string;
   is_private?: boolean;
+  /** Creator of the workspace. Owns it outright when it is private. */
+  created_by?: string | null;
 }
 
 export interface Profile {

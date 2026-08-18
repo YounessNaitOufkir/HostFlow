@@ -41,7 +41,8 @@ export function useBoardFetching(dispatch: BoardStoreDispatch) {
 
   const fetchProfiles = useCallback(async () => {
     try {
-      const { data } = await supabase.from("profiles").select("*");
+      // See useGlobalQueries: names come from the directory view, not profiles.
+      const { data } = await supabase.from("user_directory").select("*");
       if (data) dispatch({ type: "SET_PROFILES", payload: data });
     } catch (err) {
       reportFetchError(err, "Failed to load team profiles", {

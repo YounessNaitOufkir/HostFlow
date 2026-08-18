@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { validateNewPassword } from "@/lib/passwordSecurity";
 import { useRouter } from "next/navigation";
 import { Loader2, MailCheck, ArrowLeft, Hexagon } from "lucide-react";
 import DotField from './DotField';
@@ -32,6 +33,16 @@ export default function LoginPage() {
         if (error) throw error;
         setIsPasswordResetPending(true);
       } else if (isSignUp) {
+        // Reject known-breached passwords. Supabase offers this natively only on
+        // paid plans, so we check against Have I Been Pwned ourselves; the
+        // password never leaves the browser (see lib/passwordSecurity.ts).
+        const problem = await validateNewPassword(password);
+        if (problem?.blocking) {
+          setError(problem.message);
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -44,24 +55,10 @@ export default function LoginPage() {
         });
         if (error) throw error;
 
-        if (data?.user) {
-          await supabase.from("profiles").upsert({
-            id: data.user.id,
-            email: email,
-            full_name: `${firstName} ${lastName}`.trim(),
-            is_onboarded: false,
-            role: "contractor",
-          });
-
-          const { data: admins } = await supabase.from("profiles").select("id").eq("role", "admin");
-          if (admins && admins.length > 0) {
-            const notifications = admins.map((admin: any) => ({
-              user_id: admin.id,
-              message: `New user ${firstName} ${lastName} (${email}) has signed up and is waiting for workspace access.`,
-            }));
-            await supabase.from("notifications").insert(notifications);
-          }
-        }
+        // The profile row, the user's private personal workspace, and the
+        // notification to admins are all created by the handle_new_user trigger.
+        // Doing any of it here would require the client to write other users'
+        // rows, and would race with the trigger.
 
         setIsVerificationPending(true);
       } else {

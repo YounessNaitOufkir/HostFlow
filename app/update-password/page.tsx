@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { validateNewPassword } from "@/lib/passwordSecurity";
 import { Loader2 } from "lucide-react";
 
 const memes = [
@@ -28,6 +29,15 @@ export default function UpdatePasswordPage() {
     setLoading(true);
     setError(null);
     try {
+      // Same breach check as signup — a reset must not be a way to set a
+      // password that would be rejected at registration.
+      const problem = await validateNewPassword(password);
+      if (problem?.blocking) {
+        setError(problem.message);
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setSuccess(true);
