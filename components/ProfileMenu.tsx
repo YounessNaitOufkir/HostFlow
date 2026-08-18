@@ -91,7 +91,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                   Admin Settings
                 </div>
               )}
-              {profile.role !== "admin" && profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
+              {profile.role !== "admin" && profile.is_owner && (
                 <div 
                   onClick={handleRestoreAdmin}
                   className="flex items-center px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-md cursor-pointer transition-colors font-semibold border border-amber-200 dark:border-amber-800/50 my-1"

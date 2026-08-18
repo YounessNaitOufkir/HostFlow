@@ -95,6 +95,10 @@ export interface Profile {
   avatar_url?: string;
   is_onboarded?: boolean;
   role?: UserRole;
+  /** Exactly one profile carries this. Cannot be demoted. */
+  is_owner?: boolean;
+  /** Company member: sees every shared workspace without being invited. */
+  is_staff?: boolean;
   allowed_boards?: string[];
   telegram_chat_id?: string | null;
   telegram_notifications_enabled?: boolean;

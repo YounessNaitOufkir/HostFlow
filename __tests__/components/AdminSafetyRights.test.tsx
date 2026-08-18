@@ -10,6 +10,9 @@ describe("Admin Rights & Platform Owner Safety Protection — Batch 4.4", () => 
     email: "younessnaitoufkir@gmail.com",
     full_name: "Youness Owner",
     role: "member", // testing recovery state when role wasn't admin
+    // Ownership is carried by this flag, not by matching the email. The admin
+    // screens read user_directory, which has no email column at all.
+    is_owner: true,
     avatar_initials: "YO", color: "bg-blue-500" };
 
   const regularUserProfile: Profile = {

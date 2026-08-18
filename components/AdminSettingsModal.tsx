@@ -121,10 +121,41 @@ export default function AdminSettingsModal({
   const { profiles, workspaces, boards, workspaceMembers, boardMembers } = adminData;
   const [savingId, setSavingId] = useState<string | null>(null);
 
+  // Team members see every shared workspace without being invited; externals see
+  // only what they create and what they are explicitly given.
+  const handleStaffChange = async (profileId: string, staff: boolean) => {
+    setSavingId(profileId);
+    try {
+      const { error } = await supabase.rpc("set_user_staff", {
+        target_user_id: profileId,
+        staff,
+      });
+      if (error) throw error;
+      queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          profiles: old.profiles.map((p: Profile) =>
+            p.id === profileId ? { ...p, is_staff: staff } : p
+          ),
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles() });
+    } catch (err) {
+      reportMutationError(err, "Failed to change team membership. Are you a global admin?", {
+        table: "profiles",
+        operation: "rpc",
+      });
+    }
+    setSavingId(null);
+  };
+
   const handleRoleChange = async (profileId: string, newRole: string) => {
     const targetProfile = profiles.find((p) => p.id === profileId);
-    if (targetProfile?.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && newRole !== "admin") {
-      alert("Action Blocked: The platform owner account (younessnaitoufkir@gmail.com) can never be demoted from Administrator.");
+    // is_owner, not the email: this list comes from user_directory, which has no
+    // email column, so an email comparison here is always false.
+    if (targetProfile?.is_owner && newRole !== "admin") {
+      alert("Action Blocked: The platform owner can never be demoted from Administrator.");
       return;
     }
     if (targetProfile?.role === "admin" && newRole !== "admin") {
@@ -405,29 +436,52 @@ export default function AdminSettingsModal({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <TruncatedText as="h3" className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</TruncatedText>
-                              {profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
+                              {profile.is_owner && (
                                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-md border border-amber-300 dark:border-amber-500/30">
                                   Owner
                                 </span>
                               )}
                             </div>
-                            <TruncatedText as="p" className="text-xs text-gray-500 dark:text-gray-400 truncate">{profile.email}</TruncatedText>
+                            {/* Email is deliberately not available here: this list
+                                comes from user_directory, which never exposes it. */}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {profile.is_staff
+                                ? "Team member"
+                                : "External — sees only what they are given"}
+                            </p>
                           </div>
                         </div>
                         
                         <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-slate-700/50">
-                          <select
-                            value={profile.role || "member"}
-                            onChange={(e) => handleRoleChange(profile.id, e.target.value)}
-                            disabled={profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com"}
-                            title={profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" ? "Platform Owner role cannot be changed" : undefined}
-                            className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            <option value="admin">Administrator</option>
-                            <option value="manager">Manager</option>
-                            <option value="member">Member</option>
-                            <option value="viewer">Viewer</option>
-                          </select>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={profile.role || "member"}
+                              onChange={(e) => handleRoleChange(profile.id, e.target.value)}
+                              disabled={!!profile.is_owner}
+                              title={profile.is_owner ? "Platform Owner role cannot be changed" : undefined}
+                              className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              <option value="admin">Administrator</option>
+                              <option value="member">Member</option>
+                            </select>
+
+                            <button
+                              onClick={() => handleStaffChange(profile.id, !profile.is_staff)}
+                              disabled={!!profile.is_owner || savingId === profile.id}
+                              title={
+                                profile.is_owner
+                                  ? "The platform owner is always a team member"
+                                  : "Team members see every shared workspace without being invited"
+                              }
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                                profile.is_staff
+                                  ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800"
+                                  : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-slate-900 dark:text-gray-400 dark:border-slate-700"
+                              }`}
+                            >
+                              {profile.is_staff ? "Team" : "External"}
+                            </button>
+                          </div>
 
                           <button 
                             onClick={() => handleManagePermissions(profile.id)}
