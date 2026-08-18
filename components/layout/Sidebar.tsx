@@ -41,7 +41,7 @@ interface SidebarProps {
   onCreateBoard: () => void;
   onRenameBoard: (board: Board) => void;
   onDeleteBoard: (board: Board) => void;
-  onSelectWorkspace: (ws: Workspace) => void;
+  onSelectWorkspace: (ws: Workspace | null) => void;
   onRenameWorkspace: (ws: Workspace) => void;
   onDeleteWorkspace: (ws: Workspace) => void;
   onCreateWorkspace: () => void;
@@ -151,7 +151,17 @@ export default function Sidebar({
           <div className="w-8 border-t border-white/10 my-1"></div>
           <Tooltip content="My Work" side="right">
             <SpringButton
-              onClick={() => onSetMainView(mainView === "my_work" ? "board" : "my_work")}
+              // Toggling out of My Work went to "board" unconditionally, which
+              // strands the user on "Loading board..." when no board is open.
+              onClick={() =>
+                onSetMainView(
+                  mainView === "my_work"
+                    ? activeBoard
+                      ? "board"
+                      : "workspace_overview"
+                    : "my_work"
+                )
+              }
               className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
                 mainView === "my_work"
                   ? "bg-white/15 text-white shadow-inner"
@@ -238,6 +248,25 @@ export default function Sidebar({
                       className="absolute top-full left-0 w-full dropdown-menu rounded-t-none z-50 shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50"
                       onClick={(e) => e.stopPropagation()}
                     >
+                    {/* The header reads "All workspaces" when none is selected,
+                        but nothing could put you back into that state once you
+                        had picked one. This is the way back. */}
+                    <div
+                      className={`px-4 py-2.5 cursor-pointer text-[13px] border-b border-gray-100 dark:border-slate-700/50 transition-colors ${
+                        activeWorkspace
+                          ? "hover:bg-gray-50 dark:hover:bg-white/[0.04] text-gray-700 dark:text-gray-300"
+                          : "bg-[#cce5ff] dark:bg-blue-900/30 font-medium text-blue-700 dark:text-blue-300"
+                      }`}
+                      onClick={() => {
+                        onSelectWorkspace(null);
+                        setIsWorkspaceMenuOpen(false);
+                      }}
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <LayoutGrid size={11} className="shrink-0 opacity-70" />
+                        All workspaces
+                      </span>
+                    </div>
                     {workspaces.map((ws) => (
                       <div
                         key={ws.id}

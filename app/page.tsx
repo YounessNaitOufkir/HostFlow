@@ -14,7 +14,7 @@
 // Previously: 1,368 lines with ~30 useState calls and all logic inline.
 // ============================================================
 
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { DropResult } from "@hello-pangea/dnd";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -35,7 +35,7 @@ import {
 import { useBoardDataQuery } from "@/hooks/queries/useBoardDataQuery";
 import { supabase } from "@/lib/supabase";
 import { readNavState, writeNavState, clearLegacyNavKeys, isBoardIndependentView } from "@/lib/navState";
-import type { Board } from "@/types";
+import type { Board, Workspace } from "@/types";
 
 import { duplicateBoard, duplicateWorkspace } from "@/lib/templateUtils";
 import { executeImport } from "@/lib/importUtils";
@@ -221,10 +221,24 @@ export default function MondayClone() {
   }, [profilesData, dispatch]);
 
   const { data: boardsData, isLoading: boardsLoading } = useBoardsQuery(!authLoading);
+
+  // Which user we have already restored the saved location for.
+  //
+  // Restoring is a once-per-sign-in event, but this effect also has to re-run
+  // whenever the board list changes. Without this guard it treated "no active
+  // board" as "just signed in" and restored the saved location again — so
+  // every deliberate move AWAY from a board (picking another workspace, or
+  // opening Workspace Overview or the Master Gantt, all of which clear the
+  // active board) was immediately undone and the old board came back.
+  const restoredForUser = useRef<string | null>(null);
+
   useEffect(() => {
     if (boardsData && boardsData.length > 0) {
       dispatch({ type: "SET_BOARDS", payload: boardsData });
-      if (!state.activeBoard) {
+      const isFirstLoadForThisUser =
+        !!profile?.id && restoredForUser.current !== profile.id;
+      if (isFirstLoadForThisUser && !state.activeBoard) {
+        restoredForUser.current = profile!.id;
         const saved = readNavState(profile?.id);
         const savedBoard = saved?.boardId
           ? boardsData.find((b) => b.id === saved.boardId) || null
@@ -265,7 +279,9 @@ export default function MondayClone() {
                 : "workspace_overview") as any,
           });
         }
-      } else {
+      } else if (state.activeBoard) {
+        // Not a restore — just keep the open board's object in sync with the
+        // refreshed list.
         const updated = boardsData.find((b) => b.id === state.activeBoard?.id);
         if (updated) dispatch({ type: "SET_ACTIVE_BOARD", payload: updated });
       }
@@ -276,6 +292,32 @@ export default function MondayClone() {
       dispatch({ type: "SET_LOADING", payload: false });
     }
   }, [boardsData, boardsLoading, state.activeBoard?.id, state.activeWorkspace?.id, dispatch, profile?.id]);
+
+  /**
+   * Picking a workspace always means "show me this workspace" — it lands on
+   * that workspace's overview and closes whatever board was open.
+   *
+   * Previously it set the workspace and nothing else, so the board from the
+   * workspace you just left stayed on screen until you happened to click a
+   * board in the new one.
+   *
+   * This is deliberately unconditional, including when the open board belongs
+   * to the workspace being picked. The sidebar clears the active board on this
+   * click regardless, so a "keep the board" exception would leave a cleared
+   * board with mainView still "board" — which renders the endless
+   * "Loading board..." state rather than the board it meant to keep.
+   *
+   * Passing null is the "All workspaces" case and lands on the same overview
+   * showing every workspace.
+   */
+  const selectWorkspace = useCallback(
+    (ws: Workspace | null) => {
+      dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: ws });
+      dispatch({ type: "SET_ACTIVE_BOARD", payload: null });
+      dispatch({ type: "SET_MAIN_VIEW", payload: "workspace_overview" });
+    },
+    [dispatch]
+  );
 
   // Remember where this user is, so the next sign-in continues rather than
   // restarting. Keyed by user id, so one account never inherits another's
@@ -555,7 +597,7 @@ export default function MondayClone() {
         onRenameBoard={store.renameBoard}
         onDeleteBoard={store.deleteBoard}
         onNotificationClick={navigateToItem}
-        onSelectWorkspace={(ws) => dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: ws })}
+        onSelectWorkspace={selectWorkspace}
         onRenameWorkspace={store.renameWorkspace}
         onDeleteWorkspace={store.deleteWorkspace}
         onCreateWorkspace={() => store.createWorkspace(profile)}
@@ -612,7 +654,7 @@ export default function MondayClone() {
                 store.switchBoard(board);
               }
             }}
-            onSelectWorkspace={(ws) => dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: ws })}
+            onSelectWorkspace={selectWorkspace}
             onCreateBoard={() => store.createBoard(state.activeWorkspace?.id, profile)}
             onCreateWorkspace={() => store.createWorkspace(profile)}
             onImportData={() => setShowImportModal(true)}

@@ -25,7 +25,7 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Workspaces Overview
           </h1>
-          <p className="text-gray-500 dark:text-gray-400">Select a workspace to view its boards and projects.</p>
+          <p className="text-gray-500 dark:text-gray-400">Every workspace you have access to, and the boards inside them.</p>
         </div>
 
         {/* Content */}
@@ -49,23 +49,61 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {workspaces.map((ws) => (
-                  <div
-                    key={ws.id}
-                    onClick={() => onSelectWorkspace(ws)}
-                    className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform">
-                        <LayoutGrid size={20} />
+              /* Each workspace with the boards it contains, so this is somewhere
+                 you can actually get work from rather than a list of names that
+                 costs a click before it tells you anything. */
+              <div className="space-y-8">
+                {workspaces.map((ws) => {
+                  const wsBoards = boards.filter((b) => b.workspace_id === ws.id);
+                  return (
+                    <section key={ws.id}>
+                      <div className="flex items-center justify-between mb-3">
+                        <button
+                          onClick={() => onSelectWorkspace(ws)}
+                          className="flex items-center gap-2 min-w-0 group text-left"
+                        >
+                          <span className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:scale-105 transition-transform">
+                            <LayoutGrid size={16} />
+                          </span>
+                          <h3 className="font-semibold text-gray-800 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            <TruncatedText className="truncate block">{ws.name}</TruncatedText>
+                          </h3>
+                        </button>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 ml-3">
+                          {wsBoards.length} {wsBoards.length === 1 ? "board" : "boards"}
+                        </span>
                       </div>
-                    </div>
-                    <h3 className="font-semibold text-gray-800 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                      <TruncatedText className="truncate block">{ws.name}</TruncatedText>
-                    </h3>
-                  </div>
-                ))}
+
+                      {wsBoards.length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-slate-700 rounded-xl px-4 py-5">
+                          No boards in this workspace yet.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {wsBoards.map((board) => (
+                            <div
+                              key={board.id}
+                              onClick={() => onSelectBoard(board)}
+                              className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-all cursor-pointer group"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
+                                  <LayoutGrid size={20} />
+                                </div>
+                              </div>
+                              <h3 className="font-semibold text-gray-800 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                <TruncatedText className="truncate block">{board.name}</TruncatedText>
+                              </h3>
+                              <TruncatedText as="p" className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {board.description || "No description"}
+                              </TruncatedText>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
               </div>
             )}
           </div>
