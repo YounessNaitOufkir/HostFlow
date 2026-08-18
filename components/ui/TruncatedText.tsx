@@ -77,40 +77,50 @@ export function useTruncationTooltip<T extends HTMLElement>(
   const tooltip =
     mounted && coords && content
       ? createPortal(
-          <AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.12, ease: "easeOut" }}
-              style={{
-                position: "fixed",
-                top: coords.top,
-                left: coords.left,
-                transform: `translate(-50%, ${coords.placement === "top" ? "-100%" : "0"})`,
-                maxWidth: "min(28rem, calc(100vw - 2rem))",
-              }}
-              // Its own surface, not the icon-rail one: a charcoal card with a
-              // pointer, sized for reading a full value rather than a two-word
-              // hint. Long values wrap instead of running off-screen.
-              className={
-                "relative z-[100] px-3 py-1.5 rounded text-[13px] font-medium leading-relaxed " +
-                "shadow-lg pointer-events-none whitespace-pre-wrap break-words " +
-                "bg-[#323338] text-white dark:bg-white dark:text-[#323338]"
-              }
-            >
-              {content}
-              {/* Arrow pointing at the element the text belongs to */}
-              <span
-                aria-hidden="true"
+          // Positioning and animation are split across two elements on purpose.
+          // framer-motion animates `scale`, which it applies by writing
+          // `transform` — the same property the translate below needs to lift
+          // the card above the text. When both lived on one element the
+          // animation won, the translate was dropped, and the tooltip rendered
+          // from its top-left corner: beside the text instead of over it.
+          <div
+            style={{
+              position: "fixed",
+              top: coords.top,
+              left: coords.left,
+              transform: `translate(-50%, ${coords.placement === "top" ? "-100%" : "0"})`,
+              maxWidth: "min(28rem, calc(100vw - 2rem))",
+            }}
+            className="z-[100] pointer-events-none"
+          >
+            <AnimatePresence>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
+                // Its own surface, not the icon-rail one: a charcoal card with a
+                // pointer, sized for reading a full value rather than a two-word
+                // hint. Long values wrap instead of running off-screen.
                 className={
-                  "absolute left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 z-[-1] " +
-                  "bg-[#323338] dark:bg-white " +
-                  (coords.placement === "top" ? "-bottom-[4px]" : "-top-[4px]")
+                  "relative px-3 py-1.5 rounded text-[13px] font-medium leading-relaxed " +
+                  "shadow-lg whitespace-pre-wrap break-words " +
+                  "bg-[#323338] text-white dark:bg-white dark:text-[#323338]"
                 }
-              />
-            </motion.div>
-          </AnimatePresence>,
+              >
+                {content}
+                {/* Arrow pointing at the element the text belongs to */}
+                <span
+                  aria-hidden="true"
+                  className={
+                    "absolute left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 z-[-1] " +
+                    "bg-[#323338] dark:bg-white " +
+                    (coords.placement === "top" ? "-bottom-[4px]" : "-top-[4px]")
+                  }
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>,
           document.body
         )
       : null;
