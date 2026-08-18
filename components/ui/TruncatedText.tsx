@@ -3,7 +3,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { TOOLTIP_SURFACE_CLASS } from "./Tooltip";
+// Deliberately does not import the icon-rail tooltip surface: the two styles are
+// intentionally different and must not be re-unified.
 
 type Side = "top" | "bottom";
 
@@ -89,10 +90,25 @@ export function useTruncationTooltip<T extends HTMLElement>(
                 transform: `translate(-50%, ${coords.placement === "top" ? "-100%" : "0"})`,
                 maxWidth: "min(28rem, calc(100vw - 2rem))",
               }}
-              // Long values wrap instead of running off-screen as a single strip
-              className={`${TOOLTIP_SURFACE_CLASS} whitespace-pre-wrap break-words leading-relaxed`}
+              // Its own surface, not the icon-rail one: a charcoal card with a
+              // pointer, sized for reading a full value rather than a two-word
+              // hint. Long values wrap instead of running off-screen.
+              className={
+                "relative z-[100] px-3 py-1.5 rounded text-[13px] font-medium leading-relaxed " +
+                "shadow-lg pointer-events-none whitespace-pre-wrap break-words " +
+                "bg-[#323338] text-white dark:bg-white dark:text-[#323338]"
+              }
             >
               {content}
+              {/* Arrow pointing at the element the text belongs to */}
+              <span
+                aria-hidden="true"
+                className={
+                  "absolute left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 z-[-1] " +
+                  "bg-[#323338] dark:bg-white " +
+                  (coords.placement === "top" ? "-bottom-[4px]" : "-top-[4px]")
+                }
+              />
             </motion.div>
           </AnimatePresence>,
           document.body
