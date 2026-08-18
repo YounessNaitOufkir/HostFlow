@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Board } from "@/types";
 import { useWorkspaceGanttData } from "@/hooks/useWorkspaceGanttData";
 import GanttView from "./GanttView";
-import { Check, LayoutList } from "lucide-react";
+import { Check, LayoutList, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { GanttSkeleton } from "@/components/skeletons/GanttSkeleton";
 
 interface WorkspaceGanttViewProps {
@@ -19,6 +19,32 @@ export default function WorkspaceGanttView({ allBoards }: WorkspaceGanttViewProp
   );
 
   const { loading, items, groups, itemLinks } = useWorkspaceGanttData(Array.from(selectedBoardIds));
+
+  // Collapsing is a preference, so it survives navigation and reloads rather
+  // than resetting every time the Master Gantt is opened.
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      setIsPanelCollapsed(
+        localStorage.getItem("hostflow_master_gantt_panel_collapsed") === "1"
+      );
+    } catch {}
+  }, []);
+
+  const togglePanel = () => {
+    setIsPanelCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(
+          "hostflow_master_gantt_panel_collapsed",
+          next ? "1" : "0"
+        );
+      } catch {}
+      return next;
+    });
+  };
 
   const toggleBoard = (id: string) => {
     const next = new Set(selectedBoardIds);
@@ -49,15 +75,62 @@ export default function WorkspaceGanttView({ allBoards }: WorkspaceGanttViewProp
 
   return (
     <div className="flex h-full w-full bg-white dark:bg-[#181b34]">
-      {/* Board Selector Sidebar */}
-      <div className="w-64 shrink-0 border-r border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex flex-col z-20 shadow-[2px_0_10px_rgba(0,0,0,0.05)] dark:shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
-        <div className="p-4 border-b border-gray-200 dark:border-slate-800">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <LayoutList size={16} />
-            Included Boards
-          </h3>
+      {/* Board Selector Sidebar. Collapses to a narrow rail so the chart can use
+          the full width; the toggle stays reachable in both states. */}
+      <div
+        className={`${
+          isPanelCollapsed ? "w-12" : "w-64"
+        } shrink-0 border-r border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex flex-col z-20 shadow-[2px_0_10px_rgba(0,0,0,0.05)] dark:shadow-[2px_0_10px_rgba(0,0,0,0.5)] transition-[width] duration-200`}
+      >
+        <div
+          className={`border-b border-gray-200 dark:border-slate-800 flex items-center ${
+            isPanelCollapsed ? "justify-center p-3" : "justify-between p-4"
+          }`}
+        >
+          {!isPanelCollapsed && (
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2 min-w-0">
+              <LayoutList size={16} className="shrink-0" />
+              <span className="truncate">Included Boards</span>
+            </h3>
+          )}
+          <button
+            type="button"
+            onClick={togglePanel}
+            aria-expanded={!isPanelCollapsed}
+            aria-label={
+              isPanelCollapsed ? "Show included boards" : "Hide included boards"
+            }
+            title={
+              isPanelCollapsed ? "Show included boards" : "Hide included boards"
+            }
+            className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors shrink-0"
+          >
+            {isPanelCollapsed ? (
+              <PanelLeftOpen size={16} />
+            ) : (
+              <PanelLeftClose size={16} />
+            )}
+          </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+
+        {isPanelCollapsed && (
+          // Keep the selection legible while collapsed, so it is obvious the
+          // chart is filtered rather than simply empty.
+          <div className="flex-1 flex flex-col items-center pt-3 gap-1">
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+              {selectedBoardIds.size}
+            </span>
+            <span className="text-[9px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              of {allBoards.length}
+            </span>
+          </div>
+        )}
+
+        <div
+          className={`flex-1 overflow-y-auto p-2 space-y-1 ${
+            isPanelCollapsed ? "hidden" : ""
+          }`}
+        >
           {allBoards.length === 0 ? (
             <div className="p-4 text-xs text-gray-500 text-center">No boards in workspace</div>
           ) : (
