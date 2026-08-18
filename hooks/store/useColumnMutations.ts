@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import type { Board, Column, ColumnType } from "@/types";
 import type { BoardStoreDispatch } from "./types";
 import { getDefaultTitle } from "@/lib/columnRegistry";
-import { reportMutationError } from "@/lib/errorReporting";
+import { runWrite } from "@/lib/errorReporting";
 
 interface UseColumnMutationsProps {
   dispatch: BoardStoreDispatch;
@@ -20,17 +20,16 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
       const updatedColumns = [...currentColumns, newColumn];
       const updatedBoard = { ...activeBoard, columns: updatedColumns };
       dispatch({ type: "UPDATE_BOARD", payload: updatedBoard });
-      try {
-        await supabase
+      await runWrite(
+        supabase
           .from("boards")
           .update({ columns: updatedColumns })
-          .eq("id", activeBoard.id);
-      } catch (err) {
-        reportMutationError(err, "Failed to add column", {
+          .eq("id", activeBoard.id),
+        "Failed to add column", {
           table: "boards",
           operation: "update",
-        });
-      }
+        }
+      );
     },
     [dispatch]
   );
@@ -44,17 +43,16 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
         type: "UPDATE_BOARD",
         payload: { ...activeBoard, columns: updatedColumns },
       });
-      try {
-        await supabase
+      await runWrite(
+        supabase
           .from("boards")
           .update({ columns: updatedColumns })
-          .eq("id", activeBoard.id);
-      } catch (err) {
-        reportMutationError(err, "Failed to rename column", {
+          .eq("id", activeBoard.id),
+        "Failed to rename column", {
           table: "boards",
           operation: "update",
-        });
-      }
+        }
+      );
     },
     [dispatch]
   );
@@ -68,17 +66,16 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
         type: "UPDATE_BOARD",
         payload: { ...activeBoard, columns: updatedColumns },
       });
-      try {
-        await supabase
+      await runWrite(
+        supabase
           .from("boards")
           .update({ columns: updatedColumns })
-          .eq("id", activeBoard.id);
-      } catch (err) {
-        reportMutationError(err, "Failed to resize column", {
+          .eq("id", activeBoard.id),
+        "Failed to resize column", {
           table: "boards",
           operation: "update",
-        });
-      }
+        }
+      );
     },
     [dispatch]
   );
@@ -94,17 +91,16 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
         type: "UPDATE_BOARD",
         payload: { ...activeBoard, columns: updatedColumns },
       });
-      try {
-        await supabase
+      await runWrite(
+        supabase
           .from("boards")
           .update({ columns: updatedColumns })
-          .eq("id", activeBoard.id);
-      } catch (err) {
-        reportMutationError(err, "Failed to delete column", {
+          .eq("id", activeBoard.id),
+        "Failed to delete column", {
           table: "boards",
           operation: "update",
-        });
-      }
+        }
+      );
     },
     [dispatch]
   );
@@ -118,17 +114,16 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
         type: "UPDATE_BOARD",
         payload: { ...activeBoard, columns: cols },
       });
-      try {
-        await supabase
+      await runWrite(
+        supabase
           .from("boards")
           .update({ columns: cols })
-          .eq("id", activeBoard.id);
-      } catch (err) {
-        reportMutationError(err, "Failed to reorder columns", {
+          .eq("id", activeBoard.id),
+        "Failed to reorder columns", {
           table: "boards",
           operation: "update",
-        });
-      }
+        }
+      );
     },
     [dispatch]
   );

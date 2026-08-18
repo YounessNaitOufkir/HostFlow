@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Board, Item, ItemLink, Profile, Automation, Column } from "@/types";
 import type { BoardStoreDispatch } from "./types";
-import { reportMutationError } from "@/lib/errorReporting";
+import { reportMutationError, runWrite } from "@/lib/errorReporting";
 import { evaluateEventAutomations } from "@/lib/automations/engine";
 import { notifyTabSync } from "@/hooks/useRealtimeSync";
 import { toast } from "sonner";
@@ -132,13 +132,17 @@ export function useItemMutations({
                       column_values: originalValues,
                     };
                     dispatch({ type: "UPDATE_ITEM", payload: revertedItem });
-                    await supabase
-                      .from("items")
-                      .update({
-                        group_id: originalGroupId,
-                        column_values: originalValues,
-                      })
-                      .eq("id", itemId);
+                    await runWrite(
+                      supabase
+                        .from("items")
+                        .update({
+                          group_id: originalGroupId,
+                          column_values: originalValues,
+                        })
+                        .eq("id", itemId),
+                      "Failed to revert the automation",
+                      { table: "items", operation: "update", itemId }
+                    );
                     toast.info(`↩️ Reverted automation on "${itemToUpdate.name}".`);
                   },
                 },
@@ -278,10 +282,14 @@ export function useItemMutations({
                           for (const { id, item } of originalState) {
                             if (!item) continue;
                             dispatch({ type: "UPDATE_ITEM", payload: item });
-                            await supabase
-                              .from("items")
-                              .update({ column_values: item.column_values })
-                              .eq("id", id);
+                            await runWrite(
+                              supabase
+                                .from("items")
+                                .update({ column_values: item.column_values })
+                                .eq("id", id),
+                              "Failed to revert the timeline shift",
+                              { table: "items", operation: "update", itemId: id }
+                            );
                           }
                           toast.info(`↩️ Reverted timeline shift automation.`);
                         },
@@ -297,12 +305,18 @@ export function useItemMutations({
         const colName =
           activeBoard.columns.find((c) => c.id === columnId)?.title || columnId;
         const oldValue = existingValues[columnId] || "Empty";
-        await supabase.from("activity_logs").insert({
-          item_id: itemId,
-          board_id: activeBoard.id,
-          user_id: profile.id,
-          action: `Changed "${colName}" from "${oldValue}" to "${newValue}"`,
-        });
+        // The audit trail is only as good as this write; losing it silently is
+        // very likely why activity_logs is close to empty.
+        await runWrite(
+          supabase.from("activity_logs").insert({
+            item_id: itemId,
+            board_id: activeBoard.id,
+            user_id: profile.id,
+            action: `Changed "${colName}" from "${oldValue}" to "${newValue}"`,
+          }),
+          "Change saved, but it could not be recorded in the activity log",
+          { table: "activity_logs", operation: "insert", itemId }
+        );
 
         if (newlyAssigned.length > 0) {
           // Authorised server-side; see notify_users in stage 3.
@@ -692,7 +706,11 @@ export function useItemMutations({
     async (linkId: string) => {
       try {
         dispatch({ type: "REMOVE_ITEM_LINK", payload: linkId });
-        await supabase.from("item_links").delete().eq("id", linkId);
+        await runWrite(
+          supabase.from("item_links").delete().eq("id", linkId),
+          "Failed to remove link",
+          { table: "item_links", operation: "delete" }
+        );
       } catch (err) {
         reportMutationError(err, "Failed to remove link", {
           table: "item_links",

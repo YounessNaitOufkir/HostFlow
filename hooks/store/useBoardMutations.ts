@@ -52,19 +52,12 @@ export function useBoardMutations({
           .single();
         if (error) throw error;
         if (data) {
-          if (
-            currentProfile &&
-            (currentProfile.role === "contractor" ||
-              currentProfile.role === "member")
-          ) {
-            const currentAllowed = currentProfile.allowed_boards || [];
-            if (!currentAllowed.includes(data.id)) {
-              await supabase
-                .from("profiles")
-                .update({ allowed_boards: [...currentAllowed, data.id] })
-                .eq("id", currentProfile.id);
-            }
-          }
+          // The creator used to be granted access by appending to
+          // profiles.allowed_boards. That array is retired — access now comes
+          // from boards.created_by (set by the set_created_by trigger) plus
+          // workspace/board membership — so this wrote to a column nothing
+          // reads. It also keyed off the 'contractor' role, which no longer
+          // exists. Removed rather than left as a misleading no-op.
           dispatch({ type: "ADD_BOARD", payload: data });
           getQueryClient().invalidateQueries({
             queryKey: queryKeys.boards(),

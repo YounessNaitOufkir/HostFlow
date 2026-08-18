@@ -187,7 +187,21 @@ export async function evaluateTimeAutomations(
         const statusColId = statusCols[0]?.id || "status";
         const newColumnValues = { ...values, [statusColId]: "Overdue" };
         if (!isAlreadyOverdue) {
-          await supabase.from("items").update({ column_values: newColumnValues }).eq("id", item.id);
+          // Checked deliberately: if this write fails we must not go on to tell
+          // somebody their task was marked Overdue when it was not. This runs
+          // both in the browser and in the cron, so it reports through console
+          // rather than a toast.
+          const { error: statusErr } = await supabase
+            .from("items")
+            .update({ column_values: newColumnValues })
+            .eq("id", item.id);
+          if (statusErr) {
+            console.error(
+              `[automations] failed to mark "${item.name}" (${item.id}) as Overdue:`,
+              statusErr.message ?? statusErr
+            );
+            continue;
+          }
           if (typeof window !== "undefined") {
             try {
               const originalValues = values;

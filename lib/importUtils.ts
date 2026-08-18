@@ -400,13 +400,17 @@ export async function executeImport(
           itemGroupId = createdGroups.get(groupName)!;
         } else {
           const newGrpId = crypto.randomUUID();
-          await supabase.from("groups").insert({
+          // Checked: if this insert fails silently, every item in this group is
+          // written with a group_id that does not exist, and the board renders
+          // with orphaned rows that belong to no group.
+          const { error: groupErr } = await supabase.from("groups").insert({
             id: newGrpId,
             board_id: targetBoardId,
             title: groupName,
             color: "#" + Math.floor(Math.random()*16777215).toString(16),
             position: createdGroups.size + 1
           });
+          if (groupErr) throw groupErr;
           createdGroups.set(groupName, newGrpId);
           itemGroupId = newGrpId;
         }
