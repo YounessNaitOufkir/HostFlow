@@ -59,7 +59,10 @@ export async function GET(request: Request) {
     // 6. Evaluate time automations for each board
     for (const board of boards) {
       const boardItems = items.filter(item => item.board_id === board.id);
-      const boardAutomations = automations.filter(a => a.board_id === board.id);
+      // A board inherits its workspace's rules as well as its own
+      const boardAutomations = automations.filter(
+        a => a.board_id === board.id || a.workspace_id === board.workspace_id
+      );
 
       // Nothing configured for this board — skip it rather than evaluating blind
       if (boardAutomations.length === 0) continue;
