@@ -63,10 +63,10 @@ export function useBoardStore() {
           payload: savedSidebar === "true",
         });
       }
-      const savedView = localStorage.getItem("monday_clone_main_view");
-      if (savedView) {
-        dispatch({ type: "SET_MAIN_VIEW", payload: savedView as any });
-      }
+      // mainView, the active board and the active workspace are NOT restored
+      // here any more. They are per-user and need the signed-in profile plus the
+      // list of boards that user can actually still see, neither of which exists
+      // at this point. app/page.tsx owns that, via lib/navState.
     }
     dispatch({ type: "SET_MOUNTED" });
   }, []);
@@ -74,26 +74,13 @@ export function useBoardStore() {
   // --- Persist state to localStorage ---
   useEffect(() => {
     if (state.mounted && !state.loading && typeof window !== "undefined") {
+      // Sidebar visibility stays per-browser: it is a display preference, not a
+      // location, and it is the same whoever is signed in. The location itself
+      // is persisted per user in app/page.tsx.
       localStorage.setItem(
         "monday_clone_sidebar",
         String(state.showWorkspaceSidebar)
       );
-      localStorage.setItem("monday_clone_main_view", state.mainView);
-      if (state.activeBoard) {
-        localStorage.setItem(
-          "monday_clone_active_board_id",
-          state.activeBoard.id
-        );
-      } else if (state.activeBoard === null) {
-        localStorage.removeItem("monday_clone_active_board_id");
-      }
-
-      if (state.activeWorkspace) {
-        localStorage.setItem(
-          "monday_clone_active_workspace_id",
-          state.activeWorkspace.id
-        );
-      }
     }
   }, [
     state.showWorkspaceSidebar,
