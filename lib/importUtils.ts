@@ -21,6 +21,32 @@ function toCalendarDate(value: any): string | null {
 }
 
 /**
+ * Monday exports status and priority values with their emoji baked in, e.g.
+ * "Critical ⚠️" rather than "Critical". Left alone, that string does not match
+ * the seeded "Critical" label, so the importer creates a SECOND option and gives
+ * it the next colour from the palette — the stray green "Critical" you get after
+ * an import. It also means the cell value never matches any label, so the chip
+ * falls back to a default colour.
+ *
+ * Stripping is safe here: the UI renders its own ⚠️ badge for Critical, so the
+ * emoji is presentation, not data.
+ *
+ * Explicit ranges rather than \p{Extended_Pictographic} because tsconfig targets
+ * ES2017, where Unicode property escapes are not available.
+ */
+const EMOJI_PATTERN = new RegExp(
+  // variation selectors, ZWJ, keycap, arrows/symbols (covers U+26A0 warning),
+  // then the surrogate pair range that carries U+1F300 and above
+  "[\\uFE0E\\uFE0F\\u200D\\u20E3\\u2190-\\u2BFF]|[\\uD83C-\\uDBFF][\\uDC00-\\uDFFF]",
+  "g"
+);
+
+export function cleanLabelValue(raw: unknown): string {
+  if (raw === null || raw === undefined) return "";
+  return String(raw).replace(EMOJI_PATTERN, "").replace(/\s+/g, " ").trim();
+}
+
+/**
  * Inserts updates parsed from Monday's "updates" sheet, attaching each to the
  * item it belongs to and rebuilding reply threading via Monday's post IDs.
  *
@@ -244,27 +270,45 @@ export async function executeImport(
             for (const row of config.data) {
               const val = row[header];
               if (val && typeof val === "string" && val.trim() !== "") {
-                const trimmed = val.trim();
+                // Strip the emoji Monday bakes into the value, otherwise
+                // "Critical ⚠️" reads as a different label from "Critical"
+                const trimmed = cleanLabelValue(val);
+                if (!trimmed) continue;
                 // Avoid duplicating if case differs slightly from default
                 const existing = Array.from(uniqueValues).find(v => v.toLowerCase() === trimmed.toLowerCase());
                 if (!existing) uniqueValues.add(trimmed);
               }
             }
-            
+
             const labels: { label: string, color: string }[] = [];
             let colorIndex = 0;
             uniqueValues.forEach((val) => {
-              const lowerVal = val.toLowerCase().trim();
+              const lowerVal = cleanLabelValue(val).toLowerCase();
               const mappedColor = STANDARD_COLORS[lowerVal] || LABEL_COLORS[colorIndex % LABEL_COLORS.length];
               labels.push({ label: val, color: mappedColor });
               if (!STANDARD_COLORS[lowerVal]) {
                 colorIndex++;
               }
             });
-            labels.push({ label: "", color: "bg-[#c4c4c4]" }); // Default empty label
-            
-            if (type === "status") settings = { statusLabels: labels };
-            else if (type === "priority") settings = { priorityLabels: labels };
+            if (type === "status") {
+              labels.push({ label: "Overdue", color: "bg-gradient-to-r from-red-600 to-rose-600" });
+            } else {
+              labels.push({ label: "Empty", color: "bg-[#c4c4c4]" });
+            }
+
+            // Guard against duplicate labels (e.g. mixed-language data colliding
+            // with the seeded defaults) — keep the first occurrence so seeded
+            // options keep their intended color.
+            const seenLabels = new Set<string>();
+            const dedupedLabels = labels.filter((l) => {
+              const key = cleanLabelValue(l.label).toLowerCase();
+              if (seenLabels.has(key)) return false;
+              seenLabels.add(key);
+              return true;
+            });
+
+            if (type === "status") settings = { statusLabels: dedupedLabels };
+            else if (type === "priority") settings = { priorityLabels: dedupedLabels };
           }
 
           return [{
@@ -423,6 +467,9 @@ export async function executeImport(
           } else if (col.type === "dependency") {
             rowDependencies.push({ colId: col.id, rawText: valStr });
             // We temporarily don't put anything in columnValues; we resolve in pass 2
+          } else if (col.type === "status" || col.type === "priority") {
+            // Must match the label list, which is stored without the emoji
+            columnValues[col.id] = cleanLabelValue(valStr);
           } else {
             columnValues[col.id] = rawValue;
           }
