@@ -166,8 +166,17 @@ export default function MondayClone() {
       if (newBoard) {
         store.switchBoard(newBoard);
         dispatch({ type: "SET_MAIN_VIEW", payload: "board" });
-      } else {
-        localStorage.setItem("monday_clone_active_board_id", targetBoardId);
+      } else if (profile?.id) {
+        // Reload as a last resort, but record the new board the same way the
+        // restore path reads it. Writing the old monday_clone_active_board_id
+        // key here would be ignored now and drop the user on My Work instead of
+        // the board they just imported.
+        writeNavState({
+          userId: profile.id,
+          mainView: "board",
+          boardId: targetBoardId,
+          workspaceId: wsId,
+        });
         window.location.reload();
       }
     }
@@ -271,7 +280,11 @@ export default function MondayClone() {
       userId: profile.id,
       mainView: state.mainView,
       boardId: state.activeBoard?.id ?? null,
-      workspaceId: state.activeWorkspace?.id ?? null,
+      // Fall back to the board's own workspace: arriving from My Work or a
+      // notification switches the board without ever setting activeWorkspace,
+      // and saving null there would restore the board with no workspace around
+      // it.
+      workspaceId: state.activeWorkspace?.id ?? state.activeBoard?.workspace_id ?? null,
     });
   }, [
     authLoading,
@@ -419,7 +432,16 @@ export default function MondayClone() {
     [dispatch]
   );
 
-  const handleNotificationClick = useCallback((boardId?: string, itemId?: string) => {
+  /**
+   * Take the user to where an item actually lives: switch to its board, then
+   * open it. When the board is not loaded yet the id is parked in
+   * pendingSelectedItemId and the effect below opens the panel once its items
+   * arrive.
+   *
+   * Used by notifications and by My Work, so clicking a task there lands on it
+   * in context instead of hunting for which board it belongs to.
+   */
+  const navigateToItem = useCallback((boardId?: string, itemId?: string) => {
     if (boardId) {
       if (state.activeBoard?.id !== boardId) {
         const board = state.boards.find(b => b.id === boardId);
@@ -526,7 +548,7 @@ export default function MondayClone() {
         onCreateBoard={() => store.createBoard(state.activeWorkspace?.id, profile)}
         onRenameBoard={store.renameBoard}
         onDeleteBoard={store.deleteBoard}
-        onNotificationClick={handleNotificationClick}
+        onNotificationClick={navigateToItem}
         onSelectWorkspace={(ws) => dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: ws })}
         onRenameWorkspace={store.renameWorkspace}
         onDeleteWorkspace={store.deleteWorkspace}
@@ -553,7 +575,7 @@ export default function MondayClone() {
         <MyWorkView
           items={state.myWorkItems}
           boards={state.boards}
-          onSelectItem={(item) => dispatch({ type: "SET_SELECTED_ITEM", payload: item })}
+          onSelectItem={(item) => navigateToItem(item.board_id, item.id)}
           onBrowseWorkspaces={() => dispatch({ type: "SET_MAIN_VIEW", payload: "workspace_overview" })}
         />
       ) : state.mainView === "trash" ? (
