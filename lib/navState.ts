@@ -1,0 +1,66 @@
+/**
+ * Where the user was when they last left, so logging back in continues their
+ * work instead of dropping them somewhere arbitrary.
+ *
+ * Stored as one record rather than the three loose keys this replaced
+ * (monday_clone_main_view / _active_board_id / _active_workspace_id), because
+ * those were per-BROWSER with no notion of who wrote them. Signing in as a
+ * different account inherited the previous account's view and workspace — very
+ * visible when switching between a real account and a test one on one machine.
+ *
+ * The stored userId makes that impossible: state written by one account is
+ * ignored by another.
+ */
+
+const KEY = "hostflow_nav_state";
+
+export interface NavState {
+  userId: string;
+  mainView: string;
+  boardId: string | null;
+  workspaceId: string | null;
+}
+
+/** Returns the saved location, or null if there is none or it belongs to someone else. */
+export function readNavState(userId: string | null | undefined): NavState | null {
+  if (!userId || typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<NavState>;
+    if (!parsed || parsed.userId !== userId) return null;
+    return {
+      userId,
+      mainView: typeof parsed.mainView === "string" ? parsed.mainView : "board",
+      boardId: typeof parsed.boardId === "string" ? parsed.boardId : null,
+      workspaceId: typeof parsed.workspaceId === "string" ? parsed.workspaceId : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeNavState(state: NavState): void {
+  if (!state.userId || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(state));
+  } catch {
+    // Private browsing or a full quota — losing the last position is not worth
+    // interrupting anything for.
+  }
+}
+
+/**
+ * Removes the three keys this replaced. Called once on load so a browser that
+ * used the old scheme does not keep stale, unowned values around forever.
+ */
+export function clearLegacyNavKeys(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem("monday_clone_main_view");
+    window.localStorage.removeItem("monday_clone_active_board_id");
+    window.localStorage.removeItem("monday_clone_active_workspace_id");
+  } catch {
+    // ignore
+  }
+}

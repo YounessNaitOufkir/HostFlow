@@ -34,6 +34,7 @@ import {
 } from "@/hooks/queries/useGlobalQueries";
 import { useBoardDataQuery } from "@/hooks/queries/useBoardDataQuery";
 import { supabase } from "@/lib/supabase";
+import { readNavState, writeNavState, clearLegacyNavKeys } from "@/lib/navState";
 import type { Board } from "@/types";
 
 import { duplicateBoard, duplicateWorkspace } from "@/lib/templateUtils";
@@ -189,14 +190,19 @@ export default function MondayClone() {
   const { data: workspacesData, isLoading: workspacesLoading } = useWorkspacesQuery(!authLoading);
   useEffect(() => {
     if (workspacesData) {
-      const savedWsId = typeof window !== "undefined" ? localStorage.getItem("monday_clone_active_workspace_id") : null;
-      const savedWs = savedWsId ? workspacesData.find((ws) => ws.id === savedWsId) : null;
+      // Only restore a workspace that is still in the list this user can see.
+      // Access can be revoked, and a workspace can be switched to private, so a
+      // remembered id is not proof it is still reachable.
+      const saved = readNavState(profile?.id);
+      const savedWs = saved?.workspaceId
+        ? workspacesData.find((ws) => ws.id === saved.workspaceId) || null
+        : null;
       dispatch({
         type: "SET_WORKSPACES",
-        payload: { workspaces: workspacesData, active: savedWs || null },
+        payload: { workspaces: workspacesData, active: savedWs },
       });
     }
-  }, [workspacesData, dispatch]);
+  }, [workspacesData, dispatch, profile?.id]);
 
   const { data: profilesData } = useProfilesQuery(!authLoading);
   useEffect(() => {
@@ -210,21 +216,40 @@ export default function MondayClone() {
     if (boardsData && boardsData.length > 0) {
       dispatch({ type: "SET_BOARDS", payload: boardsData });
       if (!state.activeBoard) {
-        const savedBoardId = typeof window !== "undefined" ? localStorage.getItem("monday_clone_active_board_id") : null;
-        const savedBoard = savedBoardId ? boardsData.find((b) => b.id === savedBoardId) : null;
-        
-        const activeWorkspaceId = state.activeWorkspace?.id;
-
-        const workspaceBoards = activeWorkspaceId
-          ? boardsData.filter(b => b.workspace_id === activeWorkspaceId)
-          : boardsData;
-
-        const validSavedBoard = savedBoard && (!activeWorkspaceId || savedBoard.workspace_id === activeWorkspaceId)
-          ? savedBoard
+        const saved = readNavState(profile?.id);
+        const savedBoard = saved?.boardId
+          ? boardsData.find((b) => b.id === saved.boardId) || null
           : null;
-          
-        const firstBoard = validSavedBoard || workspaceBoards[0] || null;
-        dispatch({ type: "SET_ACTIVE_BOARD", payload: firstBoard });
+
+        if (savedBoard) {
+          // Carry on where they left off, including which view they were using.
+          dispatch({ type: "SET_ACTIVE_BOARD", payload: savedBoard });
+          if (saved?.mainView) {
+            dispatch({ type: "SET_MAIN_VIEW", payload: saved.mainView as any });
+          }
+        } else {
+          // Nothing valid to restore. Do NOT fall back to whichever board sorts
+          // first: on a multi-property account that is a confident wrong answer,
+          // and it silently reopens a property the user was not working on.
+          //
+          // Land on My Work, which answers "what is mine today" across every
+          // workspace. Someone with no boards at all is new or external and has
+          // nothing assigned, so send them to the overview to orient instead.
+          //
+          // Board count is used rather than a real assigned-items check because
+          // useMyWorkQuery reads every item in the account; running that on each
+          // load to pick a landing page is not worth the cost. My Work's own
+          // empty state covers the case where a user has boards but no tasks.
+          dispatch({ type: "SET_ACTIVE_BOARD", payload: null });
+          dispatch({
+            type: "SET_MAIN_VIEW",
+            payload: (saved?.mainView && saved.mainView !== "board"
+              ? saved.mainView
+              : boardsData.length > 0
+                ? "my_work"
+                : "workspace_overview") as any,
+          });
+        }
       } else {
         const updated = boardsData.find((b) => b.id === state.activeBoard?.id);
         if (updated) dispatch({ type: "SET_ACTIVE_BOARD", payload: updated });
@@ -235,7 +260,32 @@ export default function MondayClone() {
       dispatch({ type: "SET_ACTIVE_BOARD", payload: null });
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [boardsData, boardsLoading, state.activeBoard?.id, state.activeWorkspace?.id, dispatch]);
+  }, [boardsData, boardsLoading, state.activeBoard?.id, state.activeWorkspace?.id, dispatch, profile?.id]);
+
+  // Remember where this user is, so the next sign-in continues rather than
+  // restarting. Keyed by user id, so one account never inherits another's
+  // location on a shared browser.
+  useEffect(() => {
+    if (authLoading || !profile?.id || state.loading) return;
+    writeNavState({
+      userId: profile.id,
+      mainView: state.mainView,
+      boardId: state.activeBoard?.id ?? null,
+      workspaceId: state.activeWorkspace?.id ?? null,
+    });
+  }, [
+    authLoading,
+    profile?.id,
+    state.loading,
+    state.mainView,
+    state.activeBoard?.id,
+    state.activeWorkspace?.id,
+  ]);
+
+  // One-time cleanup of the per-browser keys this replaced
+  useEffect(() => {
+    clearLegacyNavKeys();
+  }, []);
 
   const { data: boardData, isLoading: isBoardDataLoading } = useBoardDataQuery(state.activeBoard?.id || null);
   useEffect(() => {
@@ -504,6 +554,7 @@ export default function MondayClone() {
           items={state.myWorkItems}
           boards={state.boards}
           onSelectItem={(item) => dispatch({ type: "SET_SELECTED_ITEM", payload: item })}
+          onBrowseWorkspaces={() => dispatch({ type: "SET_MAIN_VIEW", payload: "workspace_overview" })}
         />
       ) : state.mainView === "trash" ? (
         <TrashView

@@ -8,9 +8,15 @@ interface MyWorkViewProps {
   items: Item[];
   boards: Board[];
   onSelectItem: (item: Item) => void;
+  /**
+   * My Work is where a signed-in user lands when there is no previous location
+   * to restore, so its empty state has to lead somewhere rather than being a
+   * dead end.
+   */
+  onBrowseWorkspaces?: () => void;
 }
 
-export default function MyWorkView({ items, boards, onSelectItem }: MyWorkViewProps) {
+export default function MyWorkView({ items, boards, onSelectItem, onBrowseWorkspaces }: MyWorkViewProps) {
   // Group items by board
   const itemsByBoard: Record<string, Item[]> = {};
   items.forEach((item) => {
@@ -58,8 +64,16 @@ export default function MyWorkView({ items, boards, onSelectItem }: MyWorkViewPr
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500 bg-white dark:bg-slate-900 rounded-xl shadow-sm dark:shadow-none border border-gray-100 dark:border-slate-700">
             <AlertCircle size={48} className="mb-4 text-gray-300" />
-            <p className="text-lg font-medium">You're all caught up!</p>
+            <p className="text-lg font-medium">You&apos;re all caught up!</p>
             <p className="text-sm">No tasks are currently assigned to you.</p>
+            {onBrowseWorkspaces && (
+              <button
+                onClick={onBrowseWorkspaces}
+                className="mt-5 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+              >
+                Browse workspaces
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-8">
