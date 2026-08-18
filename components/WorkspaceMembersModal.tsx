@@ -3,10 +3,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X, Lock, Globe, Check, Loader2, UserPlus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Workspace } from "@/types";
 import { reportMutationError } from "@/lib/errorReporting";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { queryKeys } from "@/hooks/queries/queryKeys";
 
 interface DirectoryUser {
   id: string;
@@ -34,11 +36,42 @@ export default function WorkspaceMembersModal({
   currentUserId,
   onClose,
 }: WorkspaceMembersModalProps) {
+  const queryClient = useQueryClient();
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [memberIds, setMemberIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Tracked locally so the dialog reflects the switch immediately; the sidebar
+  // catches up when the workspaces query is invalidated below.
+  const [isPrivate, setIsPrivate] = useState(!!workspace.is_private);
+  const [togglingPrivacy, setTogglingPrivacy] = useState(false);
+
+  const togglePrivacy = async () => {
+    const next = !isPrivate;
+    setTogglingPrivacy(true);
+    setError(null);
+    try {
+      const { error } = await supabase
+        .from("workspaces")
+        .update({ is_private: next })
+        .eq("id", workspace.id);
+      if (error) throw error;
+      setIsPrivate(next);
+      // Visibility change alters what RLS returns, so refresh both lists.
+      // "boards" is invalidated by prefix because its key carries a workspace id.
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() });
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+    } catch (err: unknown) {
+      reportMutationError(err, "Could not change workspace visibility", {
+        table: "workspaces",
+        operation: "update",
+      });
+      setError("Could not change visibility. Only the workspace owner can do that.");
+    } finally {
+      setTogglingPrivacy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,7 +138,7 @@ export default function WorkspaceMembersModal({
         <div className="flex items-start justify-between p-5 border-b border-gray-100 dark:border-slate-800">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              {workspace.is_private ? (
+              {isPrivate ? (
                 <Lock size={15} className="text-amber-500 shrink-0" />
               ) : (
                 <Globe size={15} className="text-blue-500 shrink-0" />
@@ -113,10 +146,37 @@ export default function WorkspaceMembersModal({
               <TruncatedText className="truncate">{workspace.name}</TruncatedText>
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {workspace.is_private
+              {isPrivate
                 ? "Private. Only people you add here can see it, administrators included."
-                : "Shared. Administrators can already see this workspace."}
+                : "Shared. Administrators can see this workspace without being added."}
             </p>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPrivate}
+              aria-label="Private workspace"
+              disabled={togglingPrivacy}
+              onClick={togglePrivacy}
+              className="mt-3 flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              <span
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                  isPrivate ? "bg-amber-500" : "bg-gray-300 dark:bg-slate-600"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    isPrivate ? "translate-x-[18px]" : "translate-x-0.5"
+                  }`}
+                />
+              </span>
+              {togglingPrivacy ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <span>{isPrivate ? "Private" : "Shared"}</span>
+              )}
+            </button>
           </div>
           <button
             onClick={onClose}
