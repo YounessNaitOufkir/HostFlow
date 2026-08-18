@@ -14,6 +14,30 @@
 
 const KEY = "hostflow_nav_state";
 
+/**
+ * Views that stand on their own without an active board.
+ *
+ * Everything else — "board", "kanban", "dashboard", "calendar", "gantt",
+ * "cards" — renders a specific board and shows an indefinite "Loading board..."
+ * spinner if it is restored while activeBoard is null.
+ *
+ * This is a whitelist rather than a list of board views on purpose: a view
+ * added later is board-scoped far more often than not, and the safe wrong
+ * answer is landing on My Work, not a spinner the user cannot escape without
+ * clicking the sidebar.
+ */
+export const BOARD_INDEPENDENT_VIEWS = new Set([
+  "my_work",
+  "trash",
+  "workspace_overview",
+  "workspace_gantt",
+]);
+
+/** True if this view can be restored without a board behind it. */
+export function isBoardIndependentView(view: string | null | undefined): boolean {
+  return !!view && BOARD_INDEPENDENT_VIEWS.has(view);
+}
+
 export interface NavState {
   userId: string;
   mainView: string;

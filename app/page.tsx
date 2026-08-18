@@ -34,7 +34,7 @@ import {
 } from "@/hooks/queries/useGlobalQueries";
 import { useBoardDataQuery } from "@/hooks/queries/useBoardDataQuery";
 import { supabase } from "@/lib/supabase";
-import { readNavState, writeNavState, clearLegacyNavKeys } from "@/lib/navState";
+import { readNavState, writeNavState, clearLegacyNavKeys, isBoardIndependentView } from "@/lib/navState";
 import type { Board } from "@/types";
 
 import { duplicateBoard, duplicateWorkspace } from "@/lib/templateUtils";
@@ -252,8 +252,14 @@ export default function MondayClone() {
           dispatch({ type: "SET_ACTIVE_BOARD", payload: null });
           dispatch({
             type: "SET_MAIN_VIEW",
-            payload: (saved?.mainView && saved.mainView !== "board"
-              ? saved.mainView
+            // Only a view that works WITHOUT a board may be restored here.
+            // The old check let anything through except the literal "board", so
+            // a user last seen in Kanban/Gantt/Calendar/Dashboard/Cards was
+            // restored into that view with no board behind it and got a
+            // permanent "Loading board..." spinner. It also re-persisted that
+            // pairing, so every later reload landed on the spinner again.
+            payload: (isBoardIndependentView(saved?.mainView)
+              ? saved!.mainView
               : boardsData.length > 0
                 ? "my_work"
                 : "workspace_overview") as any,
