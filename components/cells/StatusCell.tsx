@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Item, Column, STATUS_OPTIONS } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Clock } from "lucide-react";
@@ -12,7 +12,6 @@ interface StatusCellProps {
   activeStatusId?: string | null;
   setActiveStatusId?: (id: string | null) => void;
   onUpdate: (itemId: string, columnId: string, value: any) => void;
-  dropdownDirection?: "up" | "down";
 }
 
 export default function StatusCell({
@@ -21,7 +20,6 @@ export default function StatusCell({
   activeStatusId,
   setActiveStatusId,
   onUpdate,
-  dropdownDirection = "down",
 }: StatusCellProps) {
   const value = item.column_values[column.id];
   const cellKey = `${item.id}-${column.id}`;
@@ -29,13 +27,35 @@ export default function StatusCell({
   const currentOptions = column.settings?.statusLabels || STATUS_OPTIONS;
   const option = currentOptions.find((opt: any) => opt.label === value);
   const bgColor = option ? option.color : (isOverdue ? "bg-gradient-to-r from-red-600 to-rose-600" : "bg-[#c4c4c4]");
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [dropdownDirection, setDropdownDirection] = useState<"up" | "down">("down");
+  const isOpen = activeStatusId === cellKey;
+  // Kept true through the exit animation so the popup keeps its stacking
+  // priority (z-50) until it has actually faded out — otherwise it gets
+  // clipped behind the next row the instant `isOpen` flips to false.
+  const [isElevated, setIsElevated] = useState(false);
+  useEffect(() => {
+    if (isOpen) setIsElevated(true);
+  }, [isOpen]);
+
+  const handleToggle = () => {
+    if (!isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const estimatedHeight = currentOptions.length * 36 + 8;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setDropdownDirection(spaceBelow < estimatedHeight && spaceAbove > spaceBelow ? "up" : "down");
+    }
+    setActiveStatusId?.(isOpen ? null : cellKey);
+  };
 
   return (
-    <div className={`${column.width ? '' : 'w-32'} border-r border-gray-200 dark:border-slate-700 relative shrink-0 ${activeStatusId === cellKey ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
+    <div className={`${column.width ? '' : 'w-32'} border-r border-gray-200 dark:border-slate-700 relative shrink-0 ${isElevated ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <div
+        ref={triggerRef}
         onClick={(e) => {
           e.stopPropagation();
-          setActiveStatusId?.(activeStatusId === cellKey ? null : cellKey);
+          handleToggle();
         }}
         className={`relative cursor-pointer w-full h-full flex items-center justify-center text-white text-[13px] hover:opacity-90 transition-all ${bgColor} ${
           isOverdue ? "shadow-sm border border-red-500/40 dark:border-red-400/50" : "border border-transparent hover:border-gray-300 dark:hover:border-slate-500"
@@ -45,14 +65,14 @@ export default function StatusCell({
           <Clock size={11} className="absolute top-1 right-3 animate-pulse stroke-[2.5] drop-shadow-sm" />
         )}
         <TruncatedText className="truncate px-2">{value === "Empty" ? "" : (value || "")}</TruncatedText>
-        
+
         {/* Fold indicator */}
         <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
       </div>
 
-      <AnimatePresence>
-        {activeStatusId === cellKey && (
-          <motion.div 
+      <AnimatePresence onExitComplete={() => setIsElevated(false)}>
+        {isOpen && (
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
