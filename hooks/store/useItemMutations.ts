@@ -771,10 +771,13 @@ export function useItemMutations({
         if (error) throw error;
 
         // A permitted-but-matched-nothing update also means the move did not
-        // happen; treat it as a failure rather than reporting success.
+        // happen; treat it as a failure rather than reporting success. Kept
+        // distinct from the error branch so the two causes are never confused.
         if (!data || data.length === 0) {
           throw new Error(
-            "The move was not saved. You may not have permission to change this item."
+            `Move not saved: no row matched id ${draggableId}. ` +
+              `Target group ${destination.droppableId}, position ${newPos}. ` +
+              `This usually means row-level security rejected the update.`
           );
         }
       } catch (err) {
@@ -784,6 +787,7 @@ export function useItemMutations({
         reportMutationError(err, "Failed to move item", {
           table: "items",
           operation: "update",
+          context: `id=${draggableId} -> group=${destination.droppableId}, position=${newPos}`,
         });
       }
     },
