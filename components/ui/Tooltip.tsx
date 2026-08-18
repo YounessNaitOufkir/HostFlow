@@ -4,9 +4,13 @@ import React, { useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 /**
- * Visual surface shared by every tooltip in the app. Kept in one place so the
- * sidebar tooltips and the truncated-text tooltips can never drift apart.
- * Positioning, sizing and wrapping are left to the consumer.
+ * Visual surface for the small hint tooltips on the left icon rail
+ * ("Toggle Sidebar", "My Work", "Trash Bin", "Profile & Settings").
+ *
+ * Truncated text deliberately does NOT use this: it has its own larger,
+ * arrowed surface in TruncatedText.tsx. The two are separate on purpose —
+ * a terse label hint and a "here is the text that did not fit" popover are
+ * different things, and this one is not to be changed to match it.
  */
 export const TOOLTIP_SURFACE_CLASS =
   "z-[100] px-2.5 py-1.5 text-xs font-medium text-white bg-slate-900/95 dark:bg-slate-800 rounded-md shadow-lg border border-slate-700/60 pointer-events-none";
