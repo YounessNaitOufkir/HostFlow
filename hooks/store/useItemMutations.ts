@@ -147,13 +147,22 @@ export function useItemMutations({
           }
         }
 
-        await supabase
+        // Checked rather than fire-and-forget: supabase-js resolves with
+        // { error } instead of throwing, so a rejected write would otherwise
+        // leave the optimistic value on screen until the next refetch replaced
+        // it, with no indication anything had gone wrong.
+        const { error: cellError } = await supabase
           .from("items")
           .update({
             column_values: updatedValues,
             group_id: targetGroupId,
           })
           .eq("id", itemId);
+
+        if (cellError) {
+          dispatch({ type: "UPDATE_ITEM", payload: itemToUpdate });
+          throw cellError;
+        }
 
         // --- Combined Date & Timeline Dependency Cascading ---
         // Only cascade if the "Timeline & Date Shifting" automation is enabled for this board
@@ -746,14 +755,32 @@ export function useItemMutations({
       dispatch({ type: "SET_ITEMS", payload: finalItems });
 
       try {
-        await supabase
+        // supabase-js resolves with { error } instead of throwing, so a rejected
+        // write — an RLS denial, a constraint, a dropped connection — used to be
+        // swallowed here. The item stayed put on screen until the next refetch
+        // snapped it back, with nothing explaining why.
+        const { error, data } = await supabase
           .from("items")
           .update({
             group_id: destination.droppableId,
             position: newPos,
           })
-          .eq("id", draggableId);
+          .eq("id", draggableId)
+          .select("id");
+
+        if (error) throw error;
+
+        // A permitted-but-matched-nothing update also means the move did not
+        // happen; treat it as a failure rather than reporting success.
+        if (!data || data.length === 0) {
+          throw new Error(
+            "The move was not saved. You may not have permission to change this item."
+          );
+        }
       } catch (err) {
+        // Put the item back where it came from, so the board never shows a
+        // position that is not in the database.
+        dispatch({ type: "SET_ITEMS", payload: items });
         reportMutationError(err, "Failed to move item", {
           table: "items",
           operation: "update",
