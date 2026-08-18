@@ -53,7 +53,16 @@ already accumulated references to boards that no longer exist.
   created inside a private workspace is private; one created in a company
   workspace is shared.
 
-Effective privacy is `COALESCE(board.is_private, workspace.is_private, false)`.
+Effective privacy for *display* is `COALESCE(board.is_private, workspace.is_private, false)` —
+a board in a private workspace shows a lock.
+
+For *access* the two must not be conflated. A board that merely sits in a private
+workspace is not creator-only; it is exactly as private as its workspace, and the
+workspace check already enforces that. Only an **explicit** `boards.is_private =
+true` cuts off workspace members — that is how "Communication but not Lancement
+in the same workspace" is expressed. Using the inherited value here would mean
+inviting somebody to a private workspace showed them the shell and none of its
+boards.
 
 ### The rule that overrides everything else
 
@@ -121,7 +130,8 @@ correctness and clarity at that size, not for horizontal scale.
 | RLS rebuild against this model | Applied (`20260818000001`) |
 | Profiles, directory view, signup flow | Applied (`20260818000002`) |
 | INSERT…RETURNING visibility fix | Applied (`20260818000003`) |
-| Membership policies + invites | Written (`20260818000004`) — awaiting apply |
+| Membership policies + invites | Applied (`20260818000004`) |
+| Inherited board privacy fix | Written (`20260818000005`) — awaiting apply |
 | Leaked-password protection | Done — `lib/passwordSecurity.ts`, wired into signup and reset |
 | Per-workspace automations | Not started |
 | Audit trail | Not started |
