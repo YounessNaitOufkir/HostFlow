@@ -71,7 +71,21 @@ export function reportError(error: unknown, context?: ErrorContext) {
 
   // 1. Always log in development
   if (process.env.NODE_ENV === "development") {
-    console.error(`[HostFlow Error] ${friendlyMessage}`, error);
+    // Logging the raw value is not enough: an Error has no enumerable own
+    // properties, so it prints as "{}" and the cause is lost. Pull the useful
+    // fields out explicitly — Error carries message/stack, a PostgrestError
+    // carries code/details/hint.
+    const e = error as
+      | (Error & { code?: string; details?: string; hint?: string })
+      | null
+      | undefined;
+    console.error(`[HostFlow Error] ${friendlyMessage}`, {
+      message: e?.message ?? String(error),
+      code: e?.code,
+      details: e?.details,
+      hint: e?.hint,
+      raw: error,
+    });
   }
 
   // 2. Capture in Sentry with context
@@ -118,7 +132,7 @@ export function reportError(error: unknown, context?: ErrorContext) {
 export function reportMutationError(
   error: unknown,
   userMessage: string,
-  meta?: { table?: string; operation?: string; itemId?: string }
+  meta?: { table?: string; operation?: string; itemId?: string; context?: string }
 ) {
   reportError(error, {
     userMessage,
@@ -129,6 +143,9 @@ export function reportMutationError(
     },
     extra: {
       ...(meta?.itemId && { item_id: meta.itemId }),
+      // Free-form detail about what was attempted, so a Sentry report is
+      // actionable without having to reproduce it first.
+      ...(meta?.context && { attempted: meta.context }),
     },
   });
 }
