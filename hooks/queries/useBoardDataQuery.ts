@@ -30,7 +30,7 @@ export function useBoardDataQuery(boardId: string | null, enabled = true) {
       const [groupsRes, itemsRes, automationsRes] = await Promise.all([
         supabase.from("groups").select("*").eq("board_id", boardId).order("position"),
         supabase.from("items").select("*").eq("board_id", boardId).order("position"),
-        supabase.from("automations").select("*").eq("board_id", boardId),
+        supabase.rpc("automations_for_board", { b_id: boardId }),
       ]);
 
       if (groupsRes.error) throw groupsRes.error;

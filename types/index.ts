@@ -174,7 +174,10 @@ export type AutomationActionType =
 
 export interface Automation {
   id: string;
-  board_id: string;
+  /** Set when the rule applies to one board only (e.g. move_group). */
+  board_id?: string | null;
+  /** Set when the rule applies to every board in the workspace. */
+  workspace_id?: string | null;
   trigger_column_id: string;
   trigger_value: string;
   action_type: AutomationActionType;

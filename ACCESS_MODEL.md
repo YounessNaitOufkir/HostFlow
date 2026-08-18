@@ -86,6 +86,17 @@ afterwards by an admin, per workspace or per board.
 
 ## Automations
 
+Two scopes, because they are not interchangeable:
+
+- `automations.workspace_id` — time and behaviour rules (overdue tagging, SLA
+  alerts, timeline shifting). These read nothing board-specific: the engine
+  scans each board's own date and status columns, so one row covers a workspace.
+- `automations.board_id` — rules whose target exists on a single board, i.e.
+  `move_group`, whose `action_target_id` is a group id.
+
+A board inherits its workspace's rules plus its own; `automations_for_board()`
+resolves that, and the cron applies the same union.
+
 - Activated **per workspace**; every board inside inherits the activation.
 - Nothing runs until explicitly activated. No rule is ever on by default.
 - An automation must never overwrite a status a human set to a completed value.
@@ -132,6 +143,7 @@ correctness and clarity at that size, not for horizontal scale.
 | INSERT…RETURNING visibility fix | Applied (`20260818000003`) |
 | Membership policies + invites | Applied (`20260818000004`) |
 | Inherited board privacy fix | Written (`20260818000005`) — awaiting apply |
+| Workspace-scoped automations | Written (`20260818000006`) — awaiting apply |
 | Leaked-password protection | Done — `lib/passwordSecurity.ts`, wired into signup and reset |
 | Per-workspace automations | Not started |
 | Audit trail | Not started |

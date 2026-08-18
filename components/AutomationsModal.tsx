@@ -51,6 +51,12 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   const selectedColDef = board.columns.find((c) => c.id === triggerColId);
   const currentStatusOptions = selectedColDef?.settings?.statusLabels || STATUS_OPTIONS;
 
+  // Time and behaviour rules apply to the whole workspace; if the board somehow
+  // has no workspace, fall back to board scope so a scope is always present.
+  const workspaceScope = board.workspace_id
+    ? { workspace_id: board.workspace_id }
+    : { board_id: board.id };
+
   const handleCreateRecipe = async (recipe: RecipeType) => {
     let payload: any = null;
 
@@ -72,7 +78,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       };
     } else if (recipe === "sla_alert") {
       payload = {
-        board_id: board.id,
+        ...workspaceScope,
         trigger_column_id: triggerDateColId || dateCols[0]?.id || "date",
         trigger_value: "due_date_arrives",
         action_type: "sla_alert",
@@ -80,7 +86,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       };
     } else if (recipe === "overdue_tagging") {
       payload = {
-        board_id: board.id,
+        ...workspaceScope,
         trigger_column_id: triggerDateColId || dateCols[0]?.id || "date",
         trigger_value: "due_date_passed",
         action_type: "overdue_tagging",
@@ -88,7 +94,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       };
     } else if (recipe === "timeline_shifting") {
       payload = {
-        board_id: board.id,
+        ...workspaceScope,
         trigger_column_id: triggerDateColId || dateCols[0]?.id || "date",
         trigger_value: "date_postponed",
         action_type: "timeline_shifting",
@@ -389,8 +395,22 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
             ) : (
               automations.map(auto => (
                 <div key={auto.id} className={`flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow ${auto.enabled === false ? "opacity-60 bg-gray-50 dark:bg-slate-900/50" : ""}`}>
-                  <div className="flex items-center text-sm">
+                  <div className="flex items-center text-sm min-w-0">
                     <span className="font-semibold text-purple-600 dark:text-purple-400 mr-2 shrink-0">Rule</span>
+                    <span
+                      title={
+                        auto.workspace_id
+                          ? "Applies to every board in this workspace"
+                          : "Applies to this board only"
+                      }
+                      className={`mr-2 shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                        auto.workspace_id
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                          : "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {auto.workspace_id ? "Workspace" : "This board"}
+                    </span>
                     {renderRuleDescription(auto)}
                   </div>
                   <div className="flex items-center space-x-2 ml-4 shrink-0">
