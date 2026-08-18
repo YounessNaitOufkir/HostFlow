@@ -151,6 +151,41 @@ export function reportMutationError(
 }
 
 /**
+ * Runs a supabase write and reports it if it fails.
+ *
+ * supabase-js resolves with `{ error }` rather than throwing, so
+ *
+ *     await supabase.from("groups").update({ title }).eq("id", id);
+ *
+ * discards the result and cannot fail loudly — a rejected write looks identical
+ * to a successful one. That is how a broken drag went unnoticed: the optimistic
+ * UI showed the change, the database never got it, and the next refetch quietly
+ * reverted it.
+ *
+ * Returns true on success so callers can roll back optimistic state:
+ *
+ *     if (!(await runWrite(supabase.from("groups").update(...).eq("id", id),
+ *                          "Failed to rename group", { table: "groups" }))) {
+ *       dispatch({ type: "SET_GROUPS", payload: previousGroups });
+ *     }
+ *
+ * Control flow is deliberately unchanged — it reports rather than throws, so it
+ * can be dropped onto an existing call site without restructuring it.
+ */
+export async function runWrite(
+  operation: PromiseLike<{ error: unknown }>,
+  userMessage: string,
+  meta?: { table?: string; operation?: string; itemId?: string; context?: string }
+): Promise<boolean> {
+  const { error } = await operation;
+  if (error) {
+    reportMutationError(error, userMessage, meta);
+    return false;
+  }
+  return true;
+}
+
+/**
  * Convenience wrapper for data fetching errors.
  *
  * @example

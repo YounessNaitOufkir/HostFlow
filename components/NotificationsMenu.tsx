@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Bell, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { runWrite } from "@/lib/errorReporting";
 import { Notification } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -64,16 +65,36 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
   const markAsRead = async (id: string) => {
     // Optimistic
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
+    const ok = await runWrite(
+      supabase.from("notifications").update({ read: true }).eq("id", id),
+      "Could not mark the notification as read",
+      { table: "notifications", operation: "update" }
+    );
+    // Put the dot back rather than showing it read and having it reappear later
+    if (!ok) {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: false } : n));
+    }
   };
 
   const markAllAsRead = async () => {
     const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
     if (unreadIds.length === 0) return;
-    
+
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    for (const id of unreadIds) {
-      await supabase.from("notifications").update({ read: true }).eq("id", id);
+    const results = await Promise.all(
+      unreadIds.map(id =>
+        runWrite(
+          supabase.from("notifications").update({ read: true }).eq("id", id),
+          "Could not mark notifications as read",
+          { table: "notifications", operation: "update" }
+        )
+      )
+    );
+    const failed = new Set(unreadIds.filter((_, i) => !results[i]));
+    if (failed.size > 0) {
+      setNotifications(prev =>
+        prev.map(n => (failed.has(n.id) ? { ...n, read: false } : n))
+      );
     }
   };
 

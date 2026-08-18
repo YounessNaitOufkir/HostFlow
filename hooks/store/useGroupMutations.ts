@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Board, Group, Item } from "@/types";
 import type { BoardStoreDispatch } from "./types";
-import { reportMutationError } from "@/lib/errorReporting";
+import { reportMutationError, runWrite } from "@/lib/errorReporting";
 
 interface UseGroupMutationsProps {
   dispatch: BoardStoreDispatch;
@@ -29,14 +29,13 @@ export function useGroupMutations({
         payload: groups.map((g) => (g.id === groupId ? { ...g, title } : g)),
       });
       dispatch({ type: "SET_EDITING_GROUP", payload: { id: null, title: "" } });
-      try {
-        await supabase.from("groups").update({ title }).eq("id", groupId);
-      } catch (err) {
-        reportMutationError(err, "Failed to rename group", {
+      await runWrite(
+        supabase.from("groups").update({ title }).eq("id", groupId),
+        "Failed to rename group", {
           table: "groups",
           operation: "update",
-        });
-      }
+        }
+      );
     },
     [dispatch, groups]
   );
@@ -47,14 +46,13 @@ export function useGroupMutations({
         type: "SET_GROUPS",
         payload: groups.map((g) => (g.id === groupId ? { ...g, color } : g)),
       });
-      try {
-        await supabase.from("groups").update({ color }).eq("id", groupId);
-      } catch (err) {
-        reportMutationError(err, "Failed to update group color", {
+      await runWrite(
+        supabase.from("groups").update({ color }).eq("id", groupId),
+        "Failed to update group color", {
           table: "groups",
           operation: "update",
-        });
-      }
+        }
+      );
     },
     [dispatch, groups]
   );
