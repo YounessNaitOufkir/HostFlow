@@ -97,6 +97,13 @@ export default function Sidebar({
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [membersModalWs, setMembersModalWs] = useState<Workspace | null>(null);
+
+  // A board is only the "current" one while the board view is on screen. Without
+  // the mainView check the previous board stays highlighted on Workspace
+  // Overview, Master Gantt, My Work and Trash, because page.tsx re-selects a
+  // board as soon as activeBoard becomes null.
+  const isBoardOpen = (boardId: string) =>
+    activeBoard?.id === boardId && mainView === "board";
   const workspacePickerRef = useRef<HTMLDivElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
@@ -300,14 +307,14 @@ export default function Sidebar({
                 </div>
                 
                 <div 
-                  className={`group flex items-center px-4 py-2 cursor-pointer transition-colors ${!activeBoard && mainView === 'workspace_gantt' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
+                  className={`group flex items-center px-4 py-2 cursor-pointer transition-colors ${mainView === 'workspace_gantt' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
                   onClick={() => {
                     onSwitchBoard(null);
                     onSetMainView("workspace_gantt");
                   }}
                 >
-                  <CalendarDays size={15} className={`mr-2 ${!activeBoard && mainView === 'workspace_gantt' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
-                  <span className={`text-[13px] truncate ${!activeBoard && mainView === 'workspace_gantt' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                  <CalendarDays size={15} className={`mr-2 ${mainView === 'workspace_gantt' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                  <span className={`text-[13px] truncate ${mainView === 'workspace_gantt' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
                     Master Gantt Chart
                   </span>
                 </div>
@@ -358,14 +365,14 @@ export default function Sidebar({
                 </div>
 
                 <div 
-                  className={`group flex items-center px-4 py-2 cursor-pointer transition-colors ${!activeBoard && mainView === 'workspace_overview' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
+                  className={`group flex items-center px-4 py-2 cursor-pointer transition-colors ${mainView === 'workspace_overview' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
                   onClick={() => {
                     onSwitchBoard(null);
                     onSetMainView("workspace_overview");
                   }}
                 >
-                  <LayoutGrid size={15} className={`mr-2 ${!activeBoard && mainView === 'workspace_overview' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
-                  <span className={`text-[13px] truncate ${!activeBoard && mainView === 'workspace_overview' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                  <LayoutGrid size={15} className={`mr-2 ${mainView === 'workspace_overview' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                  <span className={`text-[13px] truncate ${mainView === 'workspace_overview' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
                     Workspace Overview
                   </span>
                 </div>
@@ -380,7 +387,7 @@ export default function Sidebar({
                         exit={{ opacity: 0, height: 0, overflow: "hidden", transition: { duration: 0.2 } }}
                         transition={{ duration: 0.2, delay: Math.min(idx * 0.03, 0.4) }}
                         className={`flex items-center justify-between px-3 py-[7px] rounded-md transition-colors group/board ${
-                          activeBoard?.id === b.id
+                          isBoardOpen(b.id)
                             ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium board-item-active"
                             : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
                         }`}
@@ -398,7 +405,7 @@ export default function Sidebar({
                           <Layout
                             size={15}
                             className={
-                              activeBoard?.id === b.id
+                              isBoardOpen(b.id)
                                 ? "text-blue-600 dark:text-blue-400"
                                 : "text-gray-400 dark:text-gray-500"
                             }
