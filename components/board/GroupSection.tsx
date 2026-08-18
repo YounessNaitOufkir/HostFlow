@@ -606,8 +606,11 @@ const GroupSection = memo(function GroupSection({
         <Droppable droppableId={group.id}>
           {(provided) => (
             <div ref={provided.innerRef} {...provided.droppableProps} className="min-h-[2px]">
-              <AnimatePresence>
-                {groupItems.map((item, idx) => (
+              {/* No AnimatePresence here on purpose: its exit animation keeps a
+                  row mounted after it has left the group, and @hello-pangea/dnd
+                  then cannot resolve the draggable during a cross-group move.
+                  Rows fade in via CSS instead. */}
+              {groupItems.map((item, idx) => (
                   <ItemRow
                     key={item.id}
                     item={item}
@@ -628,8 +631,7 @@ const GroupSection = memo(function GroupSection({
                     itemNameWidth={activeItemNameWidth}
                     draggingColumnId={activeDragColId}
                   />
-                ))}
-              </AnimatePresence>
+              ))}
               {provided.placeholder}
             </div>
           )}

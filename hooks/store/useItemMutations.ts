@@ -732,26 +732,56 @@ export function useItemMutations({
 
       destGroupItems.splice(destination.index, 0, draggedItem);
 
-      let newPos = 65536;
-      if (destGroupItems.length === 1) {
-        newPos = 65536;
-      } else if (destination.index === 0) {
-        newPos = destGroupItems[1].position / 2;
-      } else if (destination.index === destGroupItems.length - 1) {
-        newPos = destGroupItems[destination.index - 1].position + 65536;
+      // items.position is an INTEGER column. Halving the gap produced values
+      // like 4.5, which Postgres rejects with 22P02
+      // (invalid input syntax for type integer), so the move silently failed
+      // whenever the item landed at the top of a group or between two adjacent
+      // rows. Landing at the end happened to work because prev + SPACING is
+      // whole, which is why this looked intermittent.
+      const SPACING = 65536;
+      const prevPos =
+        destination.index > 0 ? destGroupItems[destination.index - 1].position : null;
+      const nextPos =
+        destination.index < destGroupItems.length - 1
+          ? destGroupItems[destination.index + 1].position
+          : null;
+
+      let newPos: number;
+      if (prevPos === null && nextPos === null) {
+        newPos = SPACING;
+      } else if (prevPos === null) {
+        newPos = Math.floor(nextPos! / 2);
+      } else if (nextPos === null) {
+        newPos = prevPos + SPACING;
       } else {
-        newPos =
-          (destGroupItems[destination.index - 1].position +
-            destGroupItems[destination.index + 1].position) /
-          2;
+        newPos = Math.floor((prevPos + nextPos) / 2);
+      }
+
+      // Flooring can still land on a neighbour once the gap closes to 1, which
+      // would make the order ambiguous. Renumber the destination group instead.
+      const collides =
+        (prevPos !== null && newPos <= prevPos) ||
+        (nextPos !== null && newPos >= nextPos);
+
+      const renumbered: { id: string; position: number }[] = [];
+      if (collides) {
+        destGroupItems.forEach((it, idx) => {
+          const pos = (idx + 1) * SPACING;
+          it.position = pos;
+          renumbered.push({ id: it.id, position: pos });
+        });
+        newPos = draggedItem.position;
       }
 
       draggedItem.position = newPos;
       draggedItem.group_id = destination.droppableId;
 
-      const finalItems = items.map((item) =>
-        item.id === draggableId ? draggedItem : item
-      );
+      const renumberedById = new Map(renumbered.map((r) => [r.id, r.position]));
+      const finalItems = items.map((item) => {
+        if (item.id === draggableId) return draggedItem;
+        const pos = renumberedById.get(item.id);
+        return pos === undefined ? item : { ...item, position: pos };
+      });
       dispatch({ type: "SET_ITEMS", payload: finalItems });
 
       try {
@@ -779,6 +809,18 @@ export function useItemMutations({
               `Target group ${destination.droppableId}, position ${newPos}. ` +
               `This usually means row-level security rejected the update.`
           );
+        }
+
+        // Persist any siblings that had to be renumbered to make room
+        const siblings = renumbered.filter((r) => r.id !== draggableId);
+        if (siblings.length > 0) {
+          const results = await Promise.all(
+            siblings.map((r) =>
+              supabase.from("items").update({ position: r.position }).eq("id", r.id)
+            )
+          );
+          const failed = results.find((r) => r.error);
+          if (failed?.error) throw failed.error;
         }
       } catch (err) {
         // Put the item back where it came from, so the board never shows a

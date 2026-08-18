@@ -115,21 +115,27 @@ const ItemRow = memo(function ItemRow({
   return (
     <Draggable draggableId={item.id} index={index}>
       {(provided, snapshot) => (
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, height: 0, overflow: "hidden", transition: { duration: 0.2 } }}
-          transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index * 0.03, 0.4) }}
+        // Deliberately a plain div, not a motion.div.
+        //
+        // framer-motion animating `y` writes `transform` on this node, which is
+        // the same property @hello-pangea/dnd uses to position a dragged row.
+        // They overwrite each other, which made dragging jump around, and the
+        // AnimatePresence exit kept a row mounted for 200ms after it left a
+        // group, so a cross-group move logged "Unable to find draggable with id"
+        // and never saved.
+        //
+        // The entrance animation is kept as a CSS one, which touches opacity
+        // only and so cannot collide with the drag transform.
+        <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`flex border-b border-gray-100 dark:border-slate-800/60 group/row transition-colors ${
+          className={`flex border-b border-gray-100 dark:border-slate-800/60 group/row transition-colors animate-in fade-in duration-200 ${
             snapshot.isDragging
               ? "bg-white dark:bg-slate-800 shadow-2xl z-[100] rounded-lg ring-1 ring-indigo-500/20 relative"
-              : (isMenuOpen || activeStatusId?.startsWith(item.id)) 
-                ? "bg-white dark:bg-slate-800 shadow-md z-50 relative" 
+              : (isMenuOpen || activeStatusId?.startsWith(item.id))
+                ? "bg-white dark:bg-slate-800 shadow-md z-50 relative"
                 : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40 hover:z-40 relative z-0"
           }`}
-          style={provided.draggableProps.style}
         >
           {/* Color bar + drag handle */}
           <div
@@ -281,7 +287,7 @@ const ItemRow = memo(function ItemRow({
 
           {/* Spacer for the + button column */}
           <div className="w-16 shrink-0"></div>
-        </motion.div>
+        </div>
       )}
     </Draggable>
   );
