@@ -555,6 +555,16 @@ export default function MondayClone() {
   // ============================================================
   // Render Guards
   // ============================================================
+  // Who may be assigned work here. A shared workspace is staff-only, so an
+  // external person offered in the picker would be handed a task on a board
+  // they cannot open. On a private workspace there is no such restriction:
+  // an external can be invited there, so anyone listed is fair game.
+  const assignablePeopleIds = React.useMemo(() => {
+    if (!state.activeWorkspace || state.activeWorkspace.is_private) return null;
+    return new Set(
+      state.profiles.filter((p) => p.is_staff !== false).map((p) => p.id)
+    );
+  }, [state.activeWorkspace, state.profiles]);
   if (!state.mounted) return null;
 
   if (state.loading || authLoading) {
@@ -598,16 +608,6 @@ export default function MondayClone() {
   // ============================================================
   // Main Layout
   // ============================================================
-  // Who may be assigned work here. A shared workspace is staff-only, so an
-  // external person offered in the picker would be handed a task on a board
-  // they cannot open. On a private workspace there is no such restriction:
-  // an external can be invited there, so anyone listed is fair game.
-  const assignablePeopleIds = React.useMemo(() => {
-    if (!state.activeWorkspace || state.activeWorkspace.is_private) return null;
-    return new Set(
-      state.profiles.filter((p) => p.is_staff !== false).map((p) => p.id)
-    );
-  }, [state.activeWorkspace, state.profiles]);
 
   return (
     <AssignablePeopleContext.Provider value={assignablePeopleIds}>
