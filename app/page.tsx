@@ -319,6 +319,27 @@ export default function MondayClone() {
     [dispatch]
   );
 
+  // Keep the selected workspace in step with the board that is open.
+  //
+  // Opening a board does not go through the workspace picker — My Work, a
+  // notification, and the board cards on the all-workspaces overview all jump
+  // straight to a board. That used to leave activeWorkspace pointing at the
+  // wrong workspace, or at none, which now matters: the panel lists the
+  // selected workspace's boards, so a board could be open with an empty panel
+  // around it and no way to see its siblings.
+  useEffect(() => {
+    const board = state.activeBoard;
+    if (!board) return;
+    if (state.activeWorkspace?.id === board.workspace_id) return;
+    const owner = state.workspaces.find((w) => w.id === board.workspace_id);
+    if (owner) dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: owner });
+  }, [
+    state.activeBoard,
+    state.activeWorkspace?.id,
+    state.workspaces,
+    dispatch,
+  ]);
+
   // Remember where this user is, so the next sign-in continues rather than
   // restarting. Keyed by user id, so one account never inherits another's
   // location on a shared browser.
