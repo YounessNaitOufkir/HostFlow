@@ -7,6 +7,9 @@ import type { Board, Group, Item, Automation, Profile } from "@/types";
 
 vi.mock("@/lib/supabase", () => ({
   supabase: {
+    // Rules are read through automations_for_board so that workspace-scoped
+    // rules (board_id NULL) come back too, not just this board's own.
+    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
@@ -107,6 +110,51 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
     expect(screen.getByText("Automatic Overdue Tagging")).toBeInTheDocument();
     expect(screen.getByText("Cancelled Item Cleanup")).toBeInTheDocument();
     expect(screen.getByText("Timeline & Date Shifting")).toBeInTheDocument();
+  });
+
+  it("offers the board's own status labels as the move trigger, not a hard-coded 'Done'", () => {
+    // A move rule used to always save trigger_value "Done". On a board whose
+    // statuses are named anything else — an imported French board, say — that
+    // rule saved happily and could never match, so the automation simply never
+    // ran with nothing to show why.
+    const frenchBoard: Board = {
+      ...mockBoard,
+      columns: [
+        {
+          id: "col-status",
+          title: "Statut",
+          type: "status",
+          settings: {
+            statusLabels: [
+              { label: "Fait", color: "bg-green-500" },
+              { label: "En cours", color: "bg-orange-500" },
+              { label: "Bloqué", color: "bg-red-500" },
+            ],
+          },
+        } as any,
+        { id: "col-date", title: "Échéance", type: "date" },
+      ],
+    };
+
+    render(
+      <AutomationsModal
+        board={frenchBoard}
+        groups={mockGroups}
+        items={[]}
+        boardAutomations={[]}
+        profiles={mockProfiles}
+        onClose={vi.fn()}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByText(/add new automation/i));
+    fireEvent.click(screen.getByText("Auto-Archive / Completion"));
+
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("Fait");
+    expect(options).toContain("Bloqué");
+    expect(options).not.toContain("Done");
   });
 
   it("renders Active Rules section without manual SLA banner", () => {

@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { X, Zap, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, Calendar, Link2, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { reportMutationError } from "@/lib/errorReporting";
 import { Board, Column, Group, Automation, Item, STATUS_OPTIONS, Profile } from "@/types";
 
 interface AutomationsModalProps {
@@ -30,13 +31,20 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   } = useQuery({
     queryKey: queryKeys.automations(board.id),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("automations")
-        .select("*")
-        .eq("board_id", board.id)
-        .order("created_at", { ascending: false });
+      // Via the RPC, not a board_id filter. Time and behaviour rules are stored
+      // against the workspace with board_id NULL, so filtering on board_id hid
+      // every one of them: they appeared when created (optimistic cache) and
+      // vanished on the next refetch, while still running for the engine, which
+      // reads this same RPC. Rules you cannot see are rules you cannot turn off.
+      const { data, error } = await supabase.rpc("automations_for_board", {
+        b_id: board.id,
+      });
       if (error) throw error;
-      return (data || []) as Automation[];
+      return ((data || []) as Automation[])
+        .slice()
+        .sort((a, b) =>
+          String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
+        );
     },
   });
 
@@ -45,11 +53,29 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   const dateCols = board.columns.filter((c) => c.type === "date" || c.type === "timeline");
   
   const [triggerColId, setTriggerColId] = useState(statusCols[0]?.id || "");
+  const [triggerValue, setTriggerValue] = useState("");
   const [triggerDateColId, setTriggerDateColId] = useState(dateCols[0]?.id || "");
   const [actionTargetId, setActionTargetId] = useState(groups[0]?.id || "");
 
   const selectedColDef = board.columns.find((c) => c.id === triggerColId);
   const currentStatusOptions = selectedColDef?.settings?.statusLabels || STATUS_OPTIONS;
+
+  // The status a move rule fires on has to come from the column's own labels.
+  // It used to be the hard-coded English "Done" / "Cancelled", which silently
+  // never matched a board whose statuses are named anything else — an imported
+  // board labelled Fait / En cours / Bloqué could never trigger the rule, and
+  // "Cancelled" matched no board at all. The rule saved fine and simply never
+  // ran, which is the worst way for this to fail.
+  const statusLabels: string[] = (currentStatusOptions as any[]).map((o) =>
+    typeof o === "string" ? o : o?.label
+  ).filter(Boolean);
+  const canonicalForRecipe = selectedRecipe === "move_cancelled" ? "Cancelled" : "Done";
+  const effectiveTriggerValue =
+    triggerValue && statusLabels.includes(triggerValue)
+      ? triggerValue
+      : statusLabels.includes(canonicalForRecipe)
+        ? canonicalForRecipe
+        : statusLabels[0] || canonicalForRecipe;
 
   // Time and behaviour rules apply to the whole workspace; if the board somehow
   // has no workspace, fall back to board scope so a scope is always present.
@@ -64,7 +90,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       payload = {
         board_id: board.id,
         trigger_column_id: triggerColId || statusCols[0]?.id || "status",
-        trigger_value: "Done",
+        trigger_value: effectiveTriggerValue,
         action_type: "move_group",
         action_target_id: actionTargetId || groups[groups.length - 1]?.id || groups[0]?.id,
       };
@@ -72,7 +98,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       payload = {
         board_id: board.id,
         trigger_column_id: triggerColId || statusCols[0]?.id || "status",
-        trigger_value: "Cancelled",
+        trigger_value: effectiveTriggerValue,
         action_type: "move_group",
         action_target_id: actionTargetId || groups[groups.length - 1]?.id || groups[0]?.id,
       };
@@ -111,23 +137,45 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       .select()
       .single();
 
-    if (!error && data) {
-      queryClient.setQueryData<Automation[]>(queryKeys.automations(board.id), (old = []) => [data, ...old]);
-      queryClient.invalidateQueries({ queryKey: queryKeys.boardData(board.id) });
-      // Show activation animation then close
-      setTimeout(() => {
-        setIsActivating(false);
-        setIsCreating(false);
-        setSelectedRecipe(null);
-      }, 1800);
-    } else {
+    if (error || !data) {
+      // Previously this branch just stopped the spinner, so a rejected write
+      // looked exactly like a successful one that did nothing.
+      reportMutationError(error, "Could not enable this automation", {
+        table: "automations",
+        operation: "insert",
+        context: recipe ?? undefined,
+      });
       setIsActivating(false);
+      return;
     }
+
+    queryClient.setQueryData<Automation[]>(queryKeys.automations(board.id), (old = []) => [data, ...old]);
+    queryClient.invalidateQueries({ queryKey: queryKeys.boardData(board.id) });
+    // Show activation animation then close
+    setTimeout(() => {
+      setIsActivating(false);
+      setIsCreating(false);
+      setSelectedRecipe(null);
+    }, 1800);
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("automations").delete().eq("id", id);
-    if (!error) {
+    // .select() so we can tell "deleted" from "RLS matched no rows", which
+    // returns no error and would otherwise vanish from the list and come back
+    // on the next refetch.
+    const { data, error } = await supabase
+      .from("automations")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      reportMutationError(error, "Could not delete this automation", {
+        table: "automations",
+        operation: "delete",
+        itemId: id,
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.automations(board.id) });
+    } else {
       queryClient.setQueryData<Automation[]>(queryKeys.automations(board.id), (old = []) =>
         old.filter((a) => a.id !== id)
       );
@@ -137,8 +185,19 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
 
   const handleToggle = async (id: string, currentEnabled: boolean = true) => {
     const nextState = !currentEnabled;
-    const { error } = await supabase.from("automations").update({ enabled: nextState }).eq("id", id);
-    if (!error) {
+    const { data, error } = await supabase
+      .from("automations")
+      .update({ enabled: nextState })
+      .eq("id", id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      reportMutationError(error, "Could not change this automation", {
+        table: "automations",
+        operation: "update",
+        itemId: id,
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.automations(board.id) });
+    } else {
       queryClient.setQueryData<Automation[]>(queryKeys.automations(board.id), (old = []) =>
         old.map((a) => (a.id === id ? { ...a, enabled: nextState } : a))
       );
@@ -330,6 +389,33 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {selectedRecipe === "move_done" || selectedRecipe === "move_cancelled" ? (
                       <div className="flex flex-wrap items-center gap-2">
+                        {statusCols.length > 1 && (
+                          <>
+                            <span>Status Column:</span>
+                            <select
+                              className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium outline-none"
+                              value={triggerColId}
+                              onChange={(e) => {
+                                setTriggerColId(e.target.value);
+                                setTriggerValue("");
+                              }}
+                            >
+                              {statusCols.map((c) => (
+                                <option key={c.id} value={c.id}>{c.title}</option>
+                              ))}
+                            </select>
+                          </>
+                        )}
+                        <span>When status is:</span>
+                        <select
+                          className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium outline-none"
+                          value={effectiveTriggerValue}
+                          onChange={(e) => setTriggerValue(e.target.value)}
+                        >
+                          {statusLabels.map((label) => (
+                            <option key={label} value={label}>{label}</option>
+                          ))}
+                        </select>
                         <span>Target Group:</span>
                         <select
                           className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium outline-none"
