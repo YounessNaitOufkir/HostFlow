@@ -928,6 +928,7 @@ export default function MondayClone() {
 
       {/* Global Prompt Modal */}
       {store.PromptComponent}
+      {store.WorkspaceDialogComponent}
     </div>
   );
 }
