@@ -2,23 +2,47 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { TruncatedText } from "@/components/ui/TruncatedText";
-import { Board } from "@/types";
+import { Board, Workspace } from "@/types";
 import { useWorkspaceGanttData } from "@/hooks/useWorkspaceGanttData";
 import GanttView from "./GanttView";
-import { Check, LayoutList, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Check, LayoutList, PanelLeftClose, PanelLeftOpen, Lock } from "lucide-react";
 import { GanttSkeleton } from "@/components/skeletons/GanttSkeleton";
 
 interface WorkspaceGanttViewProps {
   allBoards: Board[];
+  /** Needed to say which workspace each board comes from. */
+  workspaces: Workspace[];
 }
 
-export default function WorkspaceGanttView({ allBoards }: WorkspaceGanttViewProps) {
+export default function WorkspaceGanttView({ allBoards, workspaces }: WorkspaceGanttViewProps) {
   // Default to selecting all boards
   const [selectedBoardIds, setSelectedBoardIds] = useState<Set<string>>(
     new Set(allBoards.map(b => b.id))
   );
 
   const { loading, items, groups, itemLinks } = useWorkspaceGanttData(Array.from(selectedBoardIds));
+  // Boards are grouped under the workspace they belong to. Across workspaces
+  // the names repeat - three different properties can each have a board called
+  // "Lancement" - and a flat list gives no way to tell which is which.
+  const boardsByWorkspace = useMemo(() => {
+    const groups = new Map<
+      string,
+      { name: string; isPrivate: boolean; boards: Board[] }
+    >();
+    for (const board of allBoards) {
+      const key = board.workspace_id || 'none';
+      if (!groups.has(key)) {
+        const ws = workspaces.find((w) => w.id === board.workspace_id);
+        groups.set(key, {
+          name: ws?.name || 'Unknown workspace',
+          isPrivate: !!ws?.is_private,
+          boards: [],
+        });
+      }
+      groups.get(key)!.boards.push(board);
+    }
+    return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allBoards, workspaces]);
 
   // Collapsing is a preference, so it survives navigation and reloads rather
   // than resetting every time the Master Gantt is opened.
@@ -134,27 +158,40 @@ export default function WorkspaceGanttView({ allBoards }: WorkspaceGanttViewProp
           {allBoards.length === 0 ? (
             <div className="p-4 text-xs text-gray-500 text-center">No boards in workspace</div>
           ) : (
-            allBoards.map(board => {
-              const isSelected = selectedBoardIds.has(board.id);
-              return (
-                <button
-                  key={board.id}
-                  onClick={() => toggleBoard(board.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm transition-colors text-left ${
-                    isSelected 
-                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-                      : "hover:bg-gray-100 dark:hover:bg-slate-800/80 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  <TruncatedText className="truncate pr-2 font-medium">{board.name}</TruncatedText>
-                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                    isSelected ? "bg-blue-500 border-blue-500 text-white" : "border-gray-300 dark:border-slate-600"
-                  }`}>
-                    {isSelected && <Check size={12} strokeWidth={3} />}
-                  </div>
-                </button>
-              );
-            })
+            boardsByWorkspace.map((group) => (
+              <div key={group.name} className="pb-1">
+                <div className="flex items-center gap-1.5 px-2 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  {group.isPrivate && <Lock size={9} className="text-amber-500 shrink-0" />}
+                  <TruncatedText className="truncate">{group.name}</TruncatedText>
+                  <span className="ml-auto shrink-0 font-semibold tabular-nums">
+                    {group.boards.length}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {group.boards.map((board) => {
+                    const isSelected = selectedBoardIds.has(board.id);
+                    return (
+                      <button
+                        key={board.id}
+                        onClick={() => toggleBoard(board.id)}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm transition-colors text-left ${
+                          isSelected
+                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                            : "hover:bg-gray-100 dark:hover:bg-slate-800/80 text-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        <TruncatedText className="truncate pr-2 font-medium">{board.name}</TruncatedText>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected ? "bg-blue-500 border-blue-500 text-white" : "border-gray-300 dark:border-slate-600"
+                        }`}>
+                          {isSelected && <Check size={12} strokeWidth={3} />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>

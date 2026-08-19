@@ -697,6 +697,7 @@ export default function MondayClone() {
       ) : state.mainView === "workspace_gantt" ? (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <WorkspaceGanttView
+            workspaces={state.workspaces}
             allBoards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
           />
         </div>
