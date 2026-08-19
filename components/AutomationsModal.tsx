@@ -3,9 +3,10 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
-import { X, Zap, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, Calendar, Link2, Bell } from "lucide-react";
+import { X, Zap, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, Calendar, Link2, Bell, Clock, Play } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { reportMutationError } from "@/lib/errorReporting";
+import { toast } from "sonner";
 import { Board, Column, Group, Automation, Item, STATUS_OPTIONS, Profile } from "@/types";
 
 interface AutomationsModalProps {
@@ -18,6 +19,43 @@ interface AutomationsModalProps {
 }
 
 type RecipeType = "move_done" | "sla_alert" | "overdue_tagging" | "move_cancelled" | "timeline_shifting" | null;
+
+
+// that cannot possibly do anything until 09:00 UTC must say so, or it reads
+// as broken.
+const SCHEDULED = new Set(['overdue_tagging', 'sla_alert']);
+const isScheduled = (actionType: string) => SCHEDULED.has(actionType);
+
+// parts standing out - rather than four differently-coloured descriptions
+// that each invented their own emphasis.
+const Chip = ({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'green' }) => (
+  <span
+    className={`inline-flex items-center px-2 py-0.5 mx-0.5 rounded-md text-[12.5px] font-semibold border align-baseline ${
+      tone === 'green'
+        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30'
+        : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30'
+    }`}
+  >
+    {children}
+  </span>
+);
+
+const TimingBadge = ({ actionType }: { actionType: string }) =>
+  isScheduled(actionType) ? (
+    <span
+      title="Evaluated once a day by a scheduled job, not the moment something changes."
+      className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:border-amber-400/30"
+    >
+      <Clock size={10} /> Daily 09:00
+    </span>
+  ) : (
+    <span
+      title="Runs the moment a matching change is made."
+      className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30"
+    >
+      <Zap size={10} /> Instant
+    </span>
+  );
 
 export default function AutomationsModal({ board, groups, items, boardAutomations, profiles, onClose }: AutomationsModalProps) {
   const queryClient = useQueryClient();
@@ -96,6 +134,36 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       )
     : undefined;
   const blocked = needsAnotherGroup || !!duplicateRule;
+  // Two kinds of rule, which the old UI presented identically. Move and
+  // shifting rules are evaluated in the browser the moment a cell changes;
+  // overdue tagging and SLA alerts are only evaluated by the daily cron. A rule
+  const [runningId, setRunningId] = useState<string | null>(null);
+
+  const runNow = async (automationId: string) => {
+    setRunningId(automationId);
+    try {
+      const res = await fetch('/api/automations/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardId: board.id }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        toast.error(body?.error || 'Could not run this automation');
+        return;
+      }
+      if (body.triggeredCount > 0) {
+        toast.success(body.message);
+        queryClient.invalidateQueries({ queryKey: queryKeys.boardData(board.id) });
+      } else {
+        toast.info(body.message);
+      }
+    } catch {
+      toast.error('Could not reach the server to run this automation');
+    } finally {
+      setRunningId(null);
+    }
+  };
   const canonicalForRecipe = selectedRecipe === "move_cancelled" ? "Cancelled" : "Done";
   const effectiveTriggerValue =
     triggerValue && statusLabels.includes(triggerValue)
@@ -178,12 +246,24 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
 
     queryClient.setQueryData<Automation[]>(queryKeys.automations(board.id), (old = []) => [data, ...old]);
     queryClient.invalidateQueries({ queryKey: queryKeys.boardData(board.id) });
-    // Show activation animation then close
-    setTimeout(() => {
-      setIsActivating(false);
-      setIsCreating(false);
-      setSelectedRecipe(null);
-    }, 1800);
+    setIsActivating(false);
+    setIsCreating(false);
+    setSelectedRecipe(null);
+
+    // A corner toast rather than a full-screen takeover. It states when the new
+    // rule will run, and for a scheduled one offers to run it immediately -
+    // otherwise activating it means waiting until 09:00 UTC to find out whether
+    // it does anything.
+    const scheduled = isScheduled(data.action_type);
+    toast.success('Automation added', {
+      description: scheduled
+        ? 'Runs daily at 09:00 UTC.'
+        : 'Runs instantly, every time a matching change is made.',
+      duration: scheduled ? 12000 : 5000,
+      action: scheduled
+        ? { label: 'Run now', onClick: () => runNow(data.id) }
+        : undefined,
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -235,32 +315,39 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   const getColName = (id: string) => board.columns.find((c) => c.id === id)?.title || "Column";
   const getGroupName = (id: string) => groups.find((g) => g.id === id)?.title || "Group";
 
+  // One consistent chip, so a rule reads as a sentence with the changeable
+
   const renderRuleDescription = (auto: Automation) => {
-    if (auto.action_type === "sla_alert") {
+    if (auto.action_type === 'sla_alert') {
       return (
-        <span className="text-gray-700 dark:text-gray-200">
-          When <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 rounded font-medium">{getColName(auto.trigger_column_id)}</span> arrives AND Status is not <b>Working on it</b>, send notification &amp; email Gmail inbox
-        </span>
+        <>
+          When <Chip>{getColName(auto.trigger_column_id)}</Chip> arrives and the status is not
+          <Chip>Working on it</Chip>, notify and email the assignee
+        </>
       );
     }
-    if (auto.action_type === "overdue_tagging") {
+    if (auto.action_type === 'overdue_tagging') {
       return (
-        <span className="text-gray-700 dark:text-gray-200">
-          When <span className="px-2 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-300 rounded font-medium">{getColName(auto.trigger_column_id)}</span> passes AND Status is not <b>Done</b>, automatically change Status to <b>Overdue</b> &amp; email Assignee
-        </span>
+        <>
+          When <Chip>{getColName(auto.trigger_column_id)}</Chip> has passed and the status is not
+          <Chip>Done</Chip>, set the status to <Chip tone="green">Overdue</Chip> and email the assignee
+        </>
       );
     }
-    if (auto.action_type === "timeline_shifting") {
+    if (auto.action_type === 'timeline_shifting') {
       return (
-        <span className="text-gray-700 dark:text-gray-200">
-          When <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 rounded font-medium">{getColName(auto.trigger_column_id)}</span> is postponed by X days, automatically shift dependent items by X days
-        </span>
+        <>
+          When <Chip>{getColName(auto.trigger_column_id)}</Chip> is postponed, shift every dependent
+          item by the same number of days
+        </>
       );
     }
     return (
-      <span className="text-gray-700 dark:text-gray-200">
-        When <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-900 rounded mx-1 font-medium">{getColName(auto.trigger_column_id)}</span> changes to <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-900 rounded mx-1 font-medium">{auto.trigger_value}</span>, move item to <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-900 rounded mx-1 font-medium">{getGroupName(auto.action_target_id)}</span>
-      </span>
+      <>
+        When <Chip>{getColName(auto.trigger_column_id)}</Chip> changes to
+        <Chip>{auto.trigger_value}</Chip>, move the item to
+        <Chip tone="green">{getGroupName(auto.action_target_id)}</Chip>
+      </>
     );
   };
 
@@ -289,18 +376,6 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
           </button>
         </div>
 
-        {/* Activation animation overlay */}
-        {isActivating && (
-          <div className="absolute inset-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4 animate-in fade-in duration-300">
-            <div className="text-5xl animate-bounce">🚀</div>
-            <p className="text-lg font-semibold text-purple-600 dark:text-purple-400 animate-pulse">Deploying automation...</p>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-          </div>
-        )}
 
         <div className="flex-1 overflow-auto p-6 space-y-6">
           
@@ -331,6 +406,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <CheckCircle2 size={16} className="text-green-500" />
                     <span>Auto-Archive / Completion</span>
+                    <TimingBadge actionType="move_group" />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Status changes to <b>Done</b>, move item to Group Completed.
@@ -349,6 +425,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <Bell size={16} className="text-purple-500" />
                     <span>Due Date Warning (SLA Alert)</span>
+                    <TimingBadge actionType="sla_alert" />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Due Date arrives AND Status is NOT Working on it, send notification &amp; Gmail alert.
@@ -367,6 +444,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <AlertTriangle size={16} className="text-red-500" />
                     <span>Automatic Overdue Tagging</span>
+                    <TimingBadge actionType="overdue_tagging" />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Due Date passes AND Status is NOT Done, change Status to <b>Overdue</b> &amp; notify.
@@ -385,6 +463,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <Trash2 size={16} className="text-gray-500" />
                     <span>Cancelled Item Cleanup</span>
+                    <TimingBadge actionType="move_group" />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Status changes to <b>Cancelled</b>, move item to Closed/Rejected group.
@@ -403,6 +482,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <Link2 size={16} className="text-blue-500" />
                     <span>Timeline &amp; Date Shifting</span>
+                    <TimingBadge actionType="timeline_shifting" />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Due Date is postponed by X days, shift all dependent items&apos; dates by X days.
@@ -519,16 +599,16 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
               </div>
             ) : (
               automations.map(auto => (
-                <div key={auto.id} className={`flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow ${auto.enabled === false ? "opacity-60 bg-gray-50 dark:bg-slate-900/50" : ""}`}>
-                  <div className="flex items-center text-sm min-w-0">
-                    <span className="font-semibold text-purple-600 dark:text-purple-400 mr-2 shrink-0">Rule</span>
+                <div key={auto.id} className={`flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 transition-shadow hover:shadow-sm ${auto.enabled === false ? "opacity-60 bg-gray-50 dark:bg-slate-900/50" : ""}`}>
+                  <div className="flex flex-col gap-1.5 shrink-0 pt-0.5">
+                    <TimingBadge actionType={auto.action_type} />
                     <span
                       title={
                         auto.workspace_id
                           ? "Applies to every board in this workspace"
                           : "Applies to this board only"
                       }
-                      className={`mr-2 shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded text-center ${
                         auto.workspace_id
                           ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                           : "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300"
@@ -536,9 +616,27 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                     >
                       {auto.workspace_id ? "Workspace" : "This board"}
                     </span>
+                  </div>
+                  <div className="min-w-0 flex-1 text-[13.5px] leading-7 text-gray-700 dark:text-gray-200">
                     {renderRuleDescription(auto)}
                   </div>
-                  <div className="flex items-center space-x-2 ml-4 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* A scheduled rule is otherwise unverifiable until 09:00 UTC. */}
+                    {isScheduled(auto.action_type) && auto.enabled !== false && (
+                      <button
+                        onClick={() => runNow(auto.id)}
+                        disabled={runningId === auto.id}
+                        title="Evaluate this rule against the board right now"
+                        className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 dark:border-blue-500/40 dark:text-blue-300 dark:bg-blue-500/15 transition-colors flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {runningId === auto.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Play size={12} />
+                        )}
+                        Run now
+                      </button>
+                    )}
                     <button
                       onClick={() => handleToggle(auto.id, auto.enabled !== false)}
                       className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors border ${
@@ -547,7 +645,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                           : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 dark:bg-slate-800 dark:text-gray-400 dark:border-slate-700"
                       }`}
                     >
-                      {auto.enabled !== false ? "Active" : "Reverted / Off"}
+                      {auto.enabled !== false ? "On" : "Off"}
                     </button>
                     <button 
                       onClick={() => handleDelete(auto.id)}
