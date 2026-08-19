@@ -21,12 +21,16 @@ function getDueState(dateString: string): "today" | "overdue" | "future" | "none
 export async function GET(request: Request) {
   try {
     // 1. Verify CRON_SECRET for security
+    //
+    // Fail closed. This route runs service-role over every profile and item, so an
+    // unset secret is a deployment fault rather than a reason to skip the check.
+    if (!process.env.CRON_SECRET) {
+      console.error("CRON_SECRET is not configured; refusing to run the daily digest.");
+      return NextResponse.json({ error: "Cron is not configured" }, { status: 503 });
+    }
+
     const authHeader = request.headers.get("authorization");
-    const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-    
-    // In local development, we might not have a CRON_SECRET, so we can bypass if it's missing, 
-    // but in production we MUST check it.
-    if (process.env.CRON_SECRET && authHeader !== expectedAuth) {
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
