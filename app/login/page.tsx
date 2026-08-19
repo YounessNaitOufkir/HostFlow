@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/AuthProvider";
 import { validateNewPassword } from "@/lib/passwordSecurity";
 import { useRouter } from "next/navigation";
 import { Loader2, MailCheck, ArrowLeft, Hexagon } from "lucide-react";
@@ -19,6 +20,32 @@ export default function LoginPage() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isPasswordResetPending, setIsPasswordResetPending] = useState(false);
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
+  // Anyone who reaches this page already signed in belongs in the app, not in
+  // front of a login form. Mostly this catches a stale second tab; the OAuth
+  // handshake itself is settled server-side in app/auth/callback/route.ts.
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace("/");
+    }
+  }, [authLoading, user, router]);
+
+  // Surface a failed sign-in that the callback route redirected back here. The
+  // query string is read from window rather than useSearchParams, which would
+  // require wrapping this page in a Suspense boundary; that also means the value
+  // cannot be seeded during render, since the server has no URL to read.
+  useEffect(() => {
+    const oauthError = new URLSearchParams(window.location.search).get("error");
+    if (oauthError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError(oauthError);
+      // Clear it so a refresh doesn't resurrect a message about a past attempt.
+      // This goes through the router rather than window.history.replaceState,
+      // which gets reverted when the router reconciles after hydration.
+      router.replace("/login");
+    }
+  }, [router]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +112,10 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`,
+          // No ?next= here on purpose: the callback defaults to "/" already, and a
+          // bare path is matched against Supabase's redirect allow-list without
+          // depending on how it treats query strings.
+          redirectTo: `${window.location.origin}/auth/callback`,
         }
       });
       if (error) throw error;
