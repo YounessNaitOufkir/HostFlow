@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, Lock, Globe, Check, Loader2, UserPlus } from "lucide-react";
+import { X, Lock, Globe, Check, Loader2, UserPlus, Ban } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Workspace } from "@/types";
@@ -15,6 +15,8 @@ interface DirectoryUser {
   full_name: string | null;
   avatar_initials: string | null;
   color: string | null;
+  /** Company staff. Externals never reach a shared workspace - see below. */
+  is_staff: boolean | null;
 }
 
 interface WorkspaceMembersModalProps {
@@ -78,7 +80,7 @@ export default function WorkspaceMembersModal({
     const [dirRes, memberRes] = await Promise.all([
       supabase
         .from("user_directory")
-        .select("id, full_name, avatar_initials, color")
+        .select("id, full_name, avatar_initials, color, is_staff")
         .order("full_name"),
       supabase
         .from("workspace_members")
@@ -196,8 +198,9 @@ export default function WorkspaceMembersModal({
         <div className="p-3 overflow-y-auto">
           {!isPrivate && !loading && (
             <p className="px-2 pb-3 text-xs text-gray-500 dark:text-gray-400">
-              Everyone below can already open this workspace. Switch it to private
-              if you want to choose who sees it.
+              Everyone on the team can already open this workspace. External
+              people cannot - shared workspaces are staff-only. Switch it to
+              private if you want to choose who sees it.
             </p>
           )}
           {loading ? (
@@ -212,6 +215,10 @@ export default function WorkspaceMembersModal({
             users.map((u) => {
               const isMember = memberIds.has(u.id);
               const isSelf = u.id === currentUserId;
+              // can_access_workspace requires staff for any non-private
+              // workspace, so an external person cannot open this one however
+              // the badge used to read.
+              const isExternal = u.is_staff === false;
               return (
                 <div
                   key={u.id}
@@ -232,9 +239,18 @@ export default function WorkspaceMembersModal({
                   {/* On a shared workspace everyone already has access, so there
                       is nothing to grant — show state rather than an action. */}
                   {!isPrivate ? (
-                    <span className="text-xs font-medium px-2.5 py-1 rounded-md border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 shrink-0 flex items-center gap-1">
-                      <Check size={12} /> Has access
-                    </span>
+                    isExternal ? (
+                      <span
+                        title="Shared workspaces are staff-only. Make this workspace private to give an external person access."
+                        className="text-xs font-medium px-2.5 py-1 rounded-md border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-800/60 shrink-0 flex items-center gap-1"
+                      >
+                        <Ban size={12} /> No access
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-md border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 shrink-0 flex items-center gap-1">
+                        <Check size={12} /> Has access
+                      </span>
+                    )
                   ) : (
                     <button
                       disabled={busyId === u.id || isSelf}

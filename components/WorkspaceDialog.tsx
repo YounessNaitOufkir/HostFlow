@@ -113,7 +113,7 @@ export default function WorkspaceDialog({ isOpen, onClose, onSubmit }: Workspace
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all shadow-inner"
-              placeholder="e.g. Rue de la Paix"
+              placeholder="e.g. App Z"
             />
           </div>
 
