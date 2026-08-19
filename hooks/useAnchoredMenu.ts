@@ -85,10 +85,45 @@ export function useAnchoredMenu(
           : a.left;
     left = Math.max(gap, Math.min(left, vw - m.width - gap));
 
+    // A transformed ancestor becomes the containing block for a fixed child, so
+    // the coordinates stop being viewport coordinates - the sidebar animates
+    // with framer-motion, and its menu landed exactly one icon-rail to the
+    // right. Rather than portalling (which would put the menu outside the
+    // element every outside-click handler tests against), find that ancestor
+    // and subtract its origin.
+    //
+    // Measured from the ancestor, not from the menu's own applied position: the
+    // menu animates in with a scale, which would skew a self-measurement.
+    let offsetX = 0;
+    let offsetY = 0;
+    for (let el = menu.parentElement; el; el = el.parentElement) {
+      const cs = getComputedStyle(el);
+      // Everything that makes an element the containing block of a fixed
+      // descendant. backdrop-filter is the one that caught us out: the sidebar
+      // is a glass panel, and that alone re-bases its menu.
+      const containsFixed =
+        cs.transform !== "none" ||
+        cs.perspective !== "none" ||
+        cs.filter !== "none" ||
+        (cs.backdropFilter && cs.backdropFilter !== "none") ||
+        cs.willChange.includes("transform") ||
+        cs.willChange.includes("filter") ||
+        cs.contain.includes("paint") ||
+        cs.contain.includes("layout") ||
+        cs.contain.includes("strict") ||
+        cs.contain.includes("content");
+      if (containsFixed) {
+        const r = el.getBoundingClientRect();
+        offsetX = r.left + (parseFloat(cs.borderLeftWidth) || 0);
+        offsetY = r.top + (parseFloat(cs.borderTopWidth) || 0);
+        break;
+      }
+    }
+
     setMenuStyle({
       position: "fixed",
-      top,
-      left,
+      top: top - offsetY,
+      left: left - offsetX,
       maxHeight,
       overflowY: "auto",
       visibility: "visible",
@@ -97,6 +132,9 @@ export function useAnchoredMenu(
 
   useLayoutEffect(() => {
     if (!isOpen) {
+      // Reset so the next open measures from a known origin rather than the
+      // last position, which is what the containing-block correction reads.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMenuStyle({ position: "fixed", top: 0, left: 0, visibility: "hidden" });
       return;
     }
