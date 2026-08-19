@@ -18,7 +18,7 @@ interface AutomationsModalProps {
   onClose: () => void;
 }
 
-type RecipeType = "move_done" | "sla_alert" | "overdue_tagging" | "move_cancelled" | "timeline_shifting" | null;
+type RecipeType = "move_done" | "sla_alert" | "overdue_tagging" | "timeline_shifting" | null;
 
 
 // that cannot possibly do anything until 09:00 UTC must say so, or it reads
@@ -117,7 +117,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   // group the rule can only ever move an item to where it already is, which is
   // indistinguishable from the automation not running.
   const isMoveRecipe =
-    selectedRecipe === "move_done" || selectedRecipe === "move_cancelled";
+    selectedRecipe === "move_done";
   const needsAnotherGroup = isMoveRecipe && groups.length < 2;
   // The engine takes the FIRST rule that matches, so a second rule on the same
   // trigger can never run - it is silently shadowed by the older one. That is
@@ -164,7 +164,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       setRunningId(null);
     }
   };
-  const canonicalForRecipe = selectedRecipe === "move_cancelled" ? "Cancelled" : "Done";
+  const canonicalForRecipe = "Done";
   const effectiveTriggerValue =
     triggerValue && statusLabels.includes(triggerValue)
       ? triggerValue
@@ -189,14 +189,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
         action_type: "move_group",
         action_target_id: actionTargetId || groups[groups.length - 1]?.id || groups[0]?.id,
       };
-    } else if (recipe === "move_cancelled") {
-      payload = {
-        board_id: board.id,
-        trigger_column_id: triggerColId || statusCols[0]?.id || "status",
-        trigger_value: effectiveTriggerValue,
-        action_type: "move_group",
-        action_target_id: actionTargetId || groups[groups.length - 1]?.id || groups[0]?.id,
-      };
+
     } else if (recipe === "sla_alert") {
       payload = {
         ...workspaceScope,
@@ -448,25 +441,6 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Due Date passes AND Status is NOT Done, change Status to <b>Overdue</b> &amp; notify.
-                  </p>
-                </div>
-
-                {/* Recipe 4: Cancelled Cleanup */}
-                <div
-                  onClick={() => setSelectedRecipe("move_cancelled")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedRecipe === "move_cancelled"
-                      ? "border-purple-500 bg-purple-50/50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-slate-700 hover:border-purple-300"
-                  }`}
-                >
-                  <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
-                    <Trash2 size={16} className="text-gray-500" />
-                    <span>Cancelled Item Cleanup</span>
-                    <TimingBadge actionType="move_group" />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    When Status changes to <b>Cancelled</b>, move item to Closed/Rejected group.
                   </p>
                 </div>
 

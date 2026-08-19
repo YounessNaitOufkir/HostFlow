@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column, ItemLink } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { useBoardStore } from "@/hooks/useBoardStore";
@@ -16,6 +17,7 @@ interface RelationCellProps {
 export default function RelationCell({ item, column }: RelationCellProps) {
   const { state, addLink, removeLink } = useBoardStore();
   const [isOpen, setIsOpen] = useState(false);
+  const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Item[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -105,7 +107,7 @@ export default function RelationCell({ item, column }: RelationCellProps) {
   };
 
   return (
-    <div className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700/60 shrink-0 relative flex items-center p-1.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group`} style={{ width: column.width ? `${column.width}px` : undefined }}>
+    <div ref={anchorRef} className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700/60 shrink-0 relative flex items-center p-1.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <div
         className="w-full h-full flex items-center overflow-hidden min-h-[28px]"
         onClick={() => setIsOpen(!isOpen)}
@@ -139,12 +141,13 @@ export default function RelationCell({ item, column }: RelationCellProps) {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 5, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 5, scale: 0.95 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            ref={dropdownRef}
-            className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-slate-800/95 backdrop-blur-xl border border-gray-100 dark:border-slate-700/60 shadow-xl rounded-xl z-50 overflow-hidden"
+            ref={(el) => { dropdownRef.current = el; menuRef.current = el; }}
+            style={menuStyle}
+            className="w-64 bg-white dark:bg-slate-800/95 backdrop-blur-xl border border-gray-100 dark:border-slate-700/60 shadow-xl rounded-xl z-[60] overflow-hidden"
           >
             <div className="p-2 border-b border-gray-100 dark:border-slate-700/60 flex items-center bg-gray-50/50 dark:bg-slate-900/50">
               <Search size={14} className="text-gray-400 ml-1" />

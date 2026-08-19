@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,8 +27,8 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
   const cellKey = `${item.id}-${column.id}`;
   const isOpen = activeStatusId === cellKey;
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const [dropdownDirection, setDropdownDirection] = useState<"up" | "down">("down");
+
+  const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });
   // Kept true through the exit animation so the popup keeps its stacking
   // priority (z-50) until it has actually faded out — otherwise it gets
   // clipped behind the next row the instant `isOpen` flips to false.
@@ -56,20 +57,13 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
   const currentOption = currentOptions.find((o: any) => o.label === value) || currentOptions[currentOptions.length - 1];
 
   const handleToggle = () => {
-    if (!isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const estimatedHeight = currentOptions.length * 36 + 8;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      setDropdownDirection(spaceBelow < estimatedHeight && spaceAbove > spaceBelow ? "up" : "down");
-    }
     if (setActiveStatusId) setActiveStatusId(isOpen ? null : cellKey);
   };
 
   return (
     <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative ${isElevated ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <div
-        ref={triggerRef}
+        ref={anchorRef}
         className={`w-full h-full flex items-center justify-center text-white text-sm cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-500 transition-colors ${currentOption.color}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -92,8 +86,9 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            ref={dropdownRef}
-            className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} w-[140px] dropdown-menu z-50 flex flex-col bg-white dark:bg-slate-900 shadow-2xl rounded overflow-hidden border border-gray-200 dark:border-slate-700`}
+            ref={(el) => { dropdownRef.current = el; menuRef.current = el; }}
+            style={menuStyle}
+            className="w-[140px] dropdown-menu z-[60] flex flex-col bg-white dark:bg-slate-900 shadow-2xl rounded overflow-hidden border border-gray-200 dark:border-slate-700"
           >
             {currentOptions.map((opt: any) => (
               <button

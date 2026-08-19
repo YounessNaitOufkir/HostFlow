@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Column } from "@/types";
 import { GripVertical, Pencil, Trash2, X, Check } from "lucide-react";
@@ -23,6 +24,7 @@ export default function ColumnHeader({
   onDelete,
 }: ColumnHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { anchorRef, menuRef: popupRef, menuStyle } = useAnchoredMenu(menuOpen, { align: 'center' });
   const [renameValue, setRenameValue] = useState(column.title);
   const [isRenaming, setIsRenaming] = useState(false);
   const [dragWidth, setDragWidth] = useState<number | null>(null);
@@ -121,7 +123,7 @@ export default function ColumnHeader({
     <div
       className={className}
       style={inlineStyle}
-      ref={menuRef}
+      ref={(el) => { menuRef.current = el; anchorRef.current = el; }}
     >
       <div className="flex items-center justify-center h-full p-2 relative">
         {/* Drag handle — appears on hover */}
@@ -152,7 +154,9 @@ export default function ColumnHeader({
       {/* Context menu */}
       {menuOpen && (
         <div
-          className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-52 dropdown-menu py-2 z-50"
+          ref={popupRef}
+          style={menuStyle}
+          className="w-52 dropdown-menu py-2 z-[60]"
           onClick={(e) => e.stopPropagation()}
         >
           {isRenaming ? (

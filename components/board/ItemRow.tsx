@@ -1,6 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Draggable } from "@hello-pangea/dnd";
 import { GripVertical, MoreHorizontal, Copy, Trash2, MessageCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -54,6 +55,7 @@ const ItemRow = memo(function ItemRow({
   draggingColumnId,
 }: ItemRowProps) {
   const isMenuOpen = itemMenuOpen === item.id;
+  const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isMenuOpen, { align: 'right' });
   const [isEditingName, setIsEditingName] = React.useState(false);
   const [editNameValue, setEditNameValue] = React.useState(item.name);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -212,7 +214,7 @@ const ItemRow = memo(function ItemRow({
 
             {/* Row context menu button */}
             {!isEditingName && (
-              <div className="opacity-0 group-hover/name:opacity-100 transition-opacity">
+              <div ref={anchorRef} className="opacity-0 group-hover/name:opacity-100 transition-opacity">
                 <Tooltip content="Item menu" side="top">
                   <button
                     onClick={(e) => {
@@ -235,7 +237,9 @@ const ItemRow = memo(function ItemRow({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="absolute top-full right-0 mt-1 w-44 dropdown-menu py-1 z-50"
+                  ref={menuRef}
+                  style={menuStyle}
+                  className="w-44 dropdown-menu py-1 z-[60]"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button

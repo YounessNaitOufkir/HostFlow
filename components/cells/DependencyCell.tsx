@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Link2, AlertCircle, X, CalendarClock } from "lucide-react";
@@ -26,6 +27,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
     : [];
 
   const isOpen = activeStatusId === item.id + column.id;
+  const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });
   
   const setIsOpen = (open: boolean) => {
     if (setActiveStatusId) {
@@ -185,7 +187,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
     .filter((i) => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative flex items-center p-1.5 cursor-pointer transition-colors ${isOpen ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
+    <div ref={anchorRef} className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative flex items-center p-1.5 cursor-pointer transition-colors ${isOpen ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <div
         className="w-full h-full flex items-center overflow-x-auto overflow-y-hidden no-scrollbar"
         onClick={(e) => {
@@ -218,8 +220,9 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
 
       {isOpen && (
         <div
-          ref={dropdownRef}
-          className="absolute top-full mt-1 left-0 w-72 dropdown-menu py-1.5 z-50 shadow-xl border border-gray-100 dark:border-slate-700/60 rounded-lg overflow-hidden bg-white dark:bg-[#1e2333]"
+          ref={(el) => { dropdownRef.current = el; menuRef.current = el; }}
+          style={menuStyle}
+          className="w-72 dropdown-menu py-1.5 z-[60] shadow-xl border border-gray-100 dark:border-slate-700/60 rounded-lg overflow-hidden bg-white dark:bg-[#1e2333]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-2 pb-2 mb-1 border-b border-gray-100 dark:border-slate-800">

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import {
   LayoutList,
   Columns3,
@@ -54,6 +55,7 @@ export default function BoardHeader({
   onImportData,
 }: BoardHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const { anchorRef, menuRef: popupRef, menuStyle } = useAnchoredMenu(isMenuOpen, { align: 'left' });
   const menuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -75,7 +77,7 @@ export default function BoardHeader({
             <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight" style={{ letterSpacing: '-0.025em' }}>
               {boardName}
             </h1>
-            <div className="relative" ref={menuRef}>
+            <div className="relative" ref={(el) => { menuRef.current = el; anchorRef.current = el; }}>
               <Tooltip content="Board options" side="bottom">
                 <button 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -85,7 +87,7 @@ export default function BoardHeader({
                 </button>
               </Tooltip>
               {isMenuOpen && (
-                <div className="absolute top-full mt-1 left-0 w-48 dropdown-premium z-50 py-1.5">
+                <div ref={popupRef} style={menuStyle} className="w-48 dropdown-premium z-[60] py-1.5">
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);
