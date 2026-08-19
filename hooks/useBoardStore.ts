@@ -14,6 +14,7 @@
 
 import { useReducer, useEffect, useCallback } from "react";
 import { usePromptModal } from "@/hooks/usePromptModal";
+import { useWorkspaceDialog } from "@/hooks/useWorkspaceDialog";
 import { boardReducer, initialBoardStoreState } from "./store/boardReducer";
 import { useWorkspaceMutations } from "./store/useWorkspaceMutations";
 import { useBoardMutations } from "./store/useBoardMutations";
@@ -27,6 +28,7 @@ export type { BoardStoreState, BoardAction };
 export function useBoardStore() {
   const [state, dispatch] = useReducer(boardReducer, initialBoardStoreState);
   const { requestPrompt, PromptComponent } = usePromptModal();
+  const { requestWorkspace, WorkspaceDialogComponent } = useWorkspaceDialog();
 
   // --- Hydrate from localStorage on mount ---
   useEffect(() => {
@@ -92,6 +94,7 @@ export function useBoardStore() {
   const workspaceMutations = useWorkspaceMutations({
     dispatch,
     requestPrompt,
+    requestWorkspace,
   });
   const boardMutations = useBoardMutations({
     dispatch,
@@ -174,5 +177,6 @@ export function useBoardStore() {
     handleDragEnd,
     // UI Components
     PromptComponent,
+    WorkspaceDialogComponent,
   };
 }

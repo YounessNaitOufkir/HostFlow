@@ -9,11 +9,13 @@ import { queryKeys } from "@/hooks/queries/queryKeys";
 interface UseWorkspaceMutationsProps {
   dispatch: BoardStoreDispatch;
   requestPrompt: (message: string, defaultValue?: string) => Promise<string | null>;
+  requestWorkspace: () => Promise<{ name: string; isPrivate: boolean } | null>;
 }
 
 export function useWorkspaceMutations({
   dispatch,
   requestPrompt,
+  requestWorkspace,
 }: UseWorkspaceMutationsProps) {
   const createWorkspace = useCallback(
     async (currentProfile?: Profile | null) => {
@@ -22,11 +24,13 @@ export function useWorkspaceMutations({
         return;
       }
 
-      const name = await requestPrompt("New Workspace Name:");
-      if (name) {
-        const isPrivate = window.confirm(
-          "Do you want to make this workspace completely PRIVATE? \n\n(If yes, other admins will NOT be able to see it unless you explicitly invite them)."
-        );
+      // Name and visibility now come from one dialog. The old flow asked the
+      // name in a styled prompt and then the visibility in a native confirm,
+      // whose Cancel only meant 'not private' - the workspace was created
+      // either way, so declining produced a shared workspace rather than none.
+      const draft = await requestWorkspace();
+      if (draft) {
+        const { name, isPrivate } = draft;
 
         const { data, error } = await supabase
           .from("workspaces")
@@ -48,7 +52,7 @@ export function useWorkspaceMutations({
         }
       }
     },
-    [dispatch, requestPrompt]
+    [dispatch, requestWorkspace]
   );
 
   const renameWorkspace = useCallback(
