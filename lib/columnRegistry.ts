@@ -48,6 +48,15 @@ export interface ColumnDefinition {
   isReadOnly: boolean;
   /** Category for the "Add Column" menu */
   category: "essential" | "advanced" | "computed";
+  /**
+   * Keep this type out of the "+ Add column" menu.
+   *
+   * The entry itself must stay: getColumnWidth and getDefaultTitle are looked up
+   * for columns that ALREADY exist, boards still hold `date` columns, and the
+   * spreadsheet importer can create types the menu no longer offers. Hiding is
+   * therefore additive - never delete an entry to remove it from the menu.
+   */
+  hiddenFromMenu?: boolean;
 }
 
 /**
@@ -88,6 +97,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: true,
     isReadOnly: false,
     category: "essential",
+    hiddenFromMenu: true,
   },
   date: {
     type: "date",
@@ -99,6 +109,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: false,
     isReadOnly: false,
     category: "essential",
+    hiddenFromMenu: true,
   },
   people: {
     type: "people",
@@ -154,6 +165,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: false,
     isReadOnly: false,
     category: "essential",
+    hiddenFromMenu: true,
   },
   dependency: {
     type: "dependency",
@@ -176,6 +188,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: true,
     isReadOnly: true,
     category: "computed",
+    hiddenFromMenu: true,
   },
   checkbox: {
     type: "checkbox",
@@ -198,6 +211,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: false,
     isReadOnly: false,
     category: "advanced",
+    hiddenFromMenu: true,
   },
   rating: {
     type: "rating",
@@ -209,6 +223,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: true,
     isReadOnly: false,
     category: "advanced",
+    hiddenFromMenu: true,
   },
   relation: {
     type: "relation",
@@ -220,6 +235,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: false,
     isReadOnly: false,
     category: "advanced",
+    hiddenFromMenu: true,
   },
   button: {
     type: "button",
@@ -231,6 +247,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: false,
     isReadOnly: false,
     category: "advanced",
+    hiddenFromMenu: true,
   },
 };
 
@@ -239,7 +256,9 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
  * Used by the "Add Column" dropdown menu.
  */
 export function getColumnsByCategory(category: ColumnDefinition["category"]): ColumnDefinition[] {
-  return Object.values(COLUMN_REGISTRY).filter((col) => col.category === category);
+  return Object.values(COLUMN_REGISTRY).filter(
+    (col) => col.category === category && !col.hiddenFromMenu
+  );
 }
 
 /**

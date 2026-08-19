@@ -24,9 +24,10 @@ describe("Column Registry — Batch 2", () => {
     "link",
     "rating",
     "relation",
+    "button",
   ];
 
-  it("contains definitions for all 15 supported column types", () => {
+  it("contains definitions for all 16 supported column types", () => {
     allTypes.forEach((type) => {
       const def = COLUMN_REGISTRY[type];
       expect(def).toBeDefined();
@@ -53,19 +54,38 @@ describe("Column Registry — Batch 2", () => {
     expect(getDefaultTitle("custom" as any)).toBe("Custom");
   });
 
-  it("filters columns correctly by category", () => {
-    const essential = getColumnsByCategory("essential");
-    expect(essential.map((c) => c.type)).toContain("status");
-    expect(essential.map((c) => c.type)).toContain("text");
-    expect(essential.map((c) => c.type)).toContain("priority");
+  it("offers only the column types the board actually uses", () => {
+    const essential = getColumnsByCategory("essential").map((c) => c.type);
+    expect(essential).toEqual(
+      expect.arrayContaining(["status", "text", "people", "timeline", "tags", "priority"])
+    );
+    expect(essential).not.toContain("numbers");
+    expect(essential).not.toContain("date");
+    expect(essential).not.toContain("files");
 
-    const advanced = getColumnsByCategory("advanced");
-    expect(advanced.map((c) => c.type)).toContain("dependency");
-    expect(advanced.map((c) => c.type)).toContain("checkbox");
-    expect(advanced.map((c) => c.type)).toContain("link");
+    const advanced = getColumnsByCategory("advanced").map((c) => c.type);
+    expect(advanced).toEqual(expect.arrayContaining(["dependency", "checkbox"]));
+    expect(advanced).not.toContain("link");
+    expect(advanced).not.toContain("rating");
+    expect(advanced).not.toContain("relation");
+    expect(advanced).not.toContain("button");
 
-    const computed = getColumnsByCategory("computed");
-    expect(computed.map((c) => c.type)).toContain("formula");
+    // formula is the only computed type and it is hidden, so the section is
+    // empty - GroupSection must not render a heading over nothing.
+    expect(getColumnsByCategory("computed")).toHaveLength(0);
+  });
+
+  it("keeps hidden types fully supported outside the menu", () => {
+    // Hiding is additive: existing columns of these types still render, and the
+    // importer can still create them from a spreadsheet. Deleting a registry
+    // entry to remove it from the menu would break both - this pins that.
+    const hidden: ColumnType[] = ["button", "formula", "rating", "link", "relation", "files", "date", "numbers"];
+    hidden.forEach((type) => {
+      expect(COLUMN_REGISTRY[type]).toBeDefined();
+      expect(COLUMN_REGISTRY[type].hiddenFromMenu).toBe(true);
+      expect(getColumnWidth(type)).toMatch(/^w-/);
+      expect(getDefaultTitle(type)).toBeTruthy();
+    });
   });
 
   it("verifies formula column aggregation metadata", () => {
