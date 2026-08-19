@@ -37,9 +37,20 @@ export async function createClient() {
 /**
  * Creates a privileged Supabase Admin client using the SUPABASE_SERVICE_ROLE_KEY.
  * Bypasses RLS for administrative mutations (e.g. org-wide setups or workspace bootstrap).
+ *
+ * Throws when the key is absent rather than falling back to the anon key. The old
+ * fallback turned a missing secret into a client that reads nothing — every query
+ * came back empty instead of failing — which is why the Vercel crons silently did
+ * nothing for months. A missing service-role key is a deployment fault; say so.
  */
 export function createAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY is not configured. Admin operations cannot run; " +
+        "set it in the deployment environment."
+    );
+  }
   return createSupabaseClient(supabaseUrl, serviceRoleKey, {
     auth: {
       persistSession: false,

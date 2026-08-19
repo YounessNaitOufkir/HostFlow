@@ -5,12 +5,17 @@ import { evaluateTimeAutomations } from "@/lib/automations/engine";
 export async function GET(request: Request) {
   try {
     // 1. Verify CRON_SECRET for security
+    //
+    // This route runs service-role and reads every profile, board and item, so a
+    // missing secret must not mean "let everyone in". Fail closed: no secret
+    // configured is a deployment fault, not an invitation.
+    if (!process.env.CRON_SECRET) {
+      console.error("CRON_SECRET is not configured; refusing to run automations.");
+      return NextResponse.json({ error: "Cron is not configured" }, { status: 503 });
+    }
+
     const authHeader = request.headers.get("authorization");
-    const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-    
-    // In local development, we might not have a CRON_SECRET, so we can bypass if it's missing, 
-    // but in production we MUST check it.
-    if (process.env.CRON_SECRET && authHeader !== expectedAuth) {
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

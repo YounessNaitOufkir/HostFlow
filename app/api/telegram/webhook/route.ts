@@ -24,9 +24,24 @@ interface TelegramUpdate {
 // ─── Webhook Secret Validation ──────────────────────────────────
 // Telegram allows setting a secret_token when registering the webhook.
 // If set, every request includes an X-Telegram-Bot-Api-Secret-Token header.
+// Defence in depth, not the actual gate. The only sensitive write here is linking a
+// chat to a profile, and that is authorised by the HMAC in verifyDeepLinkToken()
+// (TELEGRAM_LINK_SECRET) — forging an update cannot link an account.
+//
+// So an unset secret stays permissive rather than failing closed: rejecting would
+// take the bot down to protect something already protected. Setting it is still
+// worth doing — without it, a forged update can make the bot reply to an arbitrary
+// chat id, i.e. use it as a spam relay. Pass `secret_token` to Telegram's setWebhook
+// and set the same value here.
 function validateTelegramSecret(request: Request): boolean {
   const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (!expectedSecret) return true; // No secret configured → skip check
+  if (!expectedSecret) {
+    console.warn(
+      "TELEGRAM_WEBHOOK_SECRET is not set; webhook origin is unverified. " +
+        "Account linking is still HMAC-protected."
+    );
+    return true;
+  }
   const headerSecret = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
   return headerSecret === expectedSecret;
 }
