@@ -37,31 +37,41 @@ const sharedWorkspace = {
   created_by: "u-staff",
 } as unknown as Workspace;
 
-describe("WorkspaceMembersModal — who really has access", () => {
+describe("WorkspaceMembersModal - who is listed", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("does not claim an external person can open a shared workspace", async () => {
-    // The badge used to read "Has access" for every row on a shared workspace,
-    // which contradicted the database: an external user is refused by
-    // can_access_workspace and sees nothing.
+  it("leaves external people out of a shared workspace entirely", async () => {
+    // An external can never reach a shared workspace, so listing them - even as
+    // denied - is noise in a team workspace's people list.
     render(
       <WorkspaceMembersModal workspace={sharedWorkspace} currentUserId="u-staff" onClose={vi.fn()} />,
       { wrapper }
     );
 
-    await waitFor(() => expect(screen.getByText("E2E Test User")).toBeInTheDocument());
-
-    expect(screen.getByText(/no access/i)).toBeInTheDocument();
-    // exactly one person here is staff, so exactly one row may claim access
+    await waitFor(() => expect(screen.getByText("Amine ABOUTALIB")).toBeInTheDocument());
+    expect(screen.queryByText("E2E Test User")).not.toBeInTheDocument();
     expect(screen.getAllByText(/has access/i)).toHaveLength(1);
   });
 
-  it("tells the reader why, and how to give an external person access", async () => {
+  it("still lists external people on a private workspace, so they can be invited", async () => {
+    // A private workspace is how you would give one external person access to
+    // something specific, so they have to remain invitable there.
+    const privateWorkspace = { ...sharedWorkspace, is_private: true } as typeof sharedWorkspace;
+    render(
+      <WorkspaceMembersModal workspace={privateWorkspace} currentUserId="u-staff" onClose={vi.fn()} />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(screen.getByText("Amine ABOUTALIB")).toBeInTheDocument());
+    expect(screen.getByText("E2E Test User")).toBeInTheDocument();
+  });
+
+  it("explains that externals are not listed rather than leaving a silent gap", async () => {
     render(
       <WorkspaceMembersModal workspace={sharedWorkspace} currentUserId="u-staff" onClose={vi.fn()} />,
       { wrapper }
     );
-    await waitFor(() => expect(screen.getByText("E2E Test User")).toBeInTheDocument());
-    expect(screen.getByText(/shared workspaces are staff-only/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Amine ABOUTALIB")).toBeInTheDocument());
+    expect(screen.getByText(/external[\s\S]*not listed/i)).toBeInTheDocument();
   });
 });

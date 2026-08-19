@@ -199,8 +199,8 @@ export default function WorkspaceMembersModal({
           {!isPrivate && !loading && (
             <p className="px-2 pb-3 text-xs text-gray-500 dark:text-gray-400">
               Everyone on the team can already open this workspace. External
-              people cannot - shared workspaces are staff-only. Switch it to
-              private if you want to choose who sees it.
+              people are not listed - shared workspaces are staff-only. Switch
+              it to private if you want to choose who sees it.
             </p>
           )}
           {loading ? (
@@ -212,7 +212,15 @@ export default function WorkspaceMembersModal({
               No other people to show yet.
             </p>
           ) : (
-            users.map((u) => {
+            users
+              // On a shared workspace an external person can never have
+              // access, so listing them is noise - your sister organising her
+              // own life has no business in a team workspace's people list.
+              // The exception is someone still holding a membership row from
+              // when this workspace was private: that grants nothing now, but
+              // it should be visible so it can be cleared.
+              .filter((u) => isPrivate || u.is_staff !== false || memberIds.has(u.id))
+              .map((u) => {
               const isMember = memberIds.has(u.id);
               const isSelf = u.id === currentUserId;
               // can_access_workspace requires staff for any non-private
@@ -240,12 +248,20 @@ export default function WorkspaceMembersModal({
                       is nothing to grant — show state rather than an action. */}
                   {!isPrivate ? (
                     isExternal ? (
-                      <span
-                        title="Shared workspaces are staff-only. Make this workspace private to give an external person access."
-                        className="text-xs font-medium px-2.5 py-1 rounded-md border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-800/60 shrink-0 flex items-center gap-1"
+                      <button
+                        disabled={busyId === u.id}
+                        onClick={() => toggle(u.id, true)}
+                        title="This person was invited while the workspace was private. They cannot open it now that it is shared - removing them clears the leftover invite."
+                        className="text-xs font-medium px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shrink-0 flex items-center gap-1 disabled:opacity-50"
                       >
-                        <Ban size={12} /> No access
-                      </span>
+                        {busyId === u.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <>
+                            <Ban size={12} /> Lost access
+                          </>
+                        )}
+                      </button>
                     ) : (
                       <span className="text-xs font-medium px-2.5 py-1 rounded-md border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 shrink-0 flex items-center gap-1">
                         <Check size={12} /> Has access

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useAssignablePeople } from "@/components/AssignablePeopleContext";
 import { Item, Column, Profile } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Plus, X } from "lucide-react";
@@ -52,6 +53,12 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
     onUpdate(item.id, column.id, selectedIds.filter((id) => id !== userId));
   };
 
+  // The picker offers only people who can actually reach this workspace, but
+  // still lists anyone already assigned so a wrong assignment can be undone.
+  const assignable = useAssignablePeople();
+  const pickable = assignable
+    ? profiles.filter((u) => assignable.has(u.id) || selectedIds.includes(u.id))
+    : profiles;
   const selectedUsers = profiles.filter((u) => selectedIds.includes(u.id));
   // Assignees outside your directory — an external, or someone whose workspace
   // you cannot reach. Without this the cell would render them as unassigned,
@@ -119,7 +126,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
           <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             Assign People
           </div>
-          {profiles.map((user) => {
+          {pickable.map((user) => {
             const isSelected = selectedIds.includes(user.id);
             return (
               <button
