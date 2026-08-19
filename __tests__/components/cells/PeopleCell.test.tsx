@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
 import PeopleCell from "@/components/cells/PeopleCell";
+import { AssignablePeopleContext } from "@/components/AssignablePeopleContext";
 import type { Item, Column, Profile } from "@/types";
 
 /**
@@ -112,5 +113,54 @@ describe("PeopleCell — assignees outside the directory", () => {
       "user-hidden",
       "user-visible",
     ]);
+  });
+});
+
+describe("PeopleCell - who can be assigned", () => {
+  const staff: Profile = {
+    id: 'u-staff', full_name: 'Amine ABOUTALIB', avatar_initials: 'AA', color: '#f59e0b',
+  } as Profile;
+  const external: Profile = {
+    id: 'u-ext', full_name: 'Sister Externe', avatar_initials: 'SE', color: '#3b82f6',
+  } as Profile;
+
+  const col: Column = { id: 'people_col', title: 'Assignee', type: 'people' };
+  const mkItem = (assignees: string[]): Item => ({
+    id: 'item-1', board_id: 'b1', group_id: 'g1', name: 'Task', position: 0,
+    column_values: { people_col: assignees },
+  });
+  // The dropdown is controlled by the parent, so render it already open.
+  const OPEN = 'item-1people_col';
+
+  const renderOpen = (assignees: string[], assignable: Set<string> | null) =>
+    render(
+      <AssignablePeopleContext.Provider value={assignable}>
+        <PeopleCell
+          item={mkItem(assignees)}
+          column={col}
+          onUpdate={vi.fn()}
+          profiles={[staff, external]}
+          activeStatusId={OPEN}
+          setActiveStatusId={vi.fn()}
+        />
+      </AssignablePeopleContext.Provider>
+    );
+
+  it('does not offer an external person on a staff-only workspace', () => {
+    // A shared workspace refuses externals outright, so assigning one there
+    // would hand someone a task on a board they cannot open.
+    renderOpen([], new Set([staff.id]));
+    expect(screen.getByText('Amine ABOUTALIB')).toBeInTheDocument();
+    expect(screen.queryByText('Sister Externe')).not.toBeInTheDocument();
+  });
+
+  it('still offers an external who is already assigned, so it can be undone', () => {
+    renderOpen([external.id], new Set([staff.id]));
+    expect(screen.getAllByText('Sister Externe').length).toBeGreaterThan(0);
+  });
+
+  it('offers everyone when there is no restriction (a private workspace)', () => {
+    renderOpen([], null);
+    expect(screen.getByText('Sister Externe')).toBeInTheDocument();
   });
 });
