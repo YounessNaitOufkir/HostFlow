@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { Item, Column } from "@/types";
 import { DayPicker, DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -134,22 +134,56 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
     }
   }
 
-  // Calculate if popup should open upwards
-  const [openUpwards, setOpenUpwards] = useState(false);
   const cellRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (isEditing && cellRef.current) {
-      const rect = cellRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      // If there is less than 350px below and more space above, open upwards
-      if (spaceBelow < 380 && rect.top > spaceBelow) {
-        setOpenUpwards(true);
-      } else {
-        setOpenUpwards(false);
-      }
+  // Where to put the calendar.
+  //
+  // It used to be absolutely positioned and simply flipped above the cell when
+  // there was under 380px below. On a short window neither side fits - a row
+  // near the top of a new board has little room above it either - so it flipped
+  // upwards and ran off the top of the screen, leaving a stub of calendar
+  // floating over the header. Position is now measured and clamped so the whole
+  // calendar always stays on screen.
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+  const place = useCallback(() => {
+    const cell = cellRef.current;
+    const pop = popupRef.current;
+    if (!cell || !pop) return;
+    const c = cell.getBoundingClientRect();
+    const p = pop.getBoundingClientRect();
+    const gap = 8;
+
+    let top = c.bottom + gap;
+    if (top + p.height > window.innerHeight - gap) {
+      const above = c.top - p.height - gap;
+      top = above >= gap ? above : c.bottom + gap;
     }
-  }, [isEditing]);
+    top = Math.max(gap, Math.min(top, window.innerHeight - p.height - gap));
+
+    let left = c.left + c.width / 2 - p.width / 2;
+    left = Math.max(gap, Math.min(left, window.innerWidth - p.width - gap));
+
+    setCoords({ top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isEditing) {
+      setCoords(null);
+      return;
+    }
+    // Measure-then-position: the popup has to be in the DOM before its size is
+    // known, so the placement necessarily lands in state from a layout effect.
+    // It runs before paint, so nothing flickers.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [isEditing, place]);
 
   // Handle keyboard events (Enter to save)
   useEffect(() => {
@@ -189,7 +223,14 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
       {isEditing && (
         <div 
           ref={popupRef}
-          className={`absolute ${openUpwards ? "bottom-full mb-2" : "top-full mt-2"} left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200 cursor-default`}
+          style={{
+            position: 'fixed',
+            top: coords ? coords.top : 0,
+            left: coords ? coords.left : 0,
+            // Hidden for the first paint only, while it is measured.
+            visibility: coords ? 'visible' : 'hidden',
+          }}
+          className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-[60] animate-in fade-in zoom-in-95 duration-200 cursor-default"
           onClick={(e) => e.stopPropagation()}
         >
           <style dangerouslySetInnerHTML={{__html: `
