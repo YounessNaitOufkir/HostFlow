@@ -35,9 +35,19 @@ export function useBoardMutations({
         workspaceId ||
         (await supabase.from("workspaces").select("id").limit(1).single())
           .data?.id;
+      // The columns a board is actually worked with, so a new board is usable
+      // immediately instead of needing seven columns added by hand. Ids are
+      // generated the same way the importer does it, rather than the fixed
+      // 'status'/'date' strings this used before - two boards created that way
+      // shared column ids, which automations match on.
       const defaultColumns: Column[] = [
-        { id: "status", title: "Status", type: "status" },
-        { id: "date", title: "Date", type: "date" },
+        { id: crypto.randomUUID(), title: "Timeline", type: "timeline" },
+        { id: crypto.randomUUID(), title: "Assignee", type: "people" },
+        { id: crypto.randomUUID(), title: "Dependency", type: "dependency" },
+        { id: crypto.randomUUID(), title: "Tags", type: "tags" },
+        { id: crypto.randomUUID(), title: "Status", type: "status" },
+        { id: crypto.randomUUID(), title: "Priority", type: "priority" },
+        { id: crypto.randomUUID(), title: "Notes", type: "text" },
       ];
       try {
         const { data, error } = await supabase
@@ -52,6 +62,23 @@ export function useBoardMutations({
           .single();
         if (error) throw error;
         if (data) {
+          // A board with no groups renders "No groups yet" and shows none of
+          // its columns, so the defaults above would be invisible until the
+          // user added a group by hand. Start it with one.
+          const { error: groupErr } = await supabase.from("groups").insert({
+            id: crypto.randomUUID(),
+            board_id: data.id,
+            title: "New Group",
+            color: "#579bfc",
+            position: 0,
+          });
+          if (groupErr) {
+            reportMutationError(groupErr, "Board created, but its first group could not be added", {
+              table: "groups",
+              operation: "insert",
+            });
+          }
+
           // The creator used to be granted access by appending to
           // profiles.allowed_boards. That array is retired — access now comes
           // from boards.created_by (set by the set_created_by trigger) plus
