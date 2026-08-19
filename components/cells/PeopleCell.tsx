@@ -53,6 +53,11 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
   };
 
   const selectedUsers = profiles.filter((u) => selectedIds.includes(u.id));
+  // Assignees outside your directory — an external, or someone whose workspace
+  // you cannot reach. Without this the cell would render them as unassigned,
+  // which reads as "nobody is on this" for work that is in fact assigned.
+  const knownIds = new Set(profiles.map((u) => u.id));
+  const hiddenCount = selectedIds.filter((id) => !knownIds.has(id)).length;
 
   return (
     <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 flex items-center justify-center px-1 shrink-0 relative`} style={{ width: column.width ? `${column.width}px` : undefined }} ref={dropdownRef}>
@@ -61,7 +66,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
         className="flex items-center justify-center w-full h-full cursor-pointer group/people"
       >
-        {selectedUsers.length === 0 ? (
+        {selectedIds.length === 0 ? (
           <div className={`w-7 h-7 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center opacity-40 group-hover/people:opacity-80 transition-opacity shrink-0`}>
             <Plus size={12} className="text-gray-400 dark:text-gray-500" />
           </div>
@@ -90,6 +95,18 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
             {selectedUsers.length > 3 && (
               <div className={`w-7 h-7 rounded-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300 ring-2 ring-white dark:ring-slate-900 shrink-0`}>
                 +{selectedUsers.length - 3}
+              </div>
+            )}
+            {hiddenCount > 0 && (
+              <div
+                title={
+                  hiddenCount === 1
+                    ? "Assigned to someone outside your workspace"
+                    : `Assigned to ${hiddenCount} people outside your workspace`
+                }
+                className={`w-7 h-7 rounded-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center text-[10px] font-bold text-gray-500 dark:text-gray-300 ring-2 ring-white dark:ring-slate-900 shrink-0`}
+              >
+                {hiddenCount === 1 ? "?" : `${hiddenCount}?`}
               </div>
             )}
           </div>

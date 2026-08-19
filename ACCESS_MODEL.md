@@ -20,6 +20,13 @@ Separating those two cleanly is the single most important design constraint.
 | Owner | `profiles.is_owner` (exactly one true) | Youness. Cannot be demoted. Replaces the hardcoded email check. |
 | Admin | `profiles.role = 'admin'` | Manages company workspaces, users, role assignment. |
 | Member | `profiles.role = 'member'` | Everyone else. The default for new signups. |
+| Team | `profiles.is_staff = true` | Host'lik. Sees every shared workspace without being invited. |
+| External | `profiles.is_staff = false` | Outside the company. The default for new signups. |
+
+Role and staff are independent axes, with one rule tying them together:
+**Administrator implies Team.** `profiles_admin_implies_staff` enforces it in the
+database, so "External Administrator" cannot be represented — granting a role was
+otherwise a way around the badge.
 
 `manager` and `contractor` remain in the `user_role` enum for historical rows but
 are no longer used. Removing enum values in Postgres is disruptive, so they are
@@ -73,16 +80,34 @@ This is deliberate. A user must be able to keep personal work on the platform
 without the company — including its owner — being able to read it. Any future
 "admin can see everything" shortcut breaks the product's core promise.
 
-Admins *do* get automatic access to all **non-private** workspaces and boards
-without being added as members, so company work needs no per-admin bookkeeping.
+### The second rule that overrides everything else
+
+**A non-private workspace is Host'lik work and is reachable only by Team.** Not by
+role, not by an invitation, not by having created something inside it. `is_staff` is
+a ceiling, not a convenience.
+
+Staff get automatic access to all **non-private** workspaces and boards without being
+added as members, so company work needs no per-member bookkeeping. Membership rows on
+a shared workspace are therefore redundant for staff and inert for externals.
+
+The consequence is deliberate: **collaboration with an external happens in a private
+workspace or board.** A shared workspace cannot host an outsider on a single board.
+
+Both rules are expressed once, in `can_access_workspace_as()` / `can_access_board_as()`;
+the `auth.uid()` forms are one-line wrappers so the rule cannot drift between the app
+and the API.
 
 ## New users
 
 Registration is open — anyone can sign up.
 
 On registration a user gets a **private personal workspace** ("My Workspace") and
-nothing else. They can immediately create boards there. Company access is granted
-afterwards by an admin, per workspace or per board.
+nothing else. They can immediately create boards there. New signups are External, so
+company access begins with an admin marking them Team; per-workspace and per-board
+grants then apply within private content.
+
+A non-staff user cannot create a non-private workspace — that would produce
+Host'lik-classed content owned by someone the ceiling then locks out of it.
 
 ## Automations
 
@@ -142,8 +167,13 @@ correctness and clarity at that size, not for horizontal scale.
 | Profiles, directory view, signup flow | Applied (`20260818000002`) |
 | INSERT…RETURNING visibility fix | Applied (`20260818000003`) |
 | Membership policies + invites | Applied (`20260818000004`) |
-| Inherited board privacy fix | Written (`20260818000005`) — awaiting apply |
-| Workspace-scoped automations | Written (`20260818000006`) — awaiting apply |
+| Inherited board privacy fix | Applied (`20260818000005`) |
+| Workspace-scoped automations | Applied (`20260818000006`) |
+| Access-grant notifications | Applied (`20260818000007`) |
+| Staff flag, shared visibility | Applied (`20260818000008`) |
+| Staff see each other in the directory | Applied (`20260819000000`) |
+| Team badge as a hard ceiling | Applied (`20260819000001`) |
+| One access rule, parameterized by user | Applied (`20260819000002`) |
 | Leaked-password protection | Done — `lib/passwordSecurity.ts`, wired into signup and reset |
 | Per-workspace automations | Not started |
 | Audit trail | Not started |
