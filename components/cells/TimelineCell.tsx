@@ -151,7 +151,10 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
     const pop = popupRef.current;
     if (!cell || !pop) return;
     const c = cell.getBoundingClientRect();
-    const p = pop.getBoundingClientRect();
+    // offsetWidth/Height, not getBoundingClientRect: the popup scales in, and
+    // the rect reports the SCALED box mid-animation. Measuring that would place
+    // the calendar against a size it is only passing through.
+    const p = { width: pop.offsetWidth, height: pop.offsetHeight };
     const gap = 8;
 
     let top = c.bottom + gap;
@@ -230,7 +233,12 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
             // Hidden for the first paint only, while it is measured.
             visibility: coords ? 'visible' : 'hidden',
           }}
-          className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-[60] animate-in fade-in zoom-in-95 duration-200 cursor-default"
+          // Same entrance as every other cell dropdown (.dropdown-menu uses this
+          // exact animation). transition-none is load-bearing: without an explicit
+          // transition-property the element inherits "all", and the top/left set
+          // by place() then animated from the viewport corner - which is what made
+          // the calendar look like it slid in from the side.
+          className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 z-[60] origin-top animate-scale-in transition-none cursor-default"
           onClick={(e) => e.stopPropagation()}
         >
           <style dangerouslySetInnerHTML={{__html: `

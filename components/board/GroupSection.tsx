@@ -9,19 +9,6 @@ import {
   Trash2,
   Plus,
   Pencil,
-  Settings2,
-  AlignLeft,
-  Calendar,
-  Hash,
-  Users,
-  Clock,
-  Tag,
-  Paperclip,
-  AlertTriangle,
-  Link2,
-  CheckSquare,
-  Star,
-  Calculator,
   GripVertical,
   ArrowUp,
   ArrowDown,
@@ -32,7 +19,7 @@ import type { Item, Column, ColumnType, Profile, Group } from "@/types";
 import ColumnHeader from "@/components/ColumnHeader";
 import GroupFooter from "@/components/GroupFooter";
 import ItemRow from "@/components/board/ItemRow";
-import { getColumnsByCategory, type ColumnDefinition } from "@/lib/columnRegistry";
+import { getColumnsByCategory } from "@/lib/columnRegistry";
 
 export interface GroupSectionProps {
   group: Group;
@@ -79,21 +66,6 @@ export interface GroupSectionProps {
   isLastGroup?: boolean;
 }
 
-const COLUMN_ICON_MAP: Record<string, React.ElementType> = {
-  status: Settings2,
-  text: AlignLeft,
-  date: Calendar,
-  number: Hash,
-  person: Users,
-  timeline: Clock,
-  tags: Tag,
-  file: Paperclip,
-  priority: AlertTriangle,
-  link: Link2,
-  checkbox: CheckSquare,
-  rating: Star,
-  formula: Calculator,
-};
 
 const PRESET_COLORS = ["#579bfc", "#00c875", "#e2445c", "#fdab3d", "#a25ddc", "#333333"];
 
@@ -554,7 +526,7 @@ const GroupSection = memo(function GroupSection({
                     Essential
                   </div>
                   {essentialCols.map((def) => {
-                    const Icon = COLUMN_ICON_MAP[def.type] || Hash;
+                    const Icon = def.icon;
                     return (
                       <button
                         key={def.type}
@@ -572,7 +544,7 @@ const GroupSection = memo(function GroupSection({
                     Advanced
                   </div>
                   {advancedCols.map((def) => {
-                    const Icon = COLUMN_ICON_MAP[def.type] || Hash;
+                    const Icon = def.icon;
                     return (
                       <button
                         key={def.type}
@@ -585,12 +557,16 @@ const GroupSection = memo(function GroupSection({
                     );
                   })}
 
-                  <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
-                  <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                    Computed
-                  </div>
+                  {computedCols.length > 0 && (
+                    <>
+                      <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
+                      <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                        Computed
+                      </div>
+                    </>
+                  )}
                   {computedCols.map((def) => {
-                    const Icon = COLUMN_ICON_MAP[def.type] || Hash;
+                    const Icon = def.icon;
                     return (
                       <button
                         key={def.type}
