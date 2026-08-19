@@ -129,9 +129,14 @@ export default function Sidebar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // With no workspace selected the panel used to fall back to every board in
+  // every workspace: a flat list with repeated names and nothing to tell them
+  // apart, since the workspace each one belongs to was not shown. "All
+  // workspaces" is answered by the overview in the middle of the page, which
+  // groups the boards under their workspace, so the panel lists none.
   const visibleBoards = activeWorkspace
     ? boards.filter((b) => b.workspace_id === activeWorkspace.id)
-    : boards;
+    : [];
 
   return (
     <>
@@ -366,7 +371,10 @@ export default function Sidebar({
                 {/* Boards Section */}
                 <div className="px-4 mb-2 mt-5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center relative">
                   <span>Boards</span>
-                  <div ref={createMenuRef} className="relative">
+                  {/* Hidden on "All workspaces": createBoard falls back to
+                      whichever workspace the database returns first, so the new
+                      board would land somewhere the user never chose. */}
+                  <div ref={createMenuRef} className={`relative ${activeWorkspace ? "" : "hidden"}`}>
                     <button
                       onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
                       className="hover:bg-gray-100 dark:hover:bg-white/[0.06] p-1 rounded transition-colors text-gray-400 hover:text-blue-500"
