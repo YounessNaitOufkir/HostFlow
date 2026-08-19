@@ -55,7 +55,13 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   const [triggerColId, setTriggerColId] = useState(statusCols[0]?.id || "");
   const [triggerValue, setTriggerValue] = useState("");
   const [triggerDateColId, setTriggerDateColId] = useState(dateCols[0]?.id || "");
-  const [actionTargetId, setActionTargetId] = useState(groups[0]?.id || "");
+  // The LAST group, not the first. These recipes move finished work out of the
+  // way, and the first group is where work starts - defaulting there produced a
+  // rule that moved items into the group they were already in, so triggering it
+  // did nothing at all and the automation looked broken.
+  const [actionTargetId, setActionTargetId] = useState(
+    groups[groups.length - 1]?.id || ""
+  );
 
   const selectedColDef = board.columns.find((c) => c.id === triggerColId);
   const currentStatusOptions = selectedColDef?.settings?.statusLabels || STATUS_OPTIONS;
@@ -69,6 +75,27 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   const statusLabels: string[] = (currentStatusOptions as any[]).map((o) =>
     typeof o === "string" ? o : o?.label
   ).filter(Boolean);
+  // A move rule needs a second group to move work INTO. On a board with one
+  // group the rule can only ever move an item to where it already is, which is
+  // indistinguishable from the automation not running.
+  const isMoveRecipe =
+    selectedRecipe === "move_done" || selectedRecipe === "move_cancelled";
+  const needsAnotherGroup = isMoveRecipe && groups.length < 2;
+  // The engine takes the FIRST rule that matches, so a second rule on the same
+  // trigger can never run - it is silently shadowed by the older one. That is
+  // how a board ends up with several identical rules and behaviour nobody can
+  // explain: the rule you just made is not the one that fires.
+  const plannedActionType = isMoveRecipe ? 'move_group' : selectedRecipe;
+  const plannedColumn = isMoveRecipe ? triggerColId : triggerDateColId;
+  const duplicateRule = selectedRecipe
+    ? automations.find(
+        (a) =>
+          a.action_type === plannedActionType &&
+          a.trigger_column_id === plannedColumn &&
+          (!isMoveRecipe || a.trigger_value === effectiveTriggerValue)
+      )
+    : undefined;
+  const blocked = needsAnotherGroup || !!duplicateRule;
   const canonicalForRecipe = selectedRecipe === "move_cancelled" ? "Cancelled" : "Done";
   const effectiveTriggerValue =
     triggerValue && statusLabels.includes(triggerValue)
@@ -387,7 +414,17 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
               {selectedRecipe && (
                 <div className="pt-4 border-t border-gray-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {selectedRecipe === "move_done" || selectedRecipe === "move_cancelled" ? (
+                    {duplicateRule ? (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">
+                        A rule for this trigger already exists below. Two rules on
+                        the same trigger cannot both run - only the first would.
+                      </span>
+                    ) : needsAnotherGroup ? (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">
+                        This board has only one group, so there is nowhere to move
+                        items to. Add a second group first.
+                      </span>
+                    ) : isMoveRecipe ? (
                       <div className="flex flex-wrap items-center gap-2">
                         {statusCols.length > 1 && (
                           <>
@@ -452,7 +489,9 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                     </button>
                     <button
                       onClick={() => handleCreateRecipe(selectedRecipe)}
-                      className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-sm"
+                      disabled={blocked}
+                      title={duplicateRule ? "A rule for this trigger already exists. Delete it first - two rules on the same trigger cannot both run." : needsAnotherGroup ? "Add a second group first - there is nowhere for this rule to move items to." : undefined}
+                      className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-600"
                     >
                       Enable This Automation
                     </button>
