@@ -2,7 +2,12 @@
 // Shared TypeScript interfaces for the HostFlow platform
 // ============================================================
 
-export type UserRole = "admin" | "manager" | "member" | "contractor";
+/**
+ * `manager` and `contractor` are retired: 20260818000000 migrated every such row
+ * to `member`. They survive in the Postgres enum only because removing a value is
+ * disruptive — nothing assigns them, and the admin UI offers just these two.
+ */
+export type UserRole = "admin" | "member";
 export type BoardType = "standard" | "properties" | "contractors" | "procurement" | "crm";
 export type LinkType = "dependency" | "relation" | "subitem";
 

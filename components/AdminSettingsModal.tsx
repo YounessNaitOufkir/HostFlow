@@ -124,6 +124,16 @@ export default function AdminSettingsModal({
   // Team members see every shared workspace without being invited; externals see
   // only what they create and what they are explicitly given.
   const handleStaffChange = async (profileId: string, staff: boolean) => {
+    const targetProfile = profiles.find((p) => p.id === profileId);
+    // Administrator implies staff — the DB enforces this too
+    // (profiles_admin_implies_staff). Catch it here for a readable message.
+    if (!staff && targetProfile?.role === "admin") {
+      alert(
+        "Action Blocked: An Administrator cannot be marked External. Change their role to Member first."
+      );
+      return;
+    }
+
     setSavingId(profileId);
     try {
       const { error } = await supabase.rpc("set_user_staff", {
@@ -156,6 +166,14 @@ export default function AdminSettingsModal({
     // email column, so an email comparison here is always false.
     if (targetProfile?.is_owner && newRole !== "admin") {
       alert("Action Blocked: The platform owner can never be demoted from Administrator.");
+      return;
+    }
+    // An External must never reach Host'lik work, and Administrator would do
+    // exactly that. Mirrors profiles_admin_implies_staff.
+    if (newRole === "admin" && !targetProfile?.is_staff) {
+      alert(
+        "Action Blocked: An External account cannot be an Administrator. Make them a Team member first."
+      );
       return;
     }
     if (targetProfile?.role === "admin" && newRole !== "admin") {
