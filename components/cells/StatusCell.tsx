@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column, STATUS_OPTIONS } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Clock } from "lucide-react";
@@ -27,9 +28,9 @@ export default function StatusCell({
   const currentOptions = column.settings?.statusLabels || STATUS_OPTIONS;
   const option = currentOptions.find((opt: any) => opt.label === value);
   const bgColor = option ? option.color : (isOverdue ? "bg-gradient-to-r from-red-600 to-rose-600" : "bg-[#c4c4c4]");
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const [dropdownDirection, setDropdownDirection] = useState<"up" | "down">("down");
+
   const isOpen = activeStatusId === cellKey;
+  const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });
   // Kept true through the exit animation so the popup keeps its stacking
   // priority (z-50) until it has actually faded out — otherwise it gets
   // clipped behind the next row the instant `isOpen` flips to false.
@@ -39,20 +40,13 @@ export default function StatusCell({
   }, [isOpen]);
 
   const handleToggle = () => {
-    if (!isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const estimatedHeight = currentOptions.length * 36 + 8;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      setDropdownDirection(spaceBelow < estimatedHeight && spaceAbove > spaceBelow ? "up" : "down");
-    }
     setActiveStatusId?.(isOpen ? null : cellKey);
   };
 
   return (
     <div className={`${column.width ? '' : 'w-32'} border-r border-gray-200 dark:border-slate-700 relative shrink-0 ${isElevated ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
       <div
-        ref={triggerRef}
+        ref={anchorRef}
         onClick={(e) => {
           e.stopPropagation();
           handleToggle();
@@ -77,7 +71,9 @@ export default function StatusCell({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className={`absolute ${dropdownDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} w-[140px] dropdown-menu z-50 flex flex-col bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-2xl rounded overflow-hidden`}
+            ref={menuRef}
+            style={menuStyle}
+            className="w-[140px] dropdown-menu z-[60] flex flex-col bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-2xl rounded overflow-hidden"
           >
             {currentOptions.map((opt) => (
               <button

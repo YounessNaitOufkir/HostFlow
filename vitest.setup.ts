@@ -16,12 +16,15 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-// Mock ResizeObserver for charts and layout components
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+// Mock ResizeObserver for charts and layout components.
+// A class, not vi.fn(): callers use `new ResizeObserver(...)`, and an arrow
+// function implementation is not constructible, so it threw a TypeError.
+class ResizeObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+global.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 
 // Mock window.scrollTo
 window.scrollTo = vi.fn();

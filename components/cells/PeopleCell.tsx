@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAssignablePeople } from "@/components/AssignablePeopleContext";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column, Profile } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Plus, X } from "lucide-react";
@@ -25,7 +26,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
     }
   };
 
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });
 
   const rawValue = item.column_values[column.id];
   const selectedIds: string[] = Array.isArray(rawValue) ? rawValue : [];
@@ -33,7 +34,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -67,7 +68,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
   const hiddenCount = selectedIds.filter((id) => !knownIds.has(id)).length;
 
   return (
-    <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 flex items-center justify-center px-1 shrink-0 relative`} style={{ width: column.width ? `${column.width}px` : undefined }} ref={dropdownRef}>
+    <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 flex items-center justify-center px-1 shrink-0 relative`} style={{ width: column.width ? `${column.width}px` : undefined }} ref={anchorRef}>
       {/* Cell display */}
       <div
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
@@ -122,7 +123,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full mt-1 left-0 w-52 dropdown-menu py-1.5 z-50">
+        <div ref={menuRef} style={menuStyle} className="w-52 dropdown-menu py-1.5 z-[60]">
           <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             Assign People
           </div>

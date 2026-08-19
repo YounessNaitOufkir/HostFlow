@@ -1,6 +1,7 @@
 "use client";
 
 import React, { memo, useMemo, useState, useRef, useEffect } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -154,6 +155,8 @@ const GroupSection = memo(function GroupSection({
   const [isCustomColorModalOpen, setIsCustomColorModalOpen] = useState(false);
   const [customColorValue, setCustomColorValue] = useState(group.color);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const { anchorRef: colorMenuAnchor, menuRef: colorMenuRef, menuStyle: colorMenuStyle } = useAnchoredMenu(isColorPickerOpen, { align: 'left' });
+  const { anchorRef: addColMenuAnchor, menuRef: addColMenuRef, menuStyle: addColMenuStyle } = useAnchoredMenu(showAddColumnMenu === group.id, { align: 'right' });
 
   useEffect(() => {
     if (!isColorPickerOpen) return;
@@ -345,7 +348,7 @@ const GroupSection = memo(function GroupSection({
         
         {/* Color Picker and Move Arrows (moved to right side of group name) */}
         <div className="flex items-center ml-2 mr-2 opacity-0 group-hover/grouptitle:opacity-100 transition-opacity">
-          <div className="relative" ref={colorPickerRef}>
+          <div className="relative" ref={(el) => { colorPickerRef.current = el; colorMenuAnchor.current = el; }}>
             <button
               className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
@@ -354,7 +357,7 @@ const GroupSection = memo(function GroupSection({
               <div className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-slate-600" style={{ backgroundColor: group.color }}></div>
             </button>
             {isColorPickerOpen && (
-              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-xl rounded-lg p-2 z-50 w-48">
+              <div ref={colorMenuRef} style={colorMenuStyle} className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-xl rounded-lg p-2 z-[60] w-48">
                 <div className="grid grid-cols-6 gap-1.5">
                   {PRESET_COLORS.map(c => (
                     <button
@@ -525,6 +528,7 @@ const GroupSection = memo(function GroupSection({
 
           {/* Add Column Button */}
           <div
+            ref={addColMenuAnchor}
             className="relative w-16 shrink-0 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/[0.04] cursor-pointer transition-colors rounded-tr-xl"
             onClick={(e) => {
               e.stopPropagation();
@@ -540,7 +544,9 @@ const GroupSection = memo(function GroupSection({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="absolute top-full right-0 mt-1 w-56 dropdown-menu py-2 z-50 max-h-80 overflow-y-auto"
+                  ref={addColMenuRef}
+                  style={addColMenuStyle}
+                  className="w-56 dropdown-menu py-2 z-[60]"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Essential columns */}

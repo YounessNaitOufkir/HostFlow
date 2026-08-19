@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Search, Filter, X, Plus, Trash2, ArrowUpDown, Eye, EyeOff } from "lucide-react";
 import { Column, STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/types";
 
@@ -31,6 +32,9 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
   const [showColumnsMenu, setShowColumnsMenu] = useState(false);
 
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const { anchorRef: sortMenuAnchor, menuRef: sortMenuRef, menuStyle: sortMenuStyle } = useAnchoredMenu(showSortMenu, { align: 'left' });
+  const { anchorRef: advancedMenuAnchor, menuRef: advancedMenuRef, menuStyle: advancedMenuStyle } = useAnchoredMenu(showAdvanced, { align: 'left' });
+  const { anchorRef: columnsMenuAnchor, menuRef: columnsMenuRef, menuStyle: columnsMenuStyle } = useAnchoredMenu(showColumnsMenu, { align: 'left' });
   const [newSortColumnId, setNewSortColumnId] = useState("");
   const [newSortDirection, setNewSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -71,7 +75,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
 
         <div className="relative flex items-center gap-2">
           {/* Sort Button */}
-          <div className="relative">
+          <div className="relative" ref={sortMenuAnchor}>
             <button
               onClick={() => { setShowSortMenu(!showSortMenu); setShowAdvanced(false); setShowColumnsMenu(false); }}
               className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
@@ -85,7 +89,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
             </button>
 
             {showSortMenu && (
-              <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-50 p-4">
+              <div ref={sortMenuRef} style={sortMenuStyle} className="w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-[60] p-4">
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Sort by</h4>
                 <div className="space-y-3">
                   <div>
@@ -132,7 +136,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative" ref={advancedMenuAnchor}>
             <button
               onClick={() => { setShowAdvanced(!showAdvanced); setShowSortMenu(false); setShowColumnsMenu(false); }}
             className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
@@ -151,7 +155,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           </button>
 
           {showAdvanced && (
-            <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-50 p-4">
+            <div ref={advancedMenuRef} style={advancedMenuStyle} className="w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-[60] p-4">
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Add Filter</h4>
               <div className="space-y-3">
                 <div>
@@ -270,7 +274,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           <div className="h-4 w-px bg-gray-200 dark:bg-slate-700/50 mx-1"></div>
 
           {/* Hide Columns Button */}
-          <div className="relative">
+          <div className="relative" ref={columnsMenuAnchor}>
             <button
               onClick={() => { setShowColumnsMenu(!showColumnsMenu); setShowSortMenu(false); setShowAdvanced(false); }}
               className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
@@ -285,7 +289,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
             </button>
 
             {showColumnsMenu && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-50 p-4 max-h-96 overflow-y-auto custom-scrollbar">
+              <div ref={columnsMenuRef} style={columnsMenuStyle} className="w-64 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-[60] p-4 custom-scrollbar">
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Visible Columns</h4>
                 <div className="space-y-1">
                   {columns.map(c => (

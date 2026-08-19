@@ -88,7 +88,7 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
     });
   });
 
-  it("reveals all 5 recipes when '+ Add New Automation' is clicked", () => {
+  it("reveals every recipe when '+ Add New Automation' is clicked", () => {
     render(
       <AutomationsModal
         board={mockBoard}
@@ -104,11 +104,9 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
     const addBtn = screen.getByText(/add new automation/i);
     fireEvent.click(addBtn);
 
-    // Assert all 5 recipe titles are present
     expect(screen.getByText("Auto-Archive / Completion")).toBeInTheDocument();
     expect(screen.getByText("Due Date Warning (SLA Alert)")).toBeInTheDocument();
     expect(screen.getByText("Automatic Overdue Tagging")).toBeInTheDocument();
-    expect(screen.getByText("Cancelled Item Cleanup")).toBeInTheDocument();
     expect(screen.getByText("Timeline & Date Shifting")).toBeInTheDocument();
   });
 

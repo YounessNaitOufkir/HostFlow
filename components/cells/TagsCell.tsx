@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column } from "@/types";
 import { TruncatedText, useTruncationTooltip } from "@/components/ui/TruncatedText";
 import { Tag } from "lucide-react";
@@ -65,6 +66,7 @@ export default function TagsCell({ item, column, onUpdate, boardItems = [], acti
     : [];
 
   const isOpen = activeStatusId === item.id + column.id;
+  const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });
   
   const setIsOpen = (open: boolean) => {
     if (setActiveStatusId) {
@@ -138,6 +140,7 @@ export default function TagsCell({ item, column, onUpdate, boardItems = [], acti
 
   return (
     <div
+      ref={anchorRef}
       className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700 shrink-0 flex items-center p-2 cursor-pointer transition-colors relative ${isOpen ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}
     >
       <div 
@@ -162,8 +165,9 @@ export default function TagsCell({ item, column, onUpdate, boardItems = [], acti
 
       {isOpen && (
         <div
-          ref={dropdownRef}
-          className="absolute top-full mt-1 left-0 w-64 dropdown-menu py-1.5 z-50 shadow-xl border border-gray-100 dark:border-slate-700/60 rounded-lg overflow-hidden bg-white dark:bg-[#1e2333]"
+          ref={(el) => { dropdownRef.current = el; menuRef.current = el; }}
+          style={menuStyle}
+          className="w-64 dropdown-menu py-1.5 z-[60] shadow-xl border border-gray-100 dark:border-slate-700/60 rounded-lg overflow-hidden bg-white dark:bg-[#1e2333]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-2 pb-2 mb-1 border-b border-gray-100 dark:border-slate-800">

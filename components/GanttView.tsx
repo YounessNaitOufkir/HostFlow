@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Board, Item, Group, ItemLink, Profile, STATUS_OPTIONS } from "@/types";
 import { format, differenceInDays, addDays, isSameDay, startOfWeek, endOfWeek, eachDayOfInterval, min, max } from "date-fns";
 import { ChevronDown, Palette } from "lucide-react";
@@ -23,6 +24,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
   const [leftColumnWidth, setLeftColumnWidth] = useState(300);
   const [colorBy, setColorBy] = useState<'group' | 'status'>('group');
   const [showColorByMenu, setShowColorByMenu] = useState(false);
+  const { anchorRef: colorByMenuAnchor, menuRef: colorByMenuRef, menuStyle: colorByMenuStyle } = useAnchoredMenu(showColorByMenu, { align: 'right' });
   const [isResizing, setIsResizing] = useState(false);
   const [isLeftColCollapsed, setIsLeftColCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -333,7 +335,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
     <div className="flex-1 flex flex-col bg-white dark:bg-slate-950 overflow-hidden relative text-gray-800 dark:text-slate-300">
       {/* Settings Toolbar */}
       <div className="flex items-center justify-end px-8 pt-4 pb-2 z-[100] relative">
-        <div className="relative">
+        <div className="relative" ref={colorByMenuAnchor}>
           <button 
             onClick={() => setShowColorByMenu(!showColorByMenu)}
             className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
@@ -342,7 +344,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
             Color by
           </button>
           {showColorByMenu && (
-            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-lg z-50 overflow-hidden">
+            <div ref={colorByMenuRef} style={colorByMenuStyle} className="w-48 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-lg z-[60] overflow-hidden">
               <div className="p-2">
                 <button 
                   onClick={() => { setColorBy('group'); setShowColorByMenu(false); }}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import {
   LayoutDashboard,
   Plus,
@@ -96,6 +97,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const { anchorRef: wsMenuAnchor, menuRef: wsMenuRef, menuStyle: wsMenuStyle } = useAnchoredMenu(isWorkspaceMenuOpen, { align: 'left' });
+  const { anchorRef: createMenuAnchor, menuRef: createMenuRef, menuStyle: createMenuStyle } = useAnchoredMenu(isCreateMenuOpen, { align: 'right' });
   const [membersModalWs, setMembersModalWs] = useState<Workspace | null>(null);
 
   // A board is only the "current" one while the board view is on screen. Without
@@ -113,15 +116,13 @@ export default function Sidebar({
   const canManageWorkspace = (ws: Workspace) =>
     ws.created_by === profile?.id ||
     (!ws.is_private && profile?.role === "admin");
-  const workspacePickerRef = useRef<HTMLDivElement>(null);
-  const createMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (workspacePickerRef.current && !workspacePickerRef.current.contains(event.target as Node)) {
+      if (wsMenuAnchor.current && !wsMenuAnchor.current.contains(event.target as Node)) {
         setIsWorkspaceMenuOpen(false);
       }
-      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
+      if (createMenuAnchor.current && !createMenuAnchor.current.contains(event.target as Node)) {
         setIsCreateMenuOpen(false);
       }
     }
@@ -226,7 +227,7 @@ export default function Sidebar({
             <div className="w-[260px] h-full flex flex-col">
               {/* Workspace Picker */}
               <div 
-                ref={workspacePickerRef}
+                ref={wsMenuAnchor}
                 className="h-[52px] border-b border-gray-200 dark:border-slate-700/50 flex items-center px-4 font-semibold text-[13px] text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors relative"
                 onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
               >
@@ -250,7 +251,9 @@ export default function Sidebar({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.15, ease: "easeOut" }}
-                      className="absolute top-full left-0 w-full dropdown-menu rounded-t-none z-50 shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50"
+                      ref={wsMenuRef}
+                      style={{ ...wsMenuStyle, width: 260 }}
+                      className="dropdown-menu rounded-t-none z-[60] shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50"
                       onClick={(e) => e.stopPropagation()}
                     >
                     {/* The header reads "All workspaces" when none is selected,
@@ -374,7 +377,7 @@ export default function Sidebar({
                   {/* Hidden on "All workspaces": createBoard falls back to
                       whichever workspace the database returns first, so the new
                       board would land somewhere the user never chose. */}
-                  <div ref={createMenuRef} className={`relative ${activeWorkspace ? "" : "hidden"}`}>
+                  <div ref={createMenuAnchor} className={`relative ${activeWorkspace ? "" : "hidden"}`}>
                     <button
                       onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
                       className="hover:bg-gray-100 dark:hover:bg-white/[0.06] p-1 rounded transition-colors text-gray-400 hover:text-blue-500"
@@ -390,7 +393,9 @@ export default function Sidebar({
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
                           transition={{ duration: 0.15, ease: "easeOut" }}
-                          className="absolute top-full right-0 mt-1 w-48 dropdown-menu rounded-xl z-50 shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50 py-1"
+                          ref={createMenuRef}
+                          style={createMenuStyle}
+                          className="w-48 dropdown-menu rounded-xl z-[60] shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50 py-1"
                         >
                           <div
                             onClick={() => {

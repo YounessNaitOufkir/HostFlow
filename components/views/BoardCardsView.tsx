@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Plus, MoreVertical, Copy, Trash2, ChevronRight } from "lucide-react";
 import type { Group, Item, Column, Profile } from "@/types";
 import CellRenderer from "@/components/cells/CellRenderer";
@@ -31,6 +32,7 @@ export default function BoardCardsView({
 }: BoardCardsViewProps) {
   const [newItemNames, setNewItemNames] = useState<Record<string, string>>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const { anchorRef: cardMenuAnchor, menuRef: cardMenuRef, menuStyle: cardMenuStyle } = useAnchoredMenu(openMenuId !== null, { align: 'right' });
   const [activeStatusId, setActiveStatusId] = useState<string | null>(null);
 
   const handleCreateItem = (groupId: string) => {
@@ -96,6 +98,7 @@ export default function BoardCardsView({
                       
                       {/* Menu Button */}
                       <div
+                        ref={openMenuId === item.id ? cardMenuAnchor : undefined}
                         className="relative shrink-0"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -106,7 +109,7 @@ export default function BoardCardsView({
                           <MoreVertical size={16} />
                         </button>
                         {openMenuId === item.id && (
-                          <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-50">
+                          <div ref={cardMenuRef} style={cardMenuStyle} className="w-36 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-[60]">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
