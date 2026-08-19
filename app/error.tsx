@@ -9,7 +9,7 @@
 // ============================================================
 
 import * as Sentry from "@sentry/nextjs";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 
 export default function Error({
@@ -19,10 +19,25 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [retried, setRetried] = useState(false);
+
   useEffect(() => {
     // Report to Sentry
     Sentry.captureException(error);
   }, [error]);
+
+  // reset() re-renders the same segment, which recovers a one-off failure but
+  // does nothing against a deterministic one - it throws again immediately and
+  // the button looks broken. A second press reloads the document instead,
+  // which drops all client state and refetches everything.
+  const retry = () => {
+    if (retried) {
+      window.location.reload();
+      return;
+    }
+    setRetried(true);
+    reset();
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-slate-950 p-6">
@@ -56,11 +71,11 @@ export default function Error({
         {/* Actions */}
         <div className="flex items-center justify-center gap-3">
           <button
-            onClick={reset}
+            onClick={retry}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
           >
             <RotateCcw size={16} />
-            Try Again
+            {retried ? "Reload page" : "Try Again"}
           </button>
           <a
             href="/"
