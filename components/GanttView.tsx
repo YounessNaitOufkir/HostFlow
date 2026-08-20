@@ -612,7 +612,7 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
                         return (
                           <>
                             <div 
-                              className={`absolute top-1/2 rounded-sm group/bar overflow-hidden flex items-center border border-white/20 transition-all ${onUpdateItem && !isResizingThis ? 'cursor-grab active:cursor-grabbing' : ''} ${isDraggingThis ? 'opacity-80 scale-105 shadow-xl z-50' : ''}`}
+                              className={`absolute top-1/2 rounded-sm group/bar overflow-hidden flex items-center border border-white/20 group-hover/bar:border-white/60 transition-all ${onUpdateItem && !isResizingThis ? 'cursor-grab active:cursor-grabbing' : ''} ${isDraggingThis ? 'opacity-80 scale-105 shadow-xl z-50' : ''}`}
                               style={{ 
                                 left: `calc(${barLeftPx}% + 4px)`, 
                                 width: `calc(${barWidthPx}% - 8px)`,
@@ -643,12 +643,21 @@ export default function GanttView({ board, items, groups, itemLinks = [], onUpda
                                 />
                               )}
                               
-                              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/bar:opacity-100 transition-opacity"></div>
-                              <span className="text-[10px] text-white font-bold px-2 truncate drop-shadow-md z-10 relative opacity-0 group-hover/bar:opacity-100 transition-opacity pointer-events-none">
-                                {format(gi.start, "MMM d")} - {format(gi.end, "MMM d")}
-                              </span>
-                              {/* Shimmer effect */}
-                              <div className="absolute inset-0 opacity-0 group-hover/bar:opacity-100 bg-gradient-to-r from-transparent via-white/30 to-transparent bg-[length:200%_100%] group-hover/bar:animate-[shimmer_1.5s_infinite] z-0 pointer-events-none transition-opacity"></div>
+                              {/* A wash on hover, replacing a gradient that swept across the bar
+                                  every 1.5s for as long as the cursor rested on it. */}
+                              <div className="absolute inset-0 bg-white/15 opacity-0 group-hover/bar:opacity-100 transition-opacity duration-150 pointer-events-none" />
+
+                              {/* The task name, not its dates: the dates are already the bar's
+                                  position and width, so printing them inside said nothing new.
+                                  flex-1 min-w-0 is what lets `truncate` actually clip inside a
+                                  flex row - without it the span never reports as overflowing and
+                                  the tooltip would never appear. */}
+                              <TruncatedText
+                                className="flex-1 min-w-0 truncate text-[10px] font-bold text-white px-2 drop-shadow-md z-10 relative"
+                                tooltip={gi.item.name}
+                              >
+                                {gi.item.name}
+                              </TruncatedText>
 
                               {/* Right resize handle */}
                               {onUpdateItem && gi.colType === 'timeline' && (
