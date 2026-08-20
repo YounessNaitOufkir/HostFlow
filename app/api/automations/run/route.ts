@@ -58,14 +58,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Board not found" }, { status: 404 });
     }
 
-    const [{ data: items }, { data: profiles }, { data: automations }] = await Promise.all([
-      admin.from("items").select("*").eq("board_id", boardId).is("deleted_at", null),
-      admin.from("profiles").select("*"),
-      admin
-        .from("automations")
-        .select("*")
-        .or(`board_id.eq.${boardId},workspace_id.eq.${board.workspace_id}`),
-    ]);
+    const [{ data: items }, { data: profiles }, { data: automations }, { data: orgSettings }] =
+      await Promise.all([
+        admin.from("items").select("*").eq("board_id", boardId).is("deleted_at", null),
+        admin.from("profiles").select("*"),
+        admin
+          .from("automations")
+          .select("*")
+          .or(`board_id.eq.${boardId},workspace_id.eq.${board.workspace_id}`),
+        // "Run now" must agree with the nightly cron about what day it is.
+        admin.from("organization_settings").select("default_timezone").limit(1).maybeSingle(),
+      ]);
 
     const timeRules = (automations || []).filter(
       (a) =>
@@ -83,7 +86,9 @@ export async function POST(request: Request) {
     const result = await evaluateTimeAutomations(
       { ...board, items: items || [], automations: automations || [] } as never,
       (profiles || []) as never,
-      admin
+      admin,
+      false,
+      orgSettings?.default_timezone ?? null
     );
 
     return NextResponse.json({

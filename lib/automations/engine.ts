@@ -1,5 +1,6 @@
 import { Board, Item, Profile, Automation } from "@/types";
 import { sendEmail } from "@/lib/email";
+import { todayInTimezone } from "@/lib/orgTime";
 import { toast } from "sonner";
 
 export interface EventAutomationResult {
@@ -102,7 +103,13 @@ export async function evaluateTimeAutomations(
   board: Board,
   profiles: Profile[],
   supabase: any,
-  forceNotify?: boolean
+  forceNotify?: boolean,
+  /**
+   * The company's timezone, from organization_settings.default_timezone. Decides
+   * what counts as "today" for overdue and SLA rules. Defaults to UTC so existing
+   * callers keep their old behaviour rather than silently shifting a day.
+   */
+  timeZone?: string | null
 ): Promise<TimeAutomationResult> {
   const result: TimeAutomationResult = {
     triggeredCount: 0,
@@ -122,7 +129,9 @@ export async function evaluateTimeAutomations(
     (a: Automation) => a.action_type === "overdue_tagging" && a.enabled !== false
   );
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Was new Date().toISOString() — the UTC date, which is the wrong day for the
+  // first hour of every local day. See lib/orgTime.ts.
+  const todayStr = todayInTimezone(timeZone);
   const dateCols = board.columns.filter((c) => c.type === "date" || c.type === "timeline");
   const statusCols = board.columns.filter((c) => c.type === "status");
   const personCols = board.columns.filter((c) => c.type === "people");

@@ -32,6 +32,11 @@ interface SidebarProps {
   profile: Profile | null;
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
+  /**
+   * The company mark, from organization_settings.logo_url. Rendered only in
+   * company workspaces — see the header below.
+   */
+  companyLogoUrl?: string | null;
   boards: Board[];
   activeBoard: Board | null;
   mainView: string;
@@ -77,6 +82,7 @@ export default function Sidebar({
   profile,
   workspaces,
   activeWorkspace,
+  companyLogoUrl,
   boards,
   activeBoard,
   mainView,
@@ -236,8 +242,33 @@ export default function Sidebar({
                 className="h-[52px] border-b border-gray-200 dark:border-slate-700/50 flex items-center px-4 font-semibold text-[13px] text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors relative"
                 onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
               >
+                {/*
+                  The company mark stands in for the generic briefcase, but only on a
+                  company workspace: a private workspace is personal space and is not
+                  Host'lik-branded. Externals never see it for free — they cannot reach
+                  a non-private workspace at all (20260820000000), so this branch is
+                  unreachable for them. HostFlow's own mark keeps the icon rail.
+                */}
                 {activeWorkspace?.is_private ? (
                   <Lock size={15} className="mr-2.5 text-amber-500 shrink-0" />
+                ) : activeWorkspace && companyLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={companyLogoUrl}
+                    alt=""
+                    aria-hidden="true"
+                    // Height-constrained with automatic width, never a fixed box: a
+                    // company mark can be any shape. A wide wordmark (Host'lik's old
+                    // one was 3.6:1) and a square avatar tile (the current one is
+                    // 500x500) both have to look deliberate here, and object-contain
+                    // in a *square* box shrank the wordmark to 5px tall.
+                    //
+                    // 36px is as tall as this 52px row allows while keeping the mark
+                    // clear of the border. rounded-md is for marks like the current
+                    // one that carry their own background — without it the tile reads
+                    // as a stray dark rectangle against the light header.
+                    className="h-9 w-auto max-w-[132px] mr-2.5 shrink-0 rounded-md object-contain object-left"
+                  />
                 ) : (
                   <Briefcase size={15} className="mr-2.5 text-blue-500 shrink-0" />
                 )}

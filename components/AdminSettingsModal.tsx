@@ -8,6 +8,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { motion, AnimatePresence } from "framer-motion";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { DEFAULT_ORG_TIMEZONE, cronTimeInTimezone } from "@/lib/orgTime";
+import { ORG_TIMEZONES } from "@/lib/orgTimezones";
 
 interface AdminSettingsModalProps {
   onClose: () => void;
@@ -335,31 +337,119 @@ export default function AdminSettingsModal({
 
   // Form State
   const [companyName, setCompanyName] = useState(organizationSettings?.company_name || "");
-  const [primaryColor, setPrimaryColor] = useState(organizationSettings?.primary_color || "#0073ea");
-  const [defaultTimezone, setDefaultTimezone] = useState(organizationSettings?.default_timezone || "UTC");
+  const [defaultTimezone, setDefaultTimezone] = useState(
+    organizationSettings?.default_timezone || DEFAULT_ORG_TIMEZONE
+  );
+  const [logoUrl, setLogoUrl] = useState<string | null>(organizationSettings?.logo_url ?? null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  // Save only when something actually changed, so the button cannot report a
+  // successful write that never had anything to write.
+  const organizationDirty =
+    companyName !== (organizationSettings?.company_name ?? "") ||
+    defaultTimezone !== (organizationSettings?.default_timezone ?? DEFAULT_ORG_TIMEZONE);
 
   const saveOrganizationSettings = async () => {
+    if (!organizationDirty) return;
     setLoading(true);
     try {
+      // supabase-js resolves with { error } and never throws, so the previous
+      // version of this function — which awaited the call bare and then reported
+      // success unconditionally — told the user "Settings saved successfully"
+      // whether or not anything was written. Both branches now read the result,
+      // and the update additionally checks that a row came back: an RLS-blocked
+      // UPDATE returns no error and zero rows.
       if (organizationSettings) {
-        await supabase.from("organization_settings").update({
-          company_name: companyName,
-          primary_color: primaryColor,
-          default_timezone: defaultTimezone,
-        }).eq("id", organizationSettings.id);
+        const { data, error } = await supabase
+          .from("organization_settings")
+          .update({
+            company_name: companyName,
+            default_timezone: defaultTimezone,
+          })
+          .eq("id", organizationSettings.id)
+          .select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error(
+            "Nothing was saved: the database rejected the change. Only administrators can edit organization settings."
+          );
+        }
       } else {
-        await supabase.from("organization_settings").insert({
+        const { error } = await supabase.from("organization_settings").insert({
           company_name: companyName,
-          primary_color: primaryColor,
           default_timezone: defaultTimezone,
         });
+        if (error) throw error;
       }
       onGlobalSettingsChanged();
-      reportSuccess("Settings saved successfully");
+      reportSuccess("Organization settings saved");
     } catch (err) {
       reportMutationError(err, "Failed to save settings", { table: "organization_settings" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLogo(true);
+    try {
+      // Fixed path per extension, upserted, so re-uploading replaces the mark
+      // rather than accumulating orphans in the bucket.
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const filePath = `company-logo.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("branding")
+        .upload(filePath, file, { upsert: true, contentType: file.type });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from("branding").getPublicUrl(filePath);
+      // Cache-bust: the path is stable, so browsers would keep showing the old mark.
+      const versioned = `${publicUrl}?v=${Date.now()}`;
+
+      const { data, error } = await supabase
+        .from("organization_settings")
+        .update({ logo_url: versioned })
+        .eq("id", organizationSettings?.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("The logo uploaded but could not be saved to your organization settings.");
+      }
+
+      setLogoUrl(versioned);
+      onGlobalSettingsChanged();
+      reportSuccess("Company logo updated");
+    } catch (err) {
+      reportMutationError(err, "Failed to upload the logo", { table: "organization_settings" });
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    setUploadingLogo(true);
+    try {
+      const { data, error } = await supabase
+        .from("organization_settings")
+        .update({ logo_url: null })
+        .eq("id", organizationSettings?.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("The logo could not be removed.");
+      }
+      setLogoUrl(null);
+      onGlobalSettingsChanged();
+      reportSuccess("Company logo removed");
+    } catch (err) {
+      reportMutationError(err, "Failed to remove the logo", { table: "organization_settings" });
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -417,58 +507,126 @@ export default function AdminSettingsModal({
             {activeTab === "organization" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Organization Settings</h3>
-                  <p className="text-gray-500 mt-1">Manage your company's global profile and branding.</p>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Organization</h3>
+                  <p className="text-gray-500 mt-1">
+                    Your company&apos;s identity, and how HostFlow behaves on its schedule.
+                  </p>
                 </div>
-                
-                <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-6 space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name</label>
-                    <input 
-                      type="text" 
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-                    />
+
+                {/* -- Identity ------------------------------------------ */}
+                <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                  <div className="px-6 py-3 bg-gray-50/70 dark:bg-slate-800/70 border-b border-gray-200 dark:border-slate-700 flex items-baseline gap-3">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Identity</h4>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Primary Brand Color</label>
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="color" 
-                        value={primaryColor}
-                        onChange={(e) => setPrimaryColor(e.target.value)}
-                        className="h-10 w-20 rounded cursor-pointer border-0 p-0"
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <label htmlFor="org-company-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Company name
+                      </label>
+                      <input
+                        id="org-company-name"
+                        type="text"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
                       />
-                      <span className="text-sm text-gray-500 font-mono">{primaryColor}</span>
+                      <p className="mt-1.5 text-xs text-gray-500">
+                        Shown in the browser tab and when the app is installed to a home screen.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Company logo
+                      </label>
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 flex items-center justify-center overflow-hidden shrink-0">
+                          {logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={logoUrl} alt="Company logo" className="w-full h-full object-contain p-1.5" />
+                          ) : (
+                            <Building2 size={22} className="text-gray-300 dark:text-slate-600" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors">
+                            {uploadingLogo ? "Uploading..." : logoUrl ? "Replace" : "Upload"}
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                              className="hidden"
+                              disabled={uploadingLogo}
+                              onChange={handleLogoUpload}
+                            />
+                          </label>
+                          {logoUrl && (
+                            <button
+                              type="button"
+                              onClick={handleLogoRemove}
+                              disabled={uploadingLogo}
+                              className="px-3 py-2 text-sm font-medium rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Appears beside the workspace name in company workspaces only. It is never
+                        shown in a private workspace, and external accounts cannot reach company
+                        workspaces at all &mdash; so they never see it. HostFlow&apos;s own mark keeps
+                        the icon rail and the login page.
+                      </p>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Default Timezone</label>
-                    <select 
-                      value={defaultTimezone}
-                      onChange={(e) => setDefaultTimezone(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-                    >
-                      <option value="UTC">UTC (Coordinated Universal Time)</option>
-                      <option value="America/New_York">Eastern Time (ET)</option>
-                      <option value="America/Chicago">Central Time (CT)</option>
-                      <option value="America/Denver">Mountain Time (MT)</option>
-                      <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                      <option value="Europe/London">London (GMT/BST)</option>
-                      <option value="Europe/Paris">Central European Time (CET)</option>
-                    </select>
+                </div>
+
+                {/* -- Operations ---------------------------------------- */}
+                <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                  <div className="px-6 py-3 bg-gray-50/70 dark:bg-slate-800/70 border-b border-gray-200 dark:border-slate-700 flex items-baseline gap-3">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Operations</h4>
                   </div>
-                  
-                  <div className="pt-4 border-t border-gray-100 dark:border-slate-700">
-                    <button 
-                      onClick={saveOrganizationSettings}
-                      disabled={loading}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                    >
-                      {loading ? "Saving..." : "Save Changes"}
-                    </button>
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <label htmlFor="org-timezone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Timezone
+                      </label>
+                      <select
+                        id="org-timezone"
+                        value={defaultTimezone}
+                        onChange={(e) => setDefaultTimezone(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                      >
+                        {ORG_TIMEZONES.map((tz) => (
+                          <option key={tz.id} value={tz.id}>{tz.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50/60 dark:bg-slate-900/40 px-4 py-3">
+                      <div className="text-sm text-gray-700 dark:text-gray-300">
+                        Automations run daily at{" "}
+                        <b className="font-semibold text-gray-900 dark:text-white">
+                          {cronTimeInTimezone(defaultTimezone)}
+                        </b>{" "}
+                        {defaultTimezone}.
+                      </div>
+                      
+                    </div>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={saveOrganizationSettings}
+                    disabled={loading || !organizationDirty}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Saving..." : "Save changes"}
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    {organizationDirty ? "You have unsaved changes." : "Everything is saved."}
+                  </span>
                 </div>
               </div>
             )}
