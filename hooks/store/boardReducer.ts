@@ -14,7 +14,6 @@ export const initialBoardStoreState: BoardStoreState = {
   profiles: [],
   organizationSettings: null,
   teams: [],
-  globalStatusLabels: [],
   mainView: "board",
   showWorkspaceSidebar: true,
   showAutomations: false,
@@ -174,8 +173,6 @@ export function boardReducer(
       return { ...state, organizationSettings: action.payload };
     case "SET_TEAMS":
       return { ...state, teams: action.payload };
-    case "SET_GLOBAL_STATUS_LABELS":
-      return { ...state, globalStatusLabels: action.payload };
     case "SET_MAIN_VIEW":
       return { ...state, mainView: action.payload };
     case "SET_SHOW_SIDEBAR":

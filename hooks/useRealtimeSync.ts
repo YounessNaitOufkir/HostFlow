@@ -45,7 +45,6 @@ export function useRealtimeSync({
         .on('postgres_changes', { event: '*', schema: 'public', table: 'organization_settings' }, onGlobalSettingsChanged)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, onGlobalSettingsChanged)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members' }, onGlobalSettingsChanged)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'global_status_labels' }, onGlobalSettingsChanged)
         .subscribe();
       
       globalChannelRef.current = globalChannel;

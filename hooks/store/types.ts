@@ -9,7 +9,6 @@ import type {
   ItemLink,
   OrganizationSettings,
   Team,
-  GlobalStatusLabel,
 } from "@/types";
 
 export interface BoardStoreState {
@@ -34,7 +33,6 @@ export interface BoardStoreState {
   // --- Global Settings ---
   organizationSettings: OrganizationSettings | null;
   teams: Team[];
-  globalStatusLabels: GlobalStatusLabel[];
 
   // --- UI state ---
   mainView:
@@ -115,7 +113,6 @@ export type BoardAction =
   | { type: "SET_ITEM_LINKS"; payload: ItemLink[] }
   | { type: "SET_ORGANIZATION_SETTINGS"; payload: OrganizationSettings | null }
   | { type: "SET_TEAMS"; payload: Team[] }
-  | { type: "SET_GLOBAL_STATUS_LABELS"; payload: GlobalStatusLabel[] }
   | { type: "ADD_ITEM_LINK"; payload: ItemLink }
   | { type: "REMOVE_ITEM_LINK"; payload: string }
   | { type: "SET_MAIN_VIEW"; payload: BoardStoreState["mainView"] }

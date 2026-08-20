@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { X, Building2, Users, Layout, Webhook, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown } from "lucide-react";
-import { OrganizationSettings, Team, GlobalStatusLabel, Profile, Workspace, Board, UserRole } from "@/types";
+import { X, Building2, Users, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown } from "lucide-react";
+import { OrganizationSettings, Team, Profile, Workspace, Board, UserRole } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { reportMutationError, reportSuccess } from "@/lib/errorReporting";
 import { useFont } from "@/components/FontProvider";
@@ -15,7 +15,6 @@ interface AdminSettingsModalProps {
   onClose: () => void;
   organizationSettings: OrganizationSettings | null;
   teams: Team[];
-  globalStatusLabels: GlobalStatusLabel[];
   profiles: Profile[];
   onGlobalSettingsChanged: () => void;
 }
@@ -24,71 +23,16 @@ export default function AdminSettingsModal({
   onClose,
   organizationSettings,
   teams,
-  globalStatusLabels,
   profiles: propProfiles,
   onGlobalSettingsChanged,
 }: AdminSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"organization" | "users" | "permissions" | "board" | "integrations">("organization");
+  const [activeTab, setActiveTab] = useState<"organization" | "users" | "permissions">("organization");
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
   
   // Integrations state
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [isManagingWebhooks, setIsManagingWebhooks] = useState(false);
-  const [generatedApiKey, setGeneratedApiKey] = useState("");
-
-  const handleManageWebhooks = async () => {
-    setIsManagingWebhooks(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('webhooks').select('endpoint_url').is('board_id', null).limit(1);
-    if (data && data.length > 0) setWebhookUrl(data[0].endpoint_url);
-  };
-
-  const saveWebhook = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data: existing, error: selectError } = await supabase.from('webhooks').select('id').is('board_id', null).limit(1);
-      
-      if (selectError && selectError.code !== 'PGRST116') {
-        throw selectError;
-      }
-
-      if (existing && existing.length > 0) {
-        const { error } = await supabase.from('webhooks').update({ endpoint_url: webhookUrl }).eq('id', existing[0].id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('webhooks').insert({ endpoint_url: webhookUrl, events: ['*'] });
-        if (error) throw error;
-      }
-      setIsManagingWebhooks(false);
-      reportSuccess("Webhook saved successfully!");
-    } catch (e: any) {
-      reportMutationError(e, "Failed to save webhook");
-    }
-    setLoading(false);
-  };
-
-  const handleGenerateApiKey = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const key = "hf_" + Math.random().toString(36).substr(2, 9) + Math.random().toString(36).substr(2, 9);
-      
-      await supabase.from('api_keys').insert({ user_id: user.id, key_hash: key, name: 'Generated Key' });
-      setGeneratedApiKey(key);
-      reportSuccess("API Key generated successfully!");
-    } catch (e) {
-      reportMutationError(e, "Failed to generate API Key");
-    }
-    setLoading(false);
-  };
 
   const {
     data: adminData = {
@@ -457,8 +401,6 @@ export default function AdminSettingsModal({
     { id: "organization", label: "Organization", icon: Building2 },
     { id: "users", label: "User Roles", icon: Users },
     { id: "permissions", label: "Data Access", icon: Lock },
-    { id: "board", label: "Board Defaults", icon: Layout },
-    { id: "integrations", label: "Integrations", icon: Webhook },
   ] as const;
 
   return (
@@ -890,99 +832,6 @@ export default function AdminSettingsModal({
                 </div>
               </div>
             )}
-
-            {activeTab === "board" && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Board Defaults</h3>
-                  <p className="text-gray-500 mt-1">Configure global standard labels across all workspaces.</p>
-                </div>
-                <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-6">
-                  <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Global Status Labels</h4>
-                  <div className="space-y-3">
-                    {globalStatusLabels.length > 0 ? globalStatusLabels.map(label => (
-                      <div key={label.id} className="flex items-center gap-4">
-                        <div className={`w-32 py-1 text-center text-white text-xs font-medium rounded ${label.color}`}>
-                          {label.label}
-                        </div>
-                        <span className="text-sm text-gray-500">Available globally</span>
-                      </div>
-                    )) : (
-                      <p className="text-sm text-gray-500">No global labels defined yet. Standard default labels will be used.</p>
-                    )}
-                  </div>
-                  <button className="mt-6 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                    + Add Global Label
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "integrations" && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Integrations & API</h3>
-                  <p className="text-gray-500 mt-1">Connect HostFlow with external tools via Webhooks and API keys.</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-6 text-center flex flex-col items-center">
-                    <Webhook className="w-10 h-10 text-blue-500 mb-4" />
-                    <h4 className="text-md font-bold text-gray-900 dark:text-white">Webhooks</h4>
-                    <p className="text-sm text-gray-500 mt-2 mb-6">Send real-time updates to external systems when tasks change.</p>
-                    
-                    {isManagingWebhooks ? (
-                      <div className="w-full mt-auto text-left space-y-3">
-                        <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Target URL</label>
-                        <input 
-                          type="url" 
-                          value={webhookUrl}
-                          onChange={(e) => setWebhookUrl(e.target.value)}
-                          placeholder="https://your-server.com/webhook"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white"
-                        />
-                        <div className="flex gap-2">
-                          <button onClick={saveWebhook} disabled={loading} className="flex-1 px-3 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                            Save
-                          </button>
-                          <button onClick={() => setIsManagingWebhooks(false)} className="flex-1 px-3 py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button onClick={handleManageWebhooks} className="px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium rounded-lg text-sm mt-auto w-full hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
-                        Manage Webhooks
-                      </button>
-                    )}
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-6 text-center flex flex-col items-center">
-                    <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center font-mono font-bold mb-4">
-                      {`</>`}
-                    </div>
-                    <h4 className="text-md font-bold text-gray-900 dark:text-white">Developer API</h4>
-                    <p className="text-sm text-gray-500 mt-2 mb-6">Generate API keys to programmatically manage boards and items.</p>
-                    
-                    {generatedApiKey ? (
-                      <div className="w-full mt-auto text-left">
-                        <p className="text-xs font-semibold text-green-600 dark:text-green-400 mb-2">New API Key (Copy now!)</p>
-                        <div className="px-3 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg font-mono text-xs break-all text-gray-900 dark:text-white mb-3">
-                          {generatedApiKey}
-                        </div>
-                        <button onClick={() => setGeneratedApiKey("")} className="px-3 py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg text-sm w-full hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
-                          Close
-                        </button>
-                      </div>
-                    ) : (
-                      <button onClick={handleGenerateApiKey} disabled={loading} className="px-4 py-2 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-medium rounded-lg text-sm mt-auto w-full hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors">
-                        Generate API Key
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-
 
           </div>
         </div>
