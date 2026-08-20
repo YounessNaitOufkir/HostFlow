@@ -110,11 +110,15 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
     expect(screen.getByText("Timeline & Date Shifting")).toBeInTheDocument();
   });
 
-  it("offers the board's own status labels as the move trigger, not a hard-coded 'Done'", () => {
+  it("uses the board's own done label for the move trigger, not a hard-coded 'Done'", () => {
     // A move rule used to always save trigger_value "Done". On a board whose
     // statuses are named anything else — an imported French board, say — that
     // rule saved happily and could never match, so the automation simply never
     // ran with nothing to show why.
+    //
+    // Auto-Archive is now a fixed rule rather than a configurable one, so the label
+    // is stated instead of offered in a dropdown. The property under test is the
+    // same: the label must come from the board, resolved via DONE_STATUS_PATTERN.
     const frenchBoard: Board = {
       ...mockBoard,
       columns: [
@@ -149,10 +153,41 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
     fireEvent.click(screen.getByText(/add new automation/i));
     fireEvent.click(screen.getByText("Auto-Archive / Completion"));
 
-    const options = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(options).toContain("Fait");
-    expect(options).toContain("Bloqué");
-    expect(options).not.toContain("Done");
+    // "Fait" is the board's done label; it is not the only label, nor merely the
+    // first one, so this also guards against falling back to statusLabels[0].
+    // Asserted against the whole rendered text: the sentence is split across <b>
+    // elements, and a per-element matcher also matches every ancestor.
+    expect(document.body.textContent).toContain(
+      "When a task is marked Fait, it moves to the Completed group."
+    );
+
+    // No dropdown to pick a status or a target group any more.
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+    expect(screen.queryByText(/Target Group:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/When status is:/i)).not.toBeInTheDocument();
+  });
+
+  it("warns that a Completed group will be created when the board has none", () => {
+    // mockGroups deliberately contains a "Completed" group, so this case needs a
+    // board whose groups do not.
+    const groupsWithoutCompleted = mockGroups.filter((g) => g.title !== "Completed");
+
+    render(
+      <AutomationsModal
+        board={mockBoard}
+        groups={groupsWithoutCompleted}
+        items={[]}
+        boardAutomations={[]}
+        profiles={mockProfiles}
+        onClose={vi.fn()}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByText(/add new automation/i));
+    fireEvent.click(screen.getByText("Auto-Archive / Completion"));
+
+    expect(screen.getByText(/enabling this will create one/i)).toBeInTheDocument();
   });
 
   it("renders Active Rules section without manual SLA banner", () => {

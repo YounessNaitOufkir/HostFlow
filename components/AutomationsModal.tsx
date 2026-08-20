@@ -9,6 +9,7 @@ import { reportMutationError } from "@/lib/errorReporting";
 import { toast } from "sonner";
 import { Board, Column, Group, Automation, Item, STATUS_OPTIONS, Profile } from "@/types";
 import { cronTimeInTimezone, DEFAULT_ORG_TIMEZONE } from "@/lib/orgTime";
+import { DONE_STATUS_PATTERN } from "@/lib/automations/engine";
 
 interface AutomationsModalProps {
   board: Board;
@@ -98,18 +99,10 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   const dateCols = board.columns.filter((c) => c.type === "date" || c.type === "timeline");
   
   const [triggerColId, setTriggerColId] = useState(statusCols[0]?.id || "");
-  const [triggerValue, setTriggerValue] = useState("");
-  // Derived, not state. Nothing sets this any more now that the date-column
-  // selector is gone, and as useState it was initialised once — so switching to
-  // another board kept the previous board's column id in trigger_column_id.
+  // Derived, not state. Nothing sets these any more now that the date-column and
+  // target-group selectors are gone, and as useState they were initialised once —
+  // so switching to another board kept the previous board's ids.
   const triggerDateColId = dateCols[0]?.id || "";
-  // The LAST group, not the first. These recipes move finished work out of the
-  // way, and the first group is where work starts - defaulting there produced a
-  // rule that moved items into the group they were already in, so triggering it
-  // did nothing at all and the automation looked broken.
-  const [actionTargetId, setActionTargetId] = useState(
-    groups[groups.length - 1]?.id || ""
-  );
 
   const selectedColDef = board.columns.find((c) => c.id === triggerColId);
   const currentStatusOptions = selectedColDef?.settings?.statusLabels || STATUS_OPTIONS;
@@ -128,7 +121,6 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   // indistinguishable from the automation not running.
   const isMoveRecipe =
     selectedRecipe === "move_done";
-  const needsAnotherGroup = isMoveRecipe && groups.length < 2;
   // The engine takes the FIRST rule that matches, so a second rule on the same
   // trigger can never run - it is silently shadowed by the older one. That is
   // how a board ends up with several identical rules and behaviour nobody can
@@ -143,7 +135,9 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
           (!isMoveRecipe || a.trigger_value === effectiveTriggerValue)
       )
     : undefined;
-  const blocked = needsAnotherGroup || !!duplicateRule;
+  // Auto-Archive creates its own Completed group when a board has none, so a
+  // board with a single group is no longer a blocker.
+  const blocked = !!duplicateRule;
   // Two kinds of rule, which the old UI presented identically. Move and
   // shifting rules are evaluated in the browser the moment a cell changes;
   // overdue tagging and SLA alerts are only evaluated by the daily cron. A rule
@@ -175,12 +169,22 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     }
   };
   const canonicalForRecipe = "Done";
+  // Auto-Archive is a fixed rule, so the label is resolved rather than chosen.
+  // Not simply "Done": the imported French board's done label is "Fait". Matching
+  // the engine's own test avoids picking statusLabels[0], which is only the right
+  // answer by luck.
   const effectiveTriggerValue =
-    triggerValue && statusLabels.includes(triggerValue)
-      ? triggerValue
-      : statusLabels.includes(canonicalForRecipe)
-        ? canonicalForRecipe
-        : statusLabels[0] || canonicalForRecipe;
+    statusLabels.find((l) => DONE_STATUS_PATTERN.test(l)) ||
+    statusLabels[0] ||
+    canonicalForRecipe;
+
+  // The group Auto-Archive files completed work into. Lancement has four groups
+  // called "Completed", so the lowest-positioned one wins rather than an arbitrary
+  // pick. Groups arrive ordered by position.
+  const COMPLETED_GROUP_TITLE = "Completed";
+  const existingCompletedGroup = groups.find(
+    (g) => g.title.trim().toLowerCase() === COMPLETED_GROUP_TITLE.toLowerCase()
+  );
 
   // Time and behaviour rules apply to the whole workspace; if the board somehow
   // has no workspace, fall back to board scope so a scope is always present.
@@ -192,12 +196,40 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     let payload: any = null;
 
     if (recipe === "move_done") {
+      // Strict rule: done work goes to a group called "Completed". If the board
+      // has none, make one rather than silently filing into whatever group happened
+      // to be last — which is what the old Target Group dropdown defaulted to, and
+      // why the card's promise of "Group Completed" was not what actually happened.
+      let completedGroupId = existingCompletedGroup?.id;
+
+      if (!completedGroupId) {
+        const { data: createdGroup, error: groupError } = await supabase
+          .from("groups")
+          .insert({
+            board_id: board.id,
+            title: COMPLETED_GROUP_TITLE,
+            color: "#00c875",
+            position: groups.length,
+          })
+          .select("id")
+          .single();
+
+        if (groupError || !createdGroup) {
+          toast.error("Could not create the Completed group", {
+            description: "The automation was not enabled.",
+          });
+          return;
+        }
+        completedGroupId = createdGroup.id;
+        queryClient.invalidateQueries({ queryKey: queryKeys.boardData(board.id) });
+      }
+
       payload = {
         board_id: board.id,
         trigger_column_id: triggerColId || statusCols[0]?.id || "status",
         trigger_value: effectiveTriggerValue,
         action_type: "move_group",
-        action_target_id: actionTargetId || groups[groups.length - 1]?.id || groups[0]?.id,
+        action_target_id: completedGroupId,
       };
 
     } else if (recipe === "sla_alert") {
@@ -412,7 +444,8 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                     <TimingBadge actionType="move_group" timeZone={timeZone} />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    When Status changes to <b>Done</b>, move item to Group Completed.
+                    When Status changes to <b>{effectiveTriggerValue}</b>, move item to
+                    the <b>{COMPLETED_GROUP_TITLE}</b> group.
                   </p>
                 </div>
 
@@ -483,11 +516,6 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                         A rule for this trigger already exists below. Two rules on
                         the same trigger cannot both run - only the first would.
                       </span>
-                    ) : needsAnotherGroup ? (
-                      <span className="text-xs text-amber-600 dark:text-amber-400">
-                        This board has only one group, so there is nowhere to move
-                        items to. Add a second group first.
-                      </span>
                     ) : isMoveRecipe ? (
                       <div className="flex flex-wrap items-center gap-2">
                         {statusCols.length > 1 && (
@@ -496,10 +524,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                             <select
                               className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium outline-none"
                               value={triggerColId}
-                              onChange={(e) => {
-                                setTriggerColId(e.target.value);
-                                setTriggerValue("");
-                              }}
+                              onChange={(e) => setTriggerColId(e.target.value)}
                             >
                               {statusCols.map((c) => (
                                 <option key={c.id} value={c.id}>{c.title}</option>
@@ -507,26 +532,32 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                             </select>
                           </>
                         )}
-                        <span>When status is:</span>
-                        <select
-                          className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium outline-none"
-                          value={effectiveTriggerValue}
-                          onChange={(e) => setTriggerValue(e.target.value)}
-                        >
-                          {statusLabels.map((label) => (
-                            <option key={label} value={label}>{label}</option>
-                          ))}
-                        </select>
-                        <span>Target Group:</span>
-                        <select
-                          className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium outline-none"
-                          value={actionTargetId}
-                          onChange={(e) => setActionTargetId(e.target.value)}
-                        >
-                          {groups.map((g) => (
-                            <option key={g.id} value={g.id}>{g.title}</option>
-                          ))}
-                        </select>
+                        {/*
+                          A fixed rule, not a configuration. The card has always
+                          promised "move item to Group Completed", while the Target
+                          Group dropdown actually filed items into whichever group you
+                          picked — defaulting to the last one on the board. The promise
+                          is now the behaviour. The status label is resolved rather than
+                          chosen because boards disagree on the word: the imported
+                          French board's is "Fait".
+                        */}
+                        <span>
+                          When a task is marked{" "}
+                          <b className="font-semibold text-gray-800 dark:text-gray-100">
+                            {effectiveTriggerValue}
+                          </b>
+                          , it moves to the{" "}
+                          <b className="font-semibold text-gray-800 dark:text-gray-100">
+                            {COMPLETED_GROUP_TITLE}
+                          </b>{" "}
+                          group.
+                        </span>
+                        {!existingCompletedGroup && (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            This board has no {COMPLETED_GROUP_TITLE}{" "}
+                            group yet &mdash; enabling this will create one.
+                          </span>
+                        )}
                       </div>
                     ) : (
                       /*
@@ -574,7 +605,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                     <button
                       onClick={() => handleCreateRecipe(selectedRecipe)}
                       disabled={blocked}
-                      title={duplicateRule ? "A rule for this trigger already exists. Delete it first - two rules on the same trigger cannot both run." : needsAnotherGroup ? "Add a second group first - there is nowhere for this rule to move items to." : undefined}
+                      title={duplicateRule ? "A rule for this trigger already exists. Delete it first - two rules on the same trigger cannot both run." : undefined}
                       className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-600"
                     >
                       Enable This Automation

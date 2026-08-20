@@ -124,6 +124,15 @@ export async function GET(request: Request) {
     });
 
     // 6. Send the digests!
+    //
+    // Every send is collected and awaited before this route responds. It used to
+    // call notifyUsersViaTelegram without awaiting it: the route returned
+    // "dispatched to N users" while the request to Telegram was still in flight,
+    // and a serverless instance is free to be frozen or reclaimed the moment it
+    // responds — so the message frequently never left. app/api/telegram/notify
+    // already awaits for exactly this reason, which is why task-assignment alerts
+    // arrive and the digest did not.
+    const sends: Promise<unknown>[] = [];
     let sentCount = 0;
     for (const userId of Object.keys(userTasks)) {
       const tasks = userTasks[userId];
@@ -144,16 +153,26 @@ export async function GET(request: Request) {
           message += overdueTasks.map(t => `- ${t.item.name}`).join("\n");
         }
 
-        // Since we already filtered for activeUserIds above, notifyUsersViaTelegram will work.
-        // We use notifyUsersViaTelegram to actually send the message.
-        notifyUsersViaTelegram([userId], message.trim());
+        // Already filtered for activeUserIds above, so each of these is eligible.
+        sends.push(notifyUsersViaTelegram([userId], message.trim()));
         sentCount++;
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Daily digest dispatched to ${sentCount} users.` 
+    // allSettled so one user's failure cannot stop the rest, but still awaited so
+    // the instance stays alive until every send has actually resolved.
+    const results = await Promise.allSettled(sends);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) {
+      console.error(`[Daily Digest Cron] ${failed} of ${sends.length} sends failed.`);
+    }
+
+    return NextResponse.json({
+      success: true,
+      eligibleProfiles: profiles.length,
+      withTasks: sentCount,
+      failed,
+      message: `Daily digest sent to ${sentCount - failed} of ${sentCount} users with due work.`,
     });
 
   } catch (error) {
