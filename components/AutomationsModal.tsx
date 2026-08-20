@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { reportMutationError } from "@/lib/errorReporting";
 import { toast } from "sonner";
 import { Board, Column, Group, Automation, Item, STATUS_OPTIONS, Profile } from "@/types";
+import { cronTimeInTimezone, DEFAULT_ORG_TIMEZONE } from "@/lib/orgTime";
 
 interface AutomationsModalProps {
   board: Board;
@@ -15,14 +16,20 @@ interface AutomationsModalProps {
   items: Item[];
   boardAutomations: Automation[];
   profiles: Profile[];
+  /**
+   * organization_settings.default_timezone. The scheduled badge showed a bare
+   * "09:00", which is the cron's UTC hour, not the hour the company sees — for
+   * Casablanca the job actually lands at 10:00. Defaults to UTC.
+   */
+  timeZone?: string | null;
   onClose: () => void;
 }
 
 type RecipeType = "move_done" | "sla_alert" | "overdue_tagging" | "timeline_shifting" | null;
 
 
-// that cannot possibly do anything until 09:00 UTC must say so, or it reads
-// as broken.
+// that cannot possibly do anything until the next daily run must say so, or it
+// reads as broken.
 const SCHEDULED = new Set(['overdue_tagging', 'sla_alert']);
 const isScheduled = (actionType: string) => SCHEDULED.has(actionType);
 
@@ -40,13 +47,13 @@ const Chip = ({ children, tone = 'blue' }: { children: React.ReactNode; tone?: '
   </span>
 );
 
-const TimingBadge = ({ actionType }: { actionType: string }) =>
+const TimingBadge = ({ actionType, timeZone }: { actionType: string; timeZone?: string | null }) =>
   isScheduled(actionType) ? (
     <span
-      title="Evaluated once a day by a scheduled job, not the moment something changes."
+      title={`Evaluated once a day by a scheduled job, not the moment something changes. Runs at ${cronTimeInTimezone(timeZone)} ${timeZone || DEFAULT_ORG_TIMEZONE}.`}
       className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:border-amber-400/30"
     >
-      <Clock size={10} /> Daily 09:00
+      <Clock size={10} /> Daily {cronTimeInTimezone(timeZone)}
     </span>
   ) : (
     <span
@@ -57,7 +64,7 @@ const TimingBadge = ({ actionType }: { actionType: string }) =>
     </span>
   );
 
-export default function AutomationsModal({ board, groups, items, boardAutomations, profiles, onClose }: AutomationsModalProps) {
+export default function AutomationsModal({ board, groups, items, boardAutomations, profiles, timeZone, onClose }: AutomationsModalProps) {
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeType>(null);
@@ -92,7 +99,10 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   
   const [triggerColId, setTriggerColId] = useState(statusCols[0]?.id || "");
   const [triggerValue, setTriggerValue] = useState("");
-  const [triggerDateColId, setTriggerDateColId] = useState(dateCols[0]?.id || "");
+  // Derived, not state. Nothing sets this any more now that the date-column
+  // selector is gone, and as useState it was initialised once — so switching to
+  // another board kept the previous board's column id in trigger_column_id.
+  const triggerDateColId = dateCols[0]?.id || "";
   // The LAST group, not the first. These recipes move finished work out of the
   // way, and the first group is where work starts - defaulting there produced a
   // rule that moved items into the group they were already in, so triggering it
@@ -245,12 +255,12 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
 
     // A corner toast rather than a full-screen takeover. It states when the new
     // rule will run, and for a scheduled one offers to run it immediately -
-    // otherwise activating it means waiting until 09:00 UTC to find out whether
-    // it does anything.
+    // otherwise activating it means waiting until the next daily run to find out
+    // whether it does anything.
     const scheduled = isScheduled(data.action_type);
     toast.success('Automation added', {
       description: scheduled
-        ? 'Runs daily at 09:00 UTC.'
+        ? `Runs daily at ${cronTimeInTimezone(timeZone)} ${timeZone || DEFAULT_ORG_TIMEZONE}.`
         : 'Runs instantly, every time a matching change is made.',
       duration: scheduled ? 12000 : 5000,
       action: scheduled
@@ -399,7 +409,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <CheckCircle2 size={16} className="text-green-500" />
                     <span>Auto-Archive / Completion</span>
-                    <TimingBadge actionType="move_group" />
+                    <TimingBadge actionType="move_group" timeZone={timeZone} />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Status changes to <b>Done</b>, move item to Group Completed.
@@ -418,7 +428,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <Bell size={16} className="text-purple-500" />
                     <span>Due Date Warning (SLA Alert)</span>
-                    <TimingBadge actionType="sla_alert" />
+                    <TimingBadge actionType="sla_alert" timeZone={timeZone} />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Due Date arrives AND Status is NOT Working on it, send notification &amp; Gmail alert.
@@ -437,7 +447,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <AlertTriangle size={16} className="text-red-500" />
                     <span>Automatic Overdue Tagging</span>
-                    <TimingBadge actionType="overdue_tagging" />
+                    <TimingBadge actionType="overdue_tagging" timeZone={timeZone} />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Due Date passes AND Status is NOT Done, change Status to <b>Overdue</b> &amp; notify.
@@ -456,7 +466,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
                     <Link2 size={16} className="text-blue-500" />
                     <span>Timeline &amp; Date Shifting</span>
-                    <TimingBadge actionType="timeline_shifting" />
+                    <TimingBadge actionType="timeline_shifting" timeZone={timeZone} />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     When Due Date is postponed by X days, shift all dependent items&apos; dates by X days.
@@ -519,17 +529,37 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                         </select>
                       </div>
                     ) : (
+                      /*
+                        Not a choice. This used to be a "Date Column:" dropdown, but
+                        evaluateTimeAutomations never reads the saved
+                        trigger_column_id for scheduled rules: it scans every date and
+                        timeline column, plus any column whose *title* looks like a
+                        date, and uses the first one holding a value. Offering a
+                        selector implied a targeting the engine does not do — and on a
+                        board like Lancement, which has four columns all named
+                        "Timeline", it offered four indistinguishable options that all
+                        behaved identically. So say what actually happens instead.
+                      */
                       <div className="flex flex-wrap items-center gap-2">
-                        <span>Date Column:</span>
-                        <select
-                          className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium outline-none"
-                          value={triggerDateColId}
-                          onChange={(e) => setTriggerDateColId(e.target.value)}
-                        >
-                          {dateCols.map((c) => (
-                            <option key={c.id} value={c.id}>{c.title}</option>
-                          ))}
-                        </select>
+                        {dateCols.length === 0 ? (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            This board has no date or timeline column, so this rule
+                            would have nothing to check.
+                          </span>
+                        ) : dateCols.length === 1 ? (
+                          <span>
+                            Checks the{" "}
+                            <b className="font-semibold text-gray-800 dark:text-gray-100">
+                              {dateCols[0].title}
+                            </b>{" "}
+                            column.
+                          </span>
+                        ) : (
+                          <span>
+                            Checks every date column on this board &mdash; whichever one
+                            an item has a date in is the one used.
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -575,7 +605,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
               automations.map(auto => (
                 <div key={auto.id} className={`flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 transition-shadow hover:shadow-sm ${auto.enabled === false ? "opacity-60 bg-gray-50 dark:bg-slate-900/50" : ""}`}>
                   <div className="flex flex-col gap-1.5 shrink-0 pt-0.5">
-                    <TimingBadge actionType={auto.action_type} />
+                    <TimingBadge actionType={auto.action_type} timeZone={timeZone} />
                     <span
                       title={
                         auto.workspace_id
@@ -595,7 +625,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                     {renderRuleDescription(auto)}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* A scheduled rule is otherwise unverifiable until 09:00 UTC. */}
+                    {/* A scheduled rule is otherwise unverifiable until the next daily run. */}
                     {isScheduled(auto.action_type) && auto.enabled !== false && (
                       <button
                         onClick={() => runNow(auto.id)}

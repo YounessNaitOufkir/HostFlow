@@ -914,6 +914,7 @@ export default function MondayClone() {
           items={state.items}
           boardAutomations={state.boardAutomations}
           profiles={state.profiles}
+          timeZone={state.organizationSettings?.default_timezone ?? null}
           onClose={() => dispatch({ type: "SET_SHOW_AUTOMATIONS", payload: false })}
         />
       )}
