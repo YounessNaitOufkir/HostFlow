@@ -8,6 +8,7 @@ import { Toaster } from "sonner";
 import { FontProvider } from "@/components/FontProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import PWAInstallPrompt from "@/components/ui/PWAInstallPrompt";
+import { getCompanyName } from "@/lib/companyName";
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-inter",
@@ -15,27 +16,55 @@ const plusJakarta = Plus_Jakarta_Sans({
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-export const metadata: Metadata = {
-  title: "Host'Lik PM",
-  description: "Manage your projects flawlessly",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Host'Lik PM",
-  },
-  formatDetection: {
-    telephone: false,
-  },
-  icons: {
-    // apple must be a PNG — apple-icon does not accept SVG, so the previous
-    // "/icon.svg" here meant iOS rendered no home-screen icon at all. Both are
-    // declared explicitly because an explicit icons object suppresses the
-    // app/apple-icon file convention rather than merging with it.
-    icon: "/icon.svg",
-    apple: "/apple-icon.png",
-  },
-};
+/**
+ * The app is named by organization_settings.company_name, not by a string in this
+ * file. Both titles below were hardcoded to "Host'Lik PM" and stayed that way when
+ * the company was renamed in Settings.
+ *
+ * appleWebApp.title is the one that matters most: it is the label iOS puts under a
+ * home-screen icon, and unlike the browser tab title it cannot be corrected from the
+ * client afterwards.
+ *
+ * force-dynamic is required, not incidental. A Supabase read is not one of the
+ * dynamic APIs Next watches for, so without it the route still prerenders and the
+ * name is resolved once at build time and frozen into the HTML — a build made
+ * before a rename shipped the old name indefinitely. Verified: a prerendered
+ * login.html carried "Host'Lik" while the database already said "HostFlow".
+ *
+ * The cost is that / and /login render per request. Acceptable here — every request
+ * already passes through proxy.ts, which calls supabase.auth.getUser(), so these
+ * pages were never served from a cache anyway.
+ */
+export const dynamic = 'force-dynamic';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await getCompanyName();
+
+  return {
+    title: name,
+    description: "Manage your projects flawlessly",
+    // No `manifest` field: app/manifest.ts is a file convention and Next emits the
+    // <link> for it automatically at /manifest.webmanifest. The value that used to
+    // sit here, "/manifest.json", is not a route in this app — proxy.ts 307s it to
+    // /login — and was silently overridden by the file convention.
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: name,
+    },
+    formatDetection: {
+      telephone: false,
+    },
+    icons: {
+      // apple must be a PNG — apple-icon does not accept SVG, so the previous
+      // "/icon.svg" here meant iOS rendered no home-screen icon at all. Both are
+      // declared explicitly because an explicit icons object suppresses the
+      // app/apple-icon file convention rather than merging with it.
+      icon: "/icon.svg",
+      apple: "/apple-icon.png",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#1A2C5B",
