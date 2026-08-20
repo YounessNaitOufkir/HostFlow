@@ -27,8 +27,12 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
+    // apple must be a PNG — apple-icon does not accept SVG, so the previous
+    // "/icon.svg" here meant iOS rendered no home-screen icon at all. Both are
+    // declared explicitly because an explicit icons object suppresses the
+    // app/apple-icon file convention rather than merging with it.
     icon: "/icon.svg",
-    apple: "/icon.svg",
+    apple: "/apple-icon.png",
   },
 };
 
