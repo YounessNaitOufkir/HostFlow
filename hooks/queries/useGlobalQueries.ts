@@ -6,7 +6,6 @@ import { queryKeys } from "./queryKeys";
 import {
   OrganizationSettings,
   Team,
-  GlobalStatusLabel,
   Workspace,
   Profile,
   Board,
@@ -17,16 +16,14 @@ export function useGlobalSettingsQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.globalSettings(),
     queryFn: async () => {
-      const [orgRes, teamsRes, labelsRes] = await Promise.all([
+      const [orgRes, teamsRes] = await Promise.all([
         supabase.from("organization_settings").select("*").limit(1).single(),
         supabase.from("teams").select("*").order("name"),
-        supabase.from("global_status_labels").select("*").order("position"),
       ]);
 
       return {
         organizationSettings: (orgRes.data || null) as OrganizationSettings | null,
         teams: (teamsRes.data || []) as Team[],
-        globalStatusLabels: (labelsRes.data || []) as GlobalStatusLabel[],
       };
     },
     enabled,

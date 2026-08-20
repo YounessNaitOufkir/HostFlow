@@ -314,13 +314,6 @@ export interface Webhook {
   created_at?: string;
 }
 
-export interface GlobalStatusLabel {
-  id: string;
-  label: string;
-  color: string;
-  position: number;
-}
-
 export interface NotificationPreference {
   user_id: string;
   email_notifications: boolean;

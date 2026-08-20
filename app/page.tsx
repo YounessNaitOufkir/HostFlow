@@ -193,7 +193,6 @@ export default function MondayClone() {
         dispatch({ type: "SET_ORGANIZATION_SETTINGS", payload: settingsData.organizationSettings });
       }
       dispatch({ type: "SET_TEAMS", payload: settingsData.teams });
-      dispatch({ type: "SET_GLOBAL_STATUS_LABELS", payload: settingsData.globalStatusLabels });
     }
   }, [settingsData, dispatch]);
 
@@ -940,7 +939,6 @@ export default function MondayClone() {
           onClose={() => setShowAdminSettingsModal(false)}
           organizationSettings={state.organizationSettings}
           teams={state.teams}
-          globalStatusLabels={state.globalStatusLabels}
           profiles={state.profiles}
           onGlobalSettingsChanged={() => queryClient.invalidateQueries({ queryKey: queryKeys.globalSettings() })}
         />
