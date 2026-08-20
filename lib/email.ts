@@ -18,8 +18,14 @@ export interface EmailResponse {
  * Safely falls back to console logging & development simulation when no key is set.
  */
 export async function sendEmail(options: SendEmailOptions): Promise<EmailResponse> {
-  const apiKey = process.env.NEXT_PUBLIC_RESEND_API_KEY || process.env.RESEND_API_KEY;
-  const fromEmail = process.env.NEXT_PUBLIC_RESEND_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || "HostFlow Automations <onboarding@resend.dev>";
+  // Server-only. Never read a NEXT_PUBLIC_ variable for this: that prefix inlines the
+  // value into the browser bundle, which would publish the Resend key to every visitor.
+  // Resend also rejects browser-origin requests (CORS), so a client-side key cannot work
+  // even in principle. This module is reachable from the client bundle via
+  // lib/automations/engine.ts, so on the client apiKey is simply undefined and we fall
+  // through to the simulation branch below.
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "HostFlow Automations <onboarding@resend.dev>";
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
   if (!apiKey) {

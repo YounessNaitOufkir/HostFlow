@@ -121,8 +121,30 @@ export default function AdminSettingsModal({
   const { profiles, workspaces, boards, workspaceMembers, boardMembers } = adminData;
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  // Team members see every shared workspace without being invited; externals see
-  // only what they create and what they are explicitly given.
+  // This panel only governs company workspaces. A private workspace is reachable
+  // solely through its own creator's members dialog — can_manage_workspace() is
+  // false for anybody else — so listing one here would render a toggle that cannot
+  // possibly work: the INSERT is rejected and the DELETE removes zero rows.
+  const companyWorkspaces = workspaces.filter((w) => !w.is_private);
+
+  const selectedProfile = profiles.find((p) => p.id === selectedProfileId) || null;
+
+  // Three tiers, three different panels. Admins reach every company workspace and
+  // board by role, so there is nothing to grant them; externals are held out of
+  // company content entirely by the staff ceiling in can_access_workspace_as();
+  // only Team members have anything configurable here.
+  const selectedTier: "admin" | "member" | "external" | null = !selectedProfile
+    ? null
+    : selectedProfile.role === "admin"
+      ? "admin"
+      : selectedProfile.is_staff
+        ? "member"
+        : "external";
+
+  // The Team badge is a ceiling, not a grant: it is required to reach company
+  // content but no longer confers it. Administrators reach everything by role;
+  // Team members get only the workspaces and boards granted below; externals get
+  // no company content at all. See 20260820000000_staff_grants_not_blanket.sql.
   const handleStaffChange = async (profileId: string, staff: boolean) => {
     const targetProfile = profiles.find((p) => p.id === profileId);
     // Administrator implies staff — the DB enforces this too
@@ -212,10 +234,20 @@ export default function AdminSettingsModal({
     
     try {
       if (isMember) {
-        const { error } = await supabase.from("workspace_members")
+        // .select("id") is not cosmetic. An RLS-blocked DELETE comes back with no
+        // error and zero rows, so "no error" would mean the optimistic update
+        // below strips the row from the UI while the grant survives in the
+        // database — the user is told access was revoked when it was not.
+        const { data, error } = await supabase.from("workspace_members")
           .delete()
-          .match({ user_id: profileId, workspace_id: workspaceId });
+          .match({ user_id: profileId, workspace_id: workspaceId })
+          .select("id");
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error(
+            "Workspace access was not revoked: the database rejected the change. You may not be allowed to manage this workspace."
+          );
+        }
         queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
           if (!old) return old;
           return {
@@ -249,10 +281,17 @@ export default function AdminSettingsModal({
     
     try {
       if (isMember) {
-        const { error } = await supabase.from("board_members")
+        // Same trap as the workspace toggle: a blocked DELETE is silent.
+        const { data, error } = await supabase.from("board_members")
           .delete()
-          .match({ user_id: profileId, board_id: boardId });
+          .match({ user_id: profileId, board_id: boardId })
+          .select("id");
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error(
+            "Board access was not revoked: the database rejected the change. You may not be allowed to manage this board."
+          );
+        }
         queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
           if (!old) return old;
           return {
@@ -489,7 +528,7 @@ export default function AdminSettingsModal({
                               title={
                                 profile.is_owner
                                   ? "The platform owner is always a team member"
-                                  : "Team members see every shared workspace without being invited"
+                                  : "Team is required for company access, but grants none by itself — set it per workspace and board under Data Access"
                               }
                               className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                                 profile.is_staff
@@ -554,6 +593,40 @@ export default function AdminSettingsModal({
                         <Lock size={48} className="mb-4 opacity-20" />
                         <p>Select a user to manage their data access</p>
                       </div>
+                    ) : selectedTier === "admin" ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center px-8">
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4">
+                          <Shield size={26} />
+                        </div>
+                        <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                          {selectedProfile?.full_name} is an Administrator
+                        </h4>
+                        <p className="text-sm text-gray-500 max-w-sm">
+                          Administrators reach every company workspace and board by role, so there is
+                          nothing to grant here. To limit what this person can see, change their role
+                          to Member in the Users tab first.
+                        </p>
+                        <p className="text-xs text-gray-400 max-w-sm mt-3">
+                          Private personal workspaces stay private even from administrators.
+                        </p>
+                      </div>
+                    ) : selectedTier === "external" ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center px-8">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4">
+                          <Lock size={26} />
+                        </div>
+                        <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                          {selectedProfile?.full_name} is an External user
+                        </h4>
+                        <p className="text-sm text-gray-500 max-w-sm">
+                          External accounts have no access to company workspaces, and it cannot be
+                          granted here. To work with them, the owner of a private workspace invites
+                          them from that workspace&apos;s own members dialog.
+                        </p>
+                        <p className="text-xs text-gray-400 max-w-sm mt-3">
+                          If they have joined the company, mark them Team in the Users tab first.
+                        </p>
+                      </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="mb-6 flex items-center justify-between">
@@ -563,7 +636,7 @@ export default function AdminSettingsModal({
                           </div>
                         </div>
 
-                        {workspaces.map(ws => {
+                        {companyWorkspaces.map(ws => {
                           const isWsMember = workspaceMembers.some(m => m.user_id === selectedProfileId && m.workspace_id === ws.id);
                           const wsBoards = boards.filter(b => b.workspace_id === ws.id);
                           const isExpanded = expandedWorkspaces.has(ws.id);

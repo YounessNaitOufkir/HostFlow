@@ -19,6 +19,8 @@ import {
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
+import { useT } from "@/components/LanguageProvider";
+import { Logo } from "@/components/ui/Logo";
 import ProfileMenu from "@/components/ProfileMenu";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSpring, animated } from "@react-spring/web";
@@ -95,6 +97,7 @@ export default function Sidebar({
   onNotificationClick,
   onImportData,
 }: SidebarProps) {
+  const t = useT();
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const { anchorRef: wsMenuAnchor, menuRef: wsMenuRef, menuStyle: wsMenuStyle } = useAnchoredMenu(isWorkspaceMenuOpen, { align: 'left' });
@@ -146,16 +149,18 @@ export default function Sidebar({
       {/* ======================================= */}
       <div className="w-[60px] bg-[#1A2C5B] text-white flex flex-col items-center py-4 justify-between shrink-0 relative z-50">
         <div className="flex flex-col items-center space-y-3 w-full">
-          <Tooltip content="Toggle Sidebar" side="right">
+          <Tooltip content={t("sidebar.toggle")} side="right">
             <SpringButton
               className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#F5A623] to-[#E09015] flex items-center justify-center font-bold text-lg select-none cursor-pointer hover:from-[#FFB540] hover:to-[#F5A623] transition-colors shadow-lg shadow-amber-500/30 text-white"
               onClick={onToggleSidebar}
             >
-              H
+              {/* Bare mark on the amber tile: the tile carries the brand colour,
+                  so the bars go white. Same silhouette as the favicon. */}
+              <Logo variant="bare" tone="amber" size={20} />
             </SpringButton>
           </Tooltip>
           <div className="w-8 border-t border-white/10 my-1"></div>
-          <Tooltip content="My Work" side="right">
+          <Tooltip content={t("sidebar.myWork")} side="right">
             <SpringButton
               // Toggling out of My Work went to "board" unconditionally, which
               // strands the user on "Loading board..." when no board is open.
@@ -177,7 +182,7 @@ export default function Sidebar({
               <LayoutDashboard size={20} />
             </SpringButton>
           </Tooltip>
-          <Tooltip content="Trash Bin" side="right">
+          <Tooltip content={t("sidebar.trashBin")} side="right">
             <SpringButton
               onClick={() => onSetMainView(mainView === "trash" ? "board" : "trash")}
               className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
@@ -191,7 +196,7 @@ export default function Sidebar({
           </Tooltip>
         </div>
         <div className="flex flex-col items-center space-y-3">
-          <Tooltip content="Notifications" side="right">
+          <Tooltip content={t("sidebar.notifications")} side="right">
             <div>
               {profile ? (
                 <NotificationsMenu userId={profile.id} onNotificationClick={onNotificationClick} />
@@ -237,7 +242,7 @@ export default function Sidebar({
                   <Briefcase size={15} className="mr-2.5 text-blue-500 shrink-0" />
                 )}
                 <TruncatedText className="truncate flex-1">
-                  {activeWorkspace ? activeWorkspace.name : "All workspaces"}
+                  {activeWorkspace ? activeWorkspace.name : t("sidebar.allWorkspacesLower")}
                 </TruncatedText>
                 <ChevronDown
                   size={13}
@@ -272,7 +277,7 @@ export default function Sidebar({
                     >
                       <span className="flex items-center gap-1.5 min-w-0">
                         <LayoutGrid size={11} className="shrink-0 opacity-70" />
-                        All workspaces
+                        {t("sidebar.allWorkspacesLower")}
                       </span>
                     </div>
                     {workspaces.map((ws) => (
@@ -355,7 +360,7 @@ export default function Sidebar({
               <div className="flex-1 overflow-y-auto py-3">
                 {/* Dashboards Section */}
                 <div className="px-4 mb-2 mt-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center">
-                  <span>Dashboards</span>
+                  <span>{t("sidebar.dashboards")}</span>
                 </div>
                 
                 <div 
@@ -367,13 +372,13 @@ export default function Sidebar({
                 >
                   <CalendarDays size={15} className={`mr-2 ${mainView === 'workspace_gantt' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
                   <span className={`text-[13px] truncate ${mainView === 'workspace_gantt' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                    Master Gantt Chart
+                    {t("sidebar.masterGantt")}
                   </span>
                 </div>
 
                 {/* Boards Section */}
                 <div className="px-4 mb-2 mt-5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center relative">
-                  <span>Boards</span>
+                  <span>{t("sidebar.boards")}</span>
                   {/* Hidden on "All workspaces": createBoard falls back to
                       whichever workspace the database returns first, so the new
                       board would land somewhere the user never chose. */}
@@ -381,7 +386,7 @@ export default function Sidebar({
                     <button
                       onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
                       className="hover:bg-gray-100 dark:hover:bg-white/[0.06] p-1 rounded transition-colors text-gray-400 hover:text-blue-500"
-                      title="Create Board"
+                      title={t("sidebar.createBoard")}
                     >
                       <Plus size={14} />
                     </button>
@@ -404,7 +409,7 @@ export default function Sidebar({
                             }}
                             className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
                           >
-                            <LayoutGrid size={14} className="mr-2" /> Blank Board
+                            <LayoutGrid size={14} className="mr-2" /> {t("sidebar.blankBoard")}
                           </div>
                           <div
                             onClick={() => {
@@ -413,7 +418,7 @@ export default function Sidebar({
                             }}
                             className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
                           >
-                            <Briefcase size={14} className="mr-2" /> Import from Excel
+                            <Briefcase size={14} className="mr-2" /> {t("sidebar.importFromExcel")}
                           </div>
                         </motion.div>
                       )}
@@ -430,7 +435,7 @@ export default function Sidebar({
                 >
                   <LayoutGrid size={15} className={`mr-2 ${mainView === 'workspace_overview' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
                   <span className={`text-[13px] truncate ${mainView === 'workspace_overview' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                    Workspace Overview
+                    {t("sidebar.workspaceOverview")}
                   </span>
                 </div>
 

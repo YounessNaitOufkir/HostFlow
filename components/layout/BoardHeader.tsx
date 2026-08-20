@@ -16,6 +16,7 @@ import {
 import type { Column, Profile } from "@/types";
 import { Tooltip } from "@/components/ui/Tooltip";
 import FilterBar from "@/components/board/FilterBar";
+import { useT } from "@/components/LanguageProvider";
 
 export type MainView = "board" | "kanban" | "dashboard" | "calendar" | "gantt" | "cards" | "my_work" | "trash" | "workspace_overview" | "workspace_gantt";
 
@@ -54,6 +55,7 @@ export default function BoardHeader({
   onDuplicateBoard,
   onImportData,
 }: BoardHeaderProps) {
+  const t = useT();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const { anchorRef, menuRef: popupRef, menuStyle } = useAnchoredMenu(isMenuOpen, { align: 'left' });
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -78,7 +80,7 @@ export default function BoardHeader({
               {boardName}
             </h1>
             <div className="relative" ref={(el) => { menuRef.current = el; anchorRef.current = el; }}>
-              <Tooltip content="Board options" side="bottom">
+              <Tooltip content={t("board.options")} side="bottom">
                 <button 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500 transition-colors"
@@ -95,7 +97,7 @@ export default function BoardHeader({
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-lg mx-0"
                   >
-                    Save as Template (Duplicate)
+                    {t("board.saveAsTemplate")}
                   </button>
                   <button
                     onClick={() => {
@@ -104,15 +106,15 @@ export default function BoardHeader({
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-lg mx-0"
                   >
-                    Import from Monday.com
+                    {t("board.importFromMonday")}
                   </button>
                 </div>
               )}
             </div>
           </div>
-          <Tooltip content="Board automations & rules" side="bottom">
+          <Tooltip content={t("board.automationsTooltip")} side="bottom">
             <button onClick={onShowAutomations} className="btn-automate">
-              <Zap size={14} /> Automate
+              <Zap size={14} /> {t("board.automate")}
             </button>
           </Tooltip>
         </div>
@@ -123,38 +125,38 @@ export default function BoardHeader({
             onClick={() => onSetMainView("board")}
             className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "board" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
-            <LayoutList size={14} /> Main Table
+            <LayoutList size={14} /> {t("board.mainTable")}
           </button>
           <button
             onClick={() => onSetMainView("kanban")}
             className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "kanban" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
-            <Columns3 size={14} /> Kanban
+            <Columns3 size={14} /> {t("board.viewKanban")}
           </button>
           <button
             onClick={() => onSetMainView("dashboard")}
             className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "dashboard" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
-            <LayoutDashboard size={14} /> Dashboard
+            <LayoutDashboard size={14} /> {t("board.viewDashboard")}
           </button>
           <button
             onClick={() => onSetMainView("calendar")}
             className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "calendar" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
-            <Calendar size={14} /> Calendar
+            <Calendar size={14} /> {t("board.viewCalendar")}
           </button>
           <button
             onClick={() => onSetMainView("gantt")}
             className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "gantt" ? "active" : "text-gray-600 dark:text-gray-400"}`}
           >
-            <GripVertical size={14} /> Gantt
+            <GripVertical size={14} /> {t("board.viewGantt")}
           </button>
           <button
             onClick={() => onSetMainView("cards")}
             className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "cards" ? "active" : "text-gray-600 dark:text-gray-400"}`}
-            title="Mobile-friendly touch cards view"
+            title={t("board.cardsTooltip")}
           >
-            <Smartphone size={14} /> Cards
+            <Smartphone size={14} /> {t("board.viewCards")}
           </button>
         </div>
       </div>
