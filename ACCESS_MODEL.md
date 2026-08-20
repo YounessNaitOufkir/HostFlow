@@ -86,9 +86,26 @@ without the company — including its owner — being able to read it. Any futur
 role, not by an invitation, not by having created something inside it. `is_staff` is
 a ceiling, not a convenience.
 
-Staff get automatic access to all **non-private** workspaces and boards without being
-added as members, so company work needs no per-member bookkeeping. Membership rows on
-a shared workspace are therefore redundant for staff and inert for externals.
+**A ceiling only — it grants nothing by itself** (revised 2026-08-20,
+`20260820000000_staff_grants_not_blanket.sql`). Being Team is *necessary* to reach
+company content and is never *sufficient*:
+
+| Tier | `is_staff` / `role` | Reaches |
+|---|---|---|
+| Admin | `true` / `admin` | Every non-private workspace and board, by role |
+| Team member | `true` / `member` | Only explicit `workspace_members` / `board_members` grants |
+| External | `false` | No company content at all |
+
+Until this revision, staff got automatic access to every non-private workspace, which
+made membership rows decorative for them and made the admin Data Access panel appear
+to do nothing. That was wrong for the business: a marketing hire is Team, but must not
+read the Communication or Lancement boards. Grants are now load-bearing for everyone
+except admins.
+
+A board grant without a workspace grant is the intended way to express "this board and
+no other in the same workspace". `can_see_workspace_shell()` already surfaces the
+workspace in the sidebar for someone holding only a board grant, so the board is
+reachable without opening up its siblings.
 
 The consequence is deliberate: **collaboration with an external happens in a private
 workspace or board.** A shared workspace cannot host an outsider on a single board.
@@ -174,6 +191,7 @@ correctness and clarity at that size, not for horizontal scale.
 | Staff see each other in the directory | Applied (`20260819000000`) |
 | Team badge as a hard ceiling | Applied (`20260819000001`) |
 | One access rule, parameterized by user | Applied (`20260819000002`) |
+| Team grants nothing by itself; admin-only blanket access | Applied (`20260820000000`) |
 | Leaked-password protection | Done — `lib/passwordSecurity.ts`, wired into signup and reset |
 | Per-workspace automations | Not started |
 | Audit trail | Not started |
@@ -190,6 +208,11 @@ correctness and clarity at that size, not for horizontal scale.
   inserts are restricted to your own rows.
 - People lists read `user_directory`, never `profiles` — that is what keeps
   emails out of the client.
+- `user_directory` still lets staff see one another even though staff no longer
+  share every workspace (`20260820000000` ended that). Keep it that way: the
+  branch exists so `PeopleCell` can resolve assignee ids, and without it assigned
+  items render as unassigned. Colleagues stay mutually visible; only *data* access
+  narrowed.
 - Private workspaces show a lock in the sidebar, and their creator can invite
   others through the members modal. That modal is the ONLY way into a private
   workspace; `20260818000004` removes the `is_global_admin()` branch that let any

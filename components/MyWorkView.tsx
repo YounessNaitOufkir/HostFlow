@@ -3,6 +3,7 @@
 import React from "react";
 import { Item, Board, STATUS_OPTIONS } from "@/types";
 import { LayoutDashboard, AlertCircle } from "lucide-react";
+import { useT } from "@/components/LanguageProvider";
 
 interface MyWorkViewProps {
   items: Item[];
@@ -17,6 +18,7 @@ interface MyWorkViewProps {
 }
 
 export default function MyWorkView({ items, boards, onSelectItem, onBrowseWorkspaces }: MyWorkViewProps) {
+  const t = useT();
   // Group items by board
   const itemsByBoard: Record<string, Item[]> = {};
   items.forEach((item) => {
@@ -28,7 +30,7 @@ export default function MyWorkView({ items, boards, onSelectItem, onBrowseWorksp
 
   const getBoardName = (boardId: string) => {
     const board = boards.find((b) => b.id === boardId);
-    return board ? board.name : "Unknown Board";
+    return board ? board.name : t("myWork.unknownBoard");
   };
 
   const getStatusChip = (item: Item, boardId: string) => {
@@ -53,10 +55,10 @@ export default function MyWorkView({ items, boards, onSelectItem, onBrowseWorksp
       <div className="p-8 pb-4">
         <div className="flex items-center space-x-3 text-[#1A2C5B] dark:text-white">
           <LayoutDashboard size={32} />
-          <h1 className="text-3xl font-bold tracking-tight">My Work</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("myWork.title")}</h1>
         </div>
         <p className="text-gray-500 dark:text-gray-400 mt-2 ml-1">
-          A unified view of all tasks assigned to you across all workspaces.
+          {t("myWork.subtitle")}
         </p>
       </div>
 

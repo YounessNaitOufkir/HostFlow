@@ -1,8 +1,10 @@
 "use client";
 
 import React from "react";
-import { X, Eye, Check, Type, Sparkles } from "lucide-react";
+import { X, Eye, Check, Type, Sparkles, Languages } from "lucide-react";
 import { useFont } from "@/components/FontProvider";
+import { useLanguage } from "@/components/LanguageProvider";
+import { LOCALE_OPTIONS } from "@/lib/i18n";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface ReadabilityModalProps {
@@ -11,6 +13,7 @@ interface ReadabilityModalProps {
 
 export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
   const { currentFont, setFont, fontOptions } = useFont();
+  const { locale, setLocale, t } = useLanguage();
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-xs animate-in fade-in duration-200 p-4">
@@ -23,14 +26,14 @@ export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                Readability & Appearance
+                {t("readability.title")}
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
                   <Sparkles size={11} />
-                  Live Preview
+                  {t("readability.livePreview")}
                 </span>
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Customize typography and legibility to fit your workflow
+                {t("readability.subtitle")}
               </p>
             </div>
           </div>
@@ -44,17 +47,68 @@ export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
 
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
+          {/* Section: Language */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Languages size={18} className="text-gray-700 dark:text-gray-300" />
+                <h3 className="text-base font-bold text-gray-800 dark:text-gray-200">
+                  {t("language.title")}
+                </h3>
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {t("language.subtitle")}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {LOCALE_OPTIONS.map((option) => {
+                const isSelected = locale === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setLocale(option.id)}
+                    aria-pressed={isSelected}
+                    className={`group relative rounded-xl border-2 p-4 cursor-pointer transition-all flex items-center gap-3 text-left select-none ${
+                      isSelected
+                        ? "border-blue-600 dark:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 shadow-md ring-2 ring-blue-500/20"
+                        : "border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40 hover:border-gray-300 dark:hover:border-slate-600 hover:shadow-sm"
+                    }`}
+                  >
+                    <span className="text-2xl leading-none" aria-hidden="true">
+                      {option.flag}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-bold text-gray-900 dark:text-white">
+                        {t(option.nativeLabelKey)}
+                      </span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400">
+                        {t(option.labelKey)}
+                      </span>
+                    </span>
+                    {isSelected && (
+                      <span className="w-6 h-6 shrink-0 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-sm">
+                        <Check size={14} className="stroke-[3]" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Section: Typography */}
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Type size={18} className="text-gray-700 dark:text-gray-300" />
                 <h3 className="text-base font-bold text-gray-800 dark:text-gray-200">
-                  Typography & Legibility
+                  {t("readability.typographyLegibility")}
                 </h3>
               </div>
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                Select your preferred font family
+                {t("readability.selectFont")}
               </span>
             </div>
 
@@ -126,13 +180,13 @@ export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
           {/* Live Table Row Preview */}
           <div className="mt-6 pt-6 border-t border-gray-100 dark:border-slate-800">
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-              Live Table Preview
+              {t("readability.liveTablePreview")}
             </h4>
             <div className="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-sm">
               <div className="grid grid-cols-12 bg-gray-50 dark:bg-slate-900/60 px-4 py-2 border-b border-gray-200 dark:border-slate-700 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                <div className="col-span-6">Task Name</div>
-                <div className="col-span-3 text-center">Status</div>
-                <div className="col-span-3 text-center">Priority</div>
+                <div className="col-span-6">{t("readability.previewTaskName")}</div>
+                <div className="col-span-3 text-center">{t("readability.previewStatus")}</div>
+                <div className="col-span-3 text-center">{t("readability.previewPriority")}</div>
               </div>
               <div className="grid grid-cols-12 items-center px-4 py-3 text-sm text-gray-800 dark:text-gray-100">
                 <div className="col-span-6 font-medium">
@@ -140,12 +194,12 @@ export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
                 </div>
                 <div className="col-span-3 flex justify-center">
                   <span className="px-3 py-1 rounded bg-green-500 text-white text-xs font-semibold shadow-xs">
-                    Done
+                    {t("readability.previewDone")}
                   </span>
                 </div>
                 <div className="col-span-3 flex justify-center">
                   <span className="px-3 py-1 rounded bg-red-500 text-white text-xs font-semibold shadow-xs">
-                    High
+                    {t("readability.previewHigh")}
                   </span>
                 </div>
               </div>
@@ -159,7 +213,7 @@ export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
             onClick={onClose}
             className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
           >
-            Done
+            {t("common.done")}
           </button>
         </div>
       </div>

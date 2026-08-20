@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { useT } from "@/components/LanguageProvider";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileMenuProps {
@@ -21,6 +22,7 @@ interface ProfileMenuProps {
 export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenProfileSettings, onOpenReadability }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const t = useT();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleRestoreAdmin = async () => {
@@ -36,10 +38,10 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
         const { error: rpcError } = await supabase.rpc("restore_my_admin");
         if (rpcError) throw rpcError;
       }
-      toast.success("Admin privileges restored successfully!");
+      toast.success(t("profile.adminRestored"));
       setTimeout(() => window.location.reload(), 500);
     } catch (err) {
-      toast.error("Failed to restore admin role.");
+      toast.error(t("profile.adminRestoreFailed"));
     }
   };
 
@@ -54,7 +56,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
   }, []);
 
   return (
-    <Tooltip content="Profile & Settings" side="right" disabled={isOpen}>
+    <Tooltip content={t("profile.profileAndSettings")} side="right" disabled={isOpen}>
       <div className="relative" ref={menuRef}>
         <div
           onClick={() => setIsOpen(!isOpen)}
@@ -88,7 +90,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                   className="flex items-center px-3 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md cursor-pointer transition-colors font-medium"
                 >
                   <Shield size={16} className="mr-3" />
-                  Admin Settings
+                  {t("profile.admin")}
                 </div>
               )}
               {profile.role !== "admin" && profile.is_owner && (
@@ -97,7 +99,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                   className="flex items-center px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-md cursor-pointer transition-colors font-semibold border border-amber-200 dark:border-amber-800/50 my-1"
                 >
                   <Shield size={16} className="mr-3" />
-                  Restore Admin Rights
+                  {t("profile.restoreAdmin")}
                 </div>
               )}
               <div 
@@ -105,7 +107,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                 className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
               >
                 <User size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
-                My Profile
+                {t("profile.myProfile")}
               </div>
 
               <div 
@@ -117,7 +119,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                 ) : (
                   <Moon size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
                 )}
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                {theme === "dark" ? t("profile.lightMode") : t("profile.darkMode")}
               </div>
               <div
                 onClick={() => {
@@ -128,7 +130,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                 className="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
               >
                 <Type size={16} className="mr-3 text-gray-400 dark:text-gray-400" />
-                Readability & Font
+                {t("profile.readabilityFont")}
               </div>
             </div>
             <div className="p-2 border-t border-gray-100 dark:border-slate-700">
@@ -140,7 +142,7 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
                 className="flex items-center px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md cursor-pointer transition-colors"
               >
                 <LogOut size={16} className="mr-3" />
-                Log out
+                {t("profile.logOut")}
               </div>
             </div>
           </motion.div>

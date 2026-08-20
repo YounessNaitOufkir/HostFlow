@@ -5,8 +5,9 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { validateNewPassword } from "@/lib/passwordSecurity";
 import { useRouter } from "next/navigation";
-import { Loader2, MailCheck, ArrowLeft, Hexagon } from "lucide-react";
+import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
 import DotField from './DotField';
+import { Logo } from "@/components/ui/Logo";
 
 export default function LoginPage() {
   const [firstName, setFirstName] = useState("");
@@ -125,31 +126,6 @@ export default function LoginPage() {
     }
   };
 
-  /* Inline SVG for the H-in-hexagon logo */
-  const HexLogo = ({ size = 130, opacity = 0.85 }: { size?: number; opacity?: number }) => (
-    <svg width={size} height={size} viewBox="0 0 60 60" fill="none">
-      <polygon
-        points="30,2 55,16 55,44 30,58 5,44 5,16"
-        stroke={`rgba(245,166,35,${opacity * 0.8})`}
-        strokeWidth="2"
-        fill={`rgba(245,166,35,${opacity * 0.08})`}
-      />
-      <rect x="18" y="18" width="5" height="24" rx="2" fill={`rgba(245,166,35,${opacity})`} />
-      <rect x="18" y="27" width="24" height="5" rx="2" fill={`rgba(245,166,35,${opacity})`} />
-      <rect x="37" y="18" width="5" height="24" rx="2" fill={`rgba(245,166,35,${opacity})`} />
-    </svg>
-  );
-
-  /* 4-pointed sparkle star */
-  const Sparkle = ({ className = "" }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" width="32" height="32">
-      <path
-        d="M12 2L13.5 9.5L21 12L13.5 14.5L12 22L10.5 14.5L3 12L10.5 9.5L12 2Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-
   return (
     <div className="min-h-screen flex bg-[#111318] font-sans overflow-hidden">
 
@@ -220,11 +196,10 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* Top: HostFlow app brand */}
+        {/* Top: HostFlow app brand. No accessible name on the mark — the
+            wordmark beside it already names the product. */}
         <div className="relative z-10 px-10 pt-10 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <Hexagon className="text-white w-5 h-5 fill-white/20" />
-          </div>
+          <Logo variant="bare" tone="navy" size={36} />
           <span className="text-xl font-bold text-white tracking-tight">HostFlow</span>
         </div>
 
@@ -240,14 +215,12 @@ export default function LoginPage() {
           </h1>
         </div>
 
-        {/* Bottom: Host'lik company logo */}
-        <div className="relative z-10 px-10 pb-10">
-          <img
-            src="/1.webp"
-            alt="Host'lik"
-            className="h-10 w-auto"
-          />
-        </div>
+        {/* Bottom spacer. This panel is flex-col justify-between over exactly
+            three children, and the Host'lik wordmark used to be the third.
+            Deleting it outright would let justify-between push the headline
+            down to the foot of the panel, so this holds its place: 80px, the
+            wordmark's old height (h-10) plus its old pb-10. */}
+        <div className="relative z-10 h-20" aria-hidden="true" />
       </div>
 
       {/* ===== RIGHT SIDE – Form ===== */}
@@ -255,15 +228,8 @@ export default function LoginPage() {
 
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center gap-3 mb-12 absolute top-8 left-8">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center">
-            <Hexagon className="text-white w-5 h-5 fill-white/20" />
-          </div>
+          <Logo variant="bare" tone="navy" size={32} />
           <span className="text-xl font-bold text-white tracking-tight">HostFlow</span>
-        </div>
-
-        {/* Sparkle decoration — bottom right */}
-        <div className="absolute bottom-6 right-6 text-slate-500/40">
-          <Sparkle />
         </div>
 
         <div className="w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-4 duration-700">

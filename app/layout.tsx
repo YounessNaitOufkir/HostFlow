@@ -6,6 +6,7 @@ import { QueryProvider } from "@/components/QueryProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
 import { FontProvider } from "@/components/FontProvider";
+import { LanguageProvider } from "@/components/LanguageProvider";
 import PWAInstallPrompt from "@/components/ui/PWAInstallPrompt";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -63,22 +64,24 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-[var(--font-inter)]" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <FontProvider>
-            <QueryProvider>
-              <AuthProvider>{children}</AuthProvider>
-            </QueryProvider>
-            <Toaster
-              position="bottom-right"
-              toastOptions={{
-                className: "font-[var(--font-inter)]",
-                style: {
-                  fontSize: "13px",
-                },
-              }}
-              richColors
-              closeButton
-              duration={4000}
-            />
-            <PWAInstallPrompt />
+            <LanguageProvider>
+              <QueryProvider>
+                <AuthProvider>{children}</AuthProvider>
+              </QueryProvider>
+              <Toaster
+                position="bottom-right"
+                toastOptions={{
+                  className: "font-[var(--font-inter)]",
+                  style: {
+                    fontSize: "13px",
+                  },
+                }}
+                richColors
+                closeButton
+                duration={4000}
+              />
+              <PWAInstallPrompt />
+            </LanguageProvider>
           </FontProvider>
         </ThemeProvider>
       </body>

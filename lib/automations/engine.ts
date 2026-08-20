@@ -173,6 +173,17 @@ export async function evaluateTimeAutomations(
     const recipientName = targetProfile?.full_name || "Team Member";
     const recipientUserId = targetProfile?.id;
 
+    // Only real mail, and only to the actual assignee. Two guards, both of which
+    // were harmless while sendEmail was simulating and become real the moment a
+    // RESEND_API_KEY exists:
+    //   1. The targetProfile fallback above resolves to profiles[0] when an item has
+    //      no assignee. That is fine for picking a display name, but emailing an
+    //      arbitrary colleague about a task that is not theirs is not.
+    //   2. email_notifications_enabled is a user-facing toggle in
+    //      ProfileSettingsModal that nothing was reading.
+    const shouldEmailAssignee =
+      !!assigneeProfile?.email && assigneeProfile.email_notifications_enabled !== false;
+
     const isDoneStatus = currentStatus && /done|terminé|termine|achevée|achevee|completed|fait/i.test(currentStatus);
     // 1. Overdue Tagging Rule: Due Date has passed (< todayStr) AND Status != Done
     if (overdueRule && itemDateStr < todayStr && !isDoneStatus) {
@@ -234,13 +245,15 @@ export async function evaluateTimeAutomations(
         }
 
         // Send Gmail / Resend email alert
-        await sendEmail({
-          to: recipientEmail,
-          subject: `⚠️ [HostFlow Overdue] Task '${item.name}' is overdue`,
-          html: `<p>Hi ${recipientName},</p>
-                 <p>The task <b>${item.name}</b> on board <b>${board.name}</b> missed its due date (<b>${itemDateStr}</b>).</p>
-                 <p>Its status has been automatically changed to <span style="color:red;font-weight:bold;">Overdue</span>.</p>`,
-        });
+        if (shouldEmailAssignee) {
+          await sendEmail({
+            to: recipientEmail,
+            subject: `⚠️ [HostFlow Overdue] Task '${item.name}' is overdue`,
+            html: `<p>Hi ${recipientName},</p>
+                   <p>The task <b>${item.name}</b> on board <b>${board.name}</b> missed its due date (<b>${itemDateStr}</b>).</p>
+                   <p>Its status has been automatically changed to <span style="color:red;font-weight:bold;">Overdue</span>.</p>`,
+          });
+        }
       } else {
         // Item is already marked Overdue, include in report messages
         result.messages.push(`⚠️ '${item.name}' is overdue (${itemDateStr}).`);
@@ -265,13 +278,15 @@ export async function evaluateTimeAutomations(
           });
         }
 
-        await sendEmail({
-          to: recipientEmail,
-          subject: `⏰ [HostFlow SLA Alert] Task '${item.name}' is due today!`,
-          html: `<p>Hi ${recipientName},</p>
-                 <p>The task <b>${item.name}</b> on board <b>${board.name}</b> is due <b>today (${todayStr})</b>.</p>
-                 <p>Current Status: <b>${currentStatus || "Not Started"}</b>.</p>`,
-        });
+        if (shouldEmailAssignee) {
+          await sendEmail({
+            to: recipientEmail,
+            subject: `⏰ [HostFlow SLA Alert] Task '${item.name}' is due today!`,
+            html: `<p>Hi ${recipientName},</p>
+                   <p>The task <b>${item.name}</b> on board <b>${board.name}</b> is due <b>today (${todayStr})</b>.</p>
+                   <p>Current Status: <b>${currentStatus || "Not Started"}</b>.</p>`,
+          });
+        }
 
         const newColumnValues = { ...values, [slaSentKey]: true };
         await supabase.from("items").update({ column_values: newColumnValues }).eq("id", item.id);
