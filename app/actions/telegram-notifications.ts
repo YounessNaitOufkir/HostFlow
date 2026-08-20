@@ -34,8 +34,9 @@ export async function notifyUsersViaTelegram(userIds: string[], message: string)
       (p) => p.telegram_chat_id && p.telegram_notifications_enabled
     );
 
-    // Send messages asynchronously (we don't wait for them to finish before returning)
-    // Promise.allSettled prevents one failure from crashing the others
+    // Awaited: this resolves only once every send has completed. Callers must await
+    // it in turn — a serverless route that returns first can be frozen before the
+    // request to Telegram finishes. allSettled keeps one failure from losing the rest.
     await Promise.allSettled(
       eligibleProfiles.map((p) => {
         // We add a helpful tip at the end of the first few messages, but since this is generic,

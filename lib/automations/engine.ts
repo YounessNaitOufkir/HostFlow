@@ -1,6 +1,16 @@
 import { Board, Item, Profile, Automation } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { todayInTimezone } from "@/lib/orgTime";
+
+/**
+ * What counts as a "done" status label.
+ *
+ * Boards do not agree on the word: an imported French board uses "Fait", and the
+ * importer writes each board's own labels into column.settings.statusLabels. This
+ * lives here, exported, so the engine and the Automations UI cannot drift apart
+ * on the question — which is exactly how the staff/directory rules once diverged.
+ */
+export const DONE_STATUS_PATTERN = /done|terminé|termine|achevée|achevee|completed|fait/i;
 import { toast } from "sonner";
 
 export interface EventAutomationResult {
@@ -193,7 +203,7 @@ export async function evaluateTimeAutomations(
     const shouldEmailAssignee =
       !!assigneeProfile?.email && assigneeProfile.email_notifications_enabled !== false;
 
-    const isDoneStatus = currentStatus && /done|terminé|termine|achevée|achevee|completed|fait/i.test(currentStatus);
+    const isDoneStatus = currentStatus && DONE_STATUS_PATTERN.test(currentStatus);
     // 1. Overdue Tagging Rule: Due Date has passed (< todayStr) AND Status != Done
     if (overdueRule && itemDateStr < todayStr && !isDoneStatus) {
       const isAlreadyOverdue = currentStatus === "Overdue";
