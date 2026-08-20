@@ -547,6 +547,16 @@ export default function MondayClone() {
     return () => window.removeEventListener("open-readability", handleOpenReadability);
   }, []);
 
+  // The company name is a setting, so the tab title follows it rather than the
+  // build-time string in app/layout.tsx. Done client-side on purpose: making the
+  // root layout's metadata dynamic would opt the whole route out of static
+  // rendering just to change a title. Sits above the early returns below, so the
+  // hook count cannot change between renders.
+  useEffect(() => {
+    const name = state.organizationSettings?.company_name?.trim();
+    if (name) document.title = name;
+  }, [state.organizationSettings?.company_name]);
+
   const handleRenameGroup = useCallback(
     (groupId: string, title: string) => store.renameGroup(groupId, title),
     [store.renameGroup]
@@ -620,6 +630,7 @@ export default function MondayClone() {
         profile={profile}
         workspaces={state.workspaces}
         activeWorkspace={state.activeWorkspace}
+        companyLogoUrl={state.organizationSettings?.logo_url ?? null}
         boards={state.boards}
         activeBoard={state.activeBoard}
         mainView={state.mainView}

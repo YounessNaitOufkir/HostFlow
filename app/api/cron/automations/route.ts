@@ -59,6 +59,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Failed to fetch automations" }, { status: 500 });
     }
 
+    // 6. The company timezone decides what "today" means for overdue and SLA rules.
+    // Not fatal if it is missing: evaluateTimeAutomations falls back to UTC, which
+    // is the behaviour this route had before the setting was wired up at all.
+    const { data: orgSettings } = await supabase
+      .from("organization_settings")
+      .select("default_timezone")
+      .limit(1)
+      .maybeSingle();
+    const orgTimeZone = orgSettings?.default_timezone ?? null;
+
     let totalTriggered = 0;
 
     // 6. Evaluate time automations for each board
@@ -78,7 +88,7 @@ export async function GET(request: Request) {
         automations: boardAutomations
       };
 
-      const result = await evaluateTimeAutomations(activeBoard, profiles, supabase);
+      const result = await evaluateTimeAutomations(activeBoard, profiles, supabase, false, orgTimeZone);
       totalTriggered += result.triggeredCount;
     }
 
