@@ -667,6 +667,7 @@ export default function MondayClone() {
         <MyWorkView
           items={state.myWorkItems}
           boards={state.boards}
+          workspaces={state.workspaces}
           onSelectItem={(item) => navigateToItem(item.board_id, item.id)}
           onBrowseWorkspaces={() => dispatch({ type: "SET_MAIN_VIEW", payload: "workspace_overview" })}
         />

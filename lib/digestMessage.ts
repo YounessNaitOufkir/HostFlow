@@ -36,6 +36,13 @@ export const DIGEST_CHAR_BUDGET = TELEGRAM_MAX_MESSAGE_CHARS - 300;
 
 export interface DigestTask {
   name: string;
+  /**
+   * The property this task belongs to — the workspace name. Every apartment runs
+   * the same lifecycle, so both board names and task names repeat across
+   * properties: without this, several lines read identically and the digest
+   * cannot be acted on. Optional so a task whose workspace is unknown still lists.
+   */
+  workspace?: string | null;
 }
 
 function renderName(name: string): string {
@@ -44,13 +51,21 @@ function renderName(name: string): string {
   return escapeHtml(trimmed);
 }
 
+function renderTask(task: DigestTask): string {
+  const name = renderName(task.name);
+  const property = task.workspace?.trim();
+  // The property is the part that differs between otherwise identical lines, so it
+  // is never truncated away — it is dimmed rather than dropped.
+  return property ? `${name} — <i>${escapeHtml(property)}</i>` : name;
+}
+
 function section(title: string, emoji: string, tasks: DigestTask[]): string {
   if (tasks.length === 0) return "";
 
   const shown = tasks.slice(0, MAX_ITEMS_PER_SECTION);
   const remaining = tasks.length - shown.length;
 
-  const lines = shown.map((t) => `• ${renderName(t.name)}`);
+  const lines = shown.map((t) => `• ${renderTask(t)}`);
   if (remaining > 0) {
     lines.push(`<i>…and ${remaining} more</i>`);
   }
