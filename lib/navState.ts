@@ -38,6 +38,20 @@ export function isBoardIndependentView(view: string | null | undefined): boolean
   return !!view && BOARD_INDEPENDENT_VIEWS.has(view);
 }
 
+/**
+ * Where to land when leaving a board-independent view — My Work, Trash — by
+ * toggling its sidebar button off.
+ *
+ * The obvious answer, "go back to the board view", strands the user on an
+ * indefinite "Loading board..." spinner whenever no board is open, escapable only
+ * by picking a workspace from the panel. That bug was found and fixed for My Work,
+ * then shipped again for Trash because the rule lived inline in one button and not
+ * the other. Naming it here means the next view to grow a toggle inherits it.
+ */
+export function viewAfterLeaving(hasActiveBoard: boolean): "board" | "workspace_overview" {
+  return hasActiveBoard ? "board" : "workspace_overview";
+}
+
 export interface NavState {
   userId: string;
   mainView: string;

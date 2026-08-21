@@ -20,6 +20,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
 import { useT } from "@/components/LanguageProvider";
+import { viewAfterLeaving } from "@/lib/navState";
 import { Logo } from "@/components/ui/Logo";
 import ProfileMenu from "@/components/ProfileMenu";
 import { motion, AnimatePresence } from "framer-motion";
@@ -168,16 +169,8 @@ export default function Sidebar({
           <div className="w-8 border-t border-white/10 my-1"></div>
           <Tooltip content={t("sidebar.myWork")} side="right">
             <SpringButton
-              // Toggling out of My Work went to "board" unconditionally, which
-              // strands the user on "Loading board..." when no board is open.
               onClick={() =>
-                onSetMainView(
-                  mainView === "my_work"
-                    ? activeBoard
-                      ? "board"
-                      : "workspace_overview"
-                    : "my_work"
-                )
+                onSetMainView(mainView === "my_work" ? viewAfterLeaving(!!activeBoard) : "my_work")
               }
               className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
                 mainView === "my_work"
@@ -190,7 +183,12 @@ export default function Sidebar({
           </Tooltip>
           <Tooltip content={t("sidebar.trashBin")} side="right">
             <SpringButton
-              onClick={() => onSetMainView(mainView === "trash" ? "board" : "trash")}
+              // Leaving Trash used to go to "board" unconditionally, stranding the
+              // user on "Loading board..." with no board open — the same trap My
+              // Work was fixed for. Both now share viewAfterLeaving.
+              onClick={() =>
+                onSetMainView(mainView === "trash" ? viewAfterLeaving(!!activeBoard) : "trash")
+              }
               className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
                 mainView === "trash"
                   ? "bg-red-500/20 text-red-400 shadow-inner"
