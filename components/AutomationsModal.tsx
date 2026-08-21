@@ -178,9 +178,9 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     statusLabels[0] ||
     canonicalForRecipe;
 
-  // The group Auto-Archive files completed work into. Lancement has four groups
-  // called "Completed", so the lowest-positioned one wins rather than an arbitrary
-  // pick. Groups arrive ordered by position.
+  // The group Auto-Archive files completed work into. Boards normally have one
+  // "Completed" group; if a board somehow has more, the lowest-positioned one wins
+  // rather than an arbitrary pick, since groups arrive ordered by position.
   const COMPLETED_GROUP_TITLE = "Completed";
   const existingCompletedGroup = groups.find(
     (g) => g.title.trim().toLowerCase() === COMPLETED_GROUP_TITLE.toLowerCase()
@@ -566,10 +566,9 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                         trigger_column_id for scheduled rules: it scans every date and
                         timeline column, plus any column whose *title* looks like a
                         date, and uses the first one holding a value. Offering a
-                        selector implied a targeting the engine does not do — and on a
-                        board like Lancement, which has four columns all named
-                        "Timeline", it offered four indistinguishable options that all
-                        behaved identically. So say what actually happens instead.
+                        selector implied a targeting the engine does not do, and on the
+                        usual board — which has a single date column — it was a question
+                        with only one possible answer. So say what actually happens instead.
                       */
                       <div className="flex flex-wrap items-center gap-2">
                         {dateCols.length === 0 ? (
