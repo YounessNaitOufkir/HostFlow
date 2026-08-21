@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { notifyUsersViaTelegram } from "@/app/actions/telegram-notifications";
 import { buildDigestMessage } from "@/lib/digestMessage";
+import { firstStatusValue, isDoneStatusValue } from "@/lib/statusSemantics";
 
 // Helper to get due state of a date string
 function getDueState(dateString: string): "today" | "overdue" | "future" | "none" {
@@ -107,6 +108,18 @@ export async function GET(request: Request) {
       }
 
       if (taskState !== "today" && taskState !== "overdue") return;
+
+      // Finished work is not overdue. The digest never looked at the status column,
+      // so every completed task with a date in the past was still counted and
+      // listed: one real inbox showed 200 "overdue" items of which the great
+      // majority were done. The overdue automation has always applied this test
+      // (!isDoneStatus); the digest simply never did.
+      //
+      // firstStatusValue mirrors the engine's choice of column, so the two agree
+      // about an item, and the pattern covers boards whose done label is not the
+      // English word — the imported French board's is "Fait".
+      const status = firstStatusValue(board.columns || [], item.column_values);
+      if (isDoneStatusValue(status)) return;
 
       // Check who is assigned
       for (const colId of peopleCols) {
