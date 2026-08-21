@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
-import { X, Zap, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, Calendar, Link2, Bell, Clock, Play } from "lucide-react";
+import { X, Trash2, Loader2, Calendar, Play } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { reportMutationError } from "@/lib/errorReporting";
 import { toast } from "sonner";
@@ -36,35 +36,37 @@ const isScheduled = (actionType: string) => SCHEDULED.has(actionType);
 
 // parts standing out - rather than four differently-coloured descriptions
 // that each invented their own emphasis.
-const Chip = ({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'green' }) => (
-  <span
-    className={`inline-flex items-center px-2 py-0.5 mx-0.5 rounded-md text-[12.5px] font-semibold border align-baseline ${
-      tone === 'green'
-        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30'
-        : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30'
-    }`}
-  >
-    {children}
-  </span>
+// The values a rule acts on. Emphasis carries them now rather than a coloured
+// pill: with four or five per sentence the pills were louder than the sentence,
+// and the blue/green split encoded nothing a reader could name.
+const Chip = ({ children }: { children: React.ReactNode; tone?: 'blue' | 'green' }) => (
+  <span className="font-semibold text-gray-900 dark:text-white">{children}</span>
 );
 
-const TimingBadge = ({ actionType, timeZone }: { actionType: string; timeZone?: string | null }) =>
-  isScheduled(actionType) ? (
-    <span
-      title={`Evaluated once a day by a scheduled job, not the moment something changes. Runs at ${cronTimeInTimezone(timeZone)} ${timeZone || DEFAULT_ORG_TIMEZONE}.`}
-      className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:border-amber-400/30"
-    >
-      <Clock size={10} /> Daily {cronTimeInTimezone(timeZone)}
-    </span>
-  ) : (
-    <span
-      title="Runs the moment a matching change is made."
-      className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30"
-    >
-      <Zap size={10} /> Instant
-    </span>
-  );
+/** "Daily 10:00" / "Instant", for the metadata line under a rule. */
+const timingLabel = (actionType: string, timeZone?: string | null) =>
+  isScheduled(actionType) ? `Daily ${cronTimeInTimezone(timeZone)}` : 'Instant';
 
+/** The stripe colour: amber for scheduled, green for immediate. */
+const timingStripe = (actionType: string) =>
+  isScheduled(actionType)
+    ? 'bg-amber-400 dark:bg-amber-500'
+    : 'bg-emerald-500 dark:bg-emerald-400';
+// Recipe cards still need to say when a rule would run, but as a quiet label
+// rather than a badge - the rules list carries the same fact in its metadata
+// line, and two different treatments of one fact read as two facts.
+const TimingBadge = ({ actionType, timeZone }: { actionType: string; timeZone?: string | null }) => (
+  <span
+    title={
+      isScheduled(actionType)
+        ? `Evaluated once a day by a scheduled job, not the moment something changes. Runs at ${cronTimeInTimezone(timeZone)} ${timeZone || DEFAULT_ORG_TIMEZONE}.`
+        : 'Runs the moment a matching change is made.'
+    }
+    className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.09em] text-gray-400 dark:text-slate-500"
+  >
+    {timingLabel(actionType, timeZone)}
+  </span>
+);
 export default function AutomationsModal({ board, groups, items, boardAutomations, profiles, timeZone, onClose }: AutomationsModalProps) {
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
@@ -138,6 +140,9 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   // Auto-Archive creates its own Completed group when a board has none, so a
   // board with a single group is no longer a blocker.
   const blocked = !!duplicateRule;
+
+  // Shown in the header, so the panel says what it holds before you scroll it.
+  const scheduledCount = automations.filter((a) => isScheduled(a.action_type)).length;
   // Two kinds of rule, which the old UI presented identically. Move and
   // shifting rules are evaluated in the browser the moment a cell changes;
   // overdue tagging and SLA alerts are only evaluated by the daily cron. A rule
@@ -356,7 +361,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     if (auto.action_type === 'sla_alert') {
       return (
         <>
-          When <Chip>{getColName(auto.trigger_column_id)}</Chip> arrives and the status is not
+          When <Chip>{getColName(auto.trigger_column_id)}</Chip> arrives and the status is not{" "}
           <Chip>Working on it</Chip>, notify and email the assignee
         </>
       );
@@ -364,7 +369,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     if (auto.action_type === 'overdue_tagging') {
       return (
         <>
-          When <Chip>{getColName(auto.trigger_column_id)}</Chip> has passed and the status is not
+          When <Chip>{getColName(auto.trigger_column_id)}</Chip> has passed and the status is not{" "}
           <Chip>Done</Chip>, set the status to <Chip tone="green">Overdue</Chip> and email the assignee
         </>
       );
@@ -379,8 +384,8 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     }
     return (
       <>
-        When <Chip>{getColName(auto.trigger_column_id)}</Chip> changes to
-        <Chip>{auto.trigger_value}</Chip>, move the item to
+        When <Chip>{getColName(auto.trigger_column_id)}</Chip> changes to{" "}
+        <Chip>{auto.trigger_value}</Chip>, move the item to{" "}
         <Chip tone="green">{getGroupName(auto.action_target_id)}</Chip>
       </>
     );
@@ -395,116 +400,163 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       ></div>
 
       {/* Modal */}
-      <div className="relative bg-[#f5f6f8] dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh]">
-        <div className="flex items-center justify-between p-6 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-              <Zap size={20} className="text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Automation Center</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Put your board workflows, SLAs, and hand-offs on autopilot.</p>
-            </div>
+      <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-800 flex flex-col overflow-hidden max-h-[85vh]">
+        <div className="flex items-center justify-between gap-4 px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 shrink-0">
+          <div className="min-w-0">
+            <h2 className="text-[17px] font-bold text-gray-900 dark:text-white tracking-tight">
+              Automations
+            </h2>
+            <p className="text-[12.5px] text-gray-500 dark:text-slate-400 mt-0.5 truncate">
+              {board.name}
+              {automations.length > 0 && (
+                <>
+                  {` · ${automations.length} ${automations.length === 1 ? 'rule' : 'rules'}`}
+                  {scheduledCount > 0 && ` · ${scheduledCount} scheduled`}
+                </>
+              )}
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!isCreating && (
+              <button
+                onClick={() => setIsCreating(true)}
+                className="px-3.5 py-2 text-[12.5px] font-semibold text-white bg-[#1A2C5B] hover:bg-[#24396f] dark:bg-[#24396f] dark:hover:bg-[#2d4682] rounded-lg transition-colors"
+              >
+                New rule
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-
-        <div className="flex-1 overflow-auto p-6 space-y-6">
+        <div className="flex-1 overflow-auto px-6 py-5 space-y-5">
           
           {/* Create New Automation */}
-          {isCreating ? (
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-purple-200 dark:border-purple-900/50 shadow-sm space-y-5">
+          {isCreating && (
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider">Select Automation Recipe</h3>
+                <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white">
+                  Choose what to automate
+                </h3>
                 <button
                   onClick={() => { setIsCreating(false); setSelectedRecipe(null); }}
-                  className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  className="text-[12px] text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
                 >
                   Cancel
                 </button>
               </div>
 
-              {/* Recipe Gallery */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Recipe 1: Done -> Completed */}
-                <div
+              <div className="flex flex-col gap-0.5 -mx-1">
+                <button
+                  type="button"
+                  key="move_done"
                   onClick={() => setSelectedRecipe("move_done")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`w-full text-left flex gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
                     selectedRecipe === "move_done"
-                      ? "border-purple-500 bg-purple-50/50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-slate-700 hover:border-purple-300"
+                      ? "border-gray-300 bg-gray-50 dark:border-white/20 dark:bg-white/[0.05]"
+                      : "border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                   }`}
                 >
-                  <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
-                    <CheckCircle2 size={16} className="text-green-500" />
-                    <span>Auto-Archive / Completion</span>
-                    <TimingBadge actionType="move_group" timeZone={timeZone} />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    When Status changes to <b>{effectiveTriggerValue}</b>, move item to
-                    the <b>{COMPLETED_GROUP_TITLE}</b> group.
-                  </p>
-                </div>
-
-                {/* Recipe 2: SLA Alert */}
-                <div
+                  <span
+                    aria-hidden="true"
+                    className={`w-[3px] rounded-full shrink-0 ${
+                      selectedRecipe === "move_done" ? "bg-[#1A2C5B] dark:bg-amber-400" : "bg-transparent"
+                    }`}
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">Archive finished work</span>
+                      <TimingBadge actionType="move_group" timeZone={timeZone} />
+                    </span>
+                    <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-0.5">
+                      When a task is marked <b className="font-semibold text-gray-700 dark:text-slate-200">{effectiveTriggerValue}</b>, move it to <b className="font-semibold text-gray-700 dark:text-slate-200">{COMPLETED_GROUP_TITLE}</b>.
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  key="sla_alert"
                   onClick={() => setSelectedRecipe("sla_alert")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`w-full text-left flex gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
                     selectedRecipe === "sla_alert"
-                      ? "border-purple-500 bg-purple-50/50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-slate-700 hover:border-purple-300"
+                      ? "border-gray-300 bg-gray-50 dark:border-white/20 dark:bg-white/[0.05]"
+                      : "border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                   }`}
                 >
-                  <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
-                    <Bell size={16} className="text-purple-500" />
-                    <span>Due Date Warning (SLA Alert)</span>
-                    <TimingBadge actionType="sla_alert" timeZone={timeZone} />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    When Due Date arrives AND Status is NOT Working on it, send notification &amp; Gmail alert.
-                  </p>
-                </div>
-
-                {/* Recipe 3: Overdue Tagging */}
-                <div
+                  <span
+                    aria-hidden="true"
+                    className={`w-[3px] rounded-full shrink-0 ${
+                      selectedRecipe === "sla_alert" ? "bg-[#1A2C5B] dark:bg-amber-400" : "bg-transparent"
+                    }`}
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">Alert on the due date</span>
+                      <TimingBadge actionType="sla_alert" timeZone={timeZone} />
+                    </span>
+                    <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-0.5">
+                      The date arrives and the task isn&apos;t underway &mdash; notify and email whoever it&apos;s assigned to.
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  key="overdue_tagging"
                   onClick={() => setSelectedRecipe("overdue_tagging")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`w-full text-left flex gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
                     selectedRecipe === "overdue_tagging"
-                      ? "border-purple-500 bg-purple-50/50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-slate-700 hover:border-purple-300"
+                      ? "border-gray-300 bg-gray-50 dark:border-white/20 dark:bg-white/[0.05]"
+                      : "border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                   }`}
                 >
-                  <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
-                    <AlertTriangle size={16} className="text-red-500" />
-                    <span>Automatic Overdue Tagging</span>
-                    <TimingBadge actionType="overdue_tagging" timeZone={timeZone} />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    When Due Date passes AND Status is NOT Done, change Status to <b>Overdue</b> &amp; notify.
-                  </p>
-                </div>
-
-                {/* Recipe 5: Timeline Shifting */}
-                <div
+                  <span
+                    aria-hidden="true"
+                    className={`w-[3px] rounded-full shrink-0 ${
+                      selectedRecipe === "overdue_tagging" ? "bg-[#1A2C5B] dark:bg-amber-400" : "bg-transparent"
+                    }`}
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">Flag overdue work</span>
+                      <TimingBadge actionType="overdue_tagging" timeZone={timeZone} />
+                    </span>
+                    <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-0.5">
+                      The date has passed and the task isn&apos;t done &mdash; set its status to <b className="font-semibold text-gray-700 dark:text-slate-200">Overdue</b> and email the assignee.
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  key="timeline_shifting"
                   onClick={() => setSelectedRecipe("timeline_shifting")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`w-full text-left flex gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
                     selectedRecipe === "timeline_shifting"
-                      ? "border-purple-500 bg-purple-50/50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-slate-700 hover:border-purple-300"
+                      ? "border-gray-300 bg-gray-50 dark:border-white/20 dark:bg-white/[0.05]"
+                      : "border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                   }`}
                 >
-                  <div className="flex items-center space-x-2 font-semibold text-sm text-gray-800 dark:text-gray-100 mb-1">
-                    <Link2 size={16} className="text-blue-500" />
-                    <span>Timeline &amp; Date Shifting</span>
-                    <TimingBadge actionType="timeline_shifting" timeZone={timeZone} />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    When Due Date is postponed by X days, shift all dependent items&apos; dates by X days.
-                  </p>
-                </div>
+                  <span
+                    aria-hidden="true"
+                    className={`w-[3px] rounded-full shrink-0 ${
+                      selectedRecipe === "timeline_shifting" ? "bg-[#1A2C5B] dark:bg-amber-400" : "bg-transparent"
+                    }`}
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">Shift dependent dates</span>
+                      <TimingBadge actionType="timeline_shifting" timeZone={timeZone} />
+                    </span>
+                    <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-0.5">
+                      Push a date back and everything that depends on it moves by the same number of days.
+                    </span>
+                  </span>
+                </button>
               </div>
 
               {/* Customization Options for Selected Recipe */}
@@ -605,94 +657,107 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                       onClick={() => handleCreateRecipe(selectedRecipe)}
                       disabled={blocked}
                       title={duplicateRule ? "A rule for this trigger already exists. Delete it first - two rules on the same trigger cannot both run." : undefined}
-                      className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-600"
+                      className="px-4 py-2 text-[13px] font-semibold text-white bg-[#1A2C5B] hover:bg-[#24396f] dark:bg-[#24396f] dark:hover:bg-[#2d4682] rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Enable This Automation
+                      Create rule
                     </button>
                   </div>
                 </div>
               )}
             </div>
-          ) : (
-            <button 
-              onClick={() => setIsCreating(true)}
-              className="w-full flex items-center justify-center p-4 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-slate-800 hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all font-medium"
-            >
-              <Plus size={18} className="mr-2" /> Add New Automation
-            </button>
           )}
 
-          {/* Existing Automations List */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Active Rules</h3>
+          {/* Existing rules. Hairline rows rather than cards: a card per rule
+              stacked three deep read as three panels competing with the panel
+              they sit in. */}
+          <div>
             {loading ? (
-              <div className="flex justify-center p-8"><Loader2 className="animate-spin text-purple-500" /></div>
+              <div className="flex justify-center py-10">
+                <Loader2 className="animate-spin text-gray-300 dark:text-slate-600" size={20} />
+              </div>
             ) : automations.length === 0 ? (
-              <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 shadow-sm">
-                No automations active on this board.
+              <div className="py-10 text-center">
+                <p className="text-[13.5px] text-gray-500 dark:text-slate-400">
+                  Nothing is automated on this board yet.
+                </p>
+                <button
+                  onClick={() => setIsCreating(true)}
+                  className="mt-2 text-[13px] font-semibold text-[#1A2C5B] dark:text-amber-400 hover:underline"
+                >
+                  Create the first rule
+                </button>
               </div>
             ) : (
-              automations.map(auto => (
-                <div key={auto.id} className={`flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 transition-shadow hover:shadow-sm ${auto.enabled === false ? "opacity-60 bg-gray-50 dark:bg-slate-900/50" : ""}`}>
-                  <div className="flex flex-col gap-1.5 shrink-0 pt-0.5">
-                    <TimingBadge actionType={auto.action_type} timeZone={timeZone} />
+              <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                {automations.map((auto) => (
+                  <div
+                    key={auto.id}
+                    className={`flex items-start gap-3 py-3.5 ${auto.enabled === false ? "opacity-55" : ""}`}
+                  >
+                    {/* Timing as a stripe: amber is checked once a day, green
+                        happens the moment something changes. */}
                     <span
-                      title={
-                        auto.workspace_id
-                          ? "Applies to every board in this workspace"
-                          : "Applies to this board only"
-                      }
-                      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded text-center ${
-                        auto.workspace_id
-                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                          : "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300"
-                      }`}
-                    >
-                      {auto.workspace_id ? "Workspace" : "This board"}
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1 text-[13.5px] leading-7 text-gray-700 dark:text-gray-200">
-                    {renderRuleDescription(auto)}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {/* A scheduled rule is otherwise unverifiable until the next daily run. */}
-                    {isScheduled(auto.action_type) && auto.enabled !== false && (
+                      aria-hidden="true"
+                      className={`w-[3px] self-stretch rounded-full shrink-0 ${timingStripe(auto.action_type)}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13.5px] leading-relaxed text-gray-700 dark:text-slate-200">
+                        {renderRuleDescription(auto)}
+                      </div>
+                      <div className="mt-1 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-gray-400 dark:text-slate-500">
+                        {timingLabel(auto.action_type, timeZone)}
+                        {" · "}
+                        {auto.workspace_id ? "Every board in this workspace" : "This board only"}
+                        {auto.enabled === false && " · Paused"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* A scheduled rule is otherwise unverifiable until the next daily run. */}
+                      {isScheduled(auto.action_type) && auto.enabled !== false && (
+                        <button
+                          onClick={() => runNow(auto.id)}
+                          disabled={runningId === auto.id}
+                          title="Evaluate this rule against the board right now"
+                          className="px-2 py-1 text-[12px] font-semibold text-gray-500 hover:text-[#1A2C5B] dark:text-slate-400 dark:hover:text-amber-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors flex items-center gap-1 disabled:opacity-50"
+                        >
+                          {runningId === auto.id ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Play size={12} />
+                          )}
+                          Run
+                        </button>
+                      )}
                       <button
-                        onClick={() => runNow(auto.id)}
-                        disabled={runningId === auto.id}
-                        title="Evaluate this rule against the board right now"
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 dark:border-blue-500/40 dark:text-blue-300 dark:bg-blue-500/15 transition-colors flex items-center gap-1 disabled:opacity-50"
+                        onClick={() => handleToggle(auto.id, auto.enabled !== false)}
+                        role="switch"
+                        aria-checked={auto.enabled !== false}
+                        title={auto.enabled !== false ? "Switch this rule off" : "Switch this rule on"}
+                        className={`relative w-8 h-[18px] rounded-full transition-colors shrink-0 ${
+                          auto.enabled !== false
+                            ? "bg-[#1A2C5B] dark:bg-amber-500"
+                            : "bg-gray-300 dark:bg-slate-700"
+                        }`}
                       >
-                        {runningId === auto.id ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <Play size={12} />
-                        )}
-                        Run now
+                        <span
+                          className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-all ${
+                            auto.enabled !== false ? "left-[16px]" : "left-[2px]"
+                          }`}
+                        />
                       </button>
-                    )}
-                    <button
-                      onClick={() => handleToggle(auto.id, auto.enabled !== false)}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors border ${
-                        auto.enabled !== false
-                          ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 dark:bg-purple-900/40 dark:text-purple-200 dark:border-purple-800"
-                          : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 dark:bg-slate-800 dark:text-gray-400 dark:border-slate-700"
-                      }`}
-                    >
-                      {auto.enabled !== false ? "On" : "Off"}
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(auto.id)}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                      <button
+                        onClick={() => handleDelete(auto.id)}
+                        title="Delete this rule"
+                        className="p-1.5 text-gray-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 rounded-md transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
-
         </div>
       </div>
     </div>
