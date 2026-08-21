@@ -45,6 +45,7 @@ import { reportError, reportFetchError, reportMutationError } from "@/lib/errorR
 import { format } from "date-fns";
 import DOMPurify from "dompurify";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { escapeHtml } from "@/lib/escapeHtml";
 
 const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
@@ -475,7 +476,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userIds: mentionedIds,
-              message: `💬 *New Mention*\n${currentUser.name} mentioned you in an update on *${item.name}*`,
+              message: `💬 <b>New Mention</b>\n${escapeHtml(currentUser.name)} mentioned you in an update on <b>${escapeHtml(item.name)}</b>`,
             })
           }).catch(console.error);
           // Trigger local refresh for instant UI feedback
@@ -538,7 +539,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userIds: mentionedIds,
-              message: `💬 *New Mention*\n${currentUser.name} mentioned you in a reply on *${item.name}*`,
+              message: `💬 <b>New Mention</b>\n${escapeHtml(currentUser.name)} mentioned you in a reply on <b>${escapeHtml(item.name)}</b>`,
             })
           }).catch(console.error);
           window.dispatchEvent(new CustomEvent('notification-added'));

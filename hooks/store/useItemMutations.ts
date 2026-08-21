@@ -7,6 +7,7 @@ import { reportMutationError, runWrite } from "@/lib/errorReporting";
 import { evaluateEventAutomations } from "@/lib/automations/engine";
 import { notifyTabSync } from "@/hooks/useRealtimeSync";
 import { toast } from "sonner";
+import { escapeHtml } from "@/lib/escapeHtml";
 
 function getStartDateMs(val: any): number | null {
   if (!val) return null;
@@ -333,7 +334,7 @@ export function useItemMutations({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userIds: newlyAssigned,
-              message: `🔔 *New Assignment*\n${profile.full_name} assigned you to the task *${itemToUpdate.name}*`,
+              message: `🔔 <b>New Assignment</b>\n${escapeHtml(profile.full_name)} assigned you to the task <b>${escapeHtml(itemToUpdate.name)}</b>`,
             })
           }).catch(console.error);
         }

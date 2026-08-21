@@ -41,7 +41,8 @@ export async function notifyUsersViaTelegram(userIds: string[], message: string)
       eligibleProfiles.map((p) => {
         // We add a helpful tip at the end of the first few messages, but since this is generic,
         // we'll just send the message as is. We'll handle opt-out globally in the webhook.
-        const finalMessage = `${message}\n\n_Tip: Type /stop to disable these alerts._`;
+        // <i>, not _italics_: sendTelegramMessage sends parse_mode "HTML".
+        const finalMessage = `${message}\n\n<i>Tip: Type /stop to disable these alerts.</i>`;
         return sendTelegramMessage(p.telegram_chat_id!, finalMessage);
       })
     );
