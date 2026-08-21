@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { isBoardIndependentView, BOARD_INDEPENDENT_VIEWS } from "@/lib/navState";
+import { isBoardIndependentView, BOARD_INDEPENDENT_VIEWS,
+  viewAfterLeaving,
+} from "@/lib/navState";
 
 // Every view app/page.tsx can put in mainView, split by whether it needs an
 // active board behind it. Restoring a board-scoped view with no board renders
@@ -31,5 +33,22 @@ describe("isBoardIndependentView", () => {
 
   it("keeps the two lists disjoint", () => {
     expect(BOARD_SCOPED.filter((v) => BOARD_INDEPENDENT_VIEWS.has(v))).toEqual([]);
+  });
+});
+
+describe("viewAfterLeaving", () => {
+  it("returns to the board when one is open", () => {
+    expect(viewAfterLeaving(true)).toBe("board");
+  });
+
+  it("goes to the workspace overview when no board is open", () => {
+    // Returning to "board" with nothing to render leaves an indefinite
+    // "Loading board..." spinner the user can only escape via the sidebar.
+    // This shipped twice: once for My Work, then again for Trash.
+    expect(viewAfterLeaving(false)).toBe("workspace_overview");
+  });
+
+  it("never returns a board-scoped view without a board", () => {
+    expect(isBoardIndependentView(viewAfterLeaving(false))).toBe(true);
   });
 });
