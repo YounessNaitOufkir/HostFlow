@@ -67,6 +67,73 @@ const TimingBadge = ({ actionType, timeZone }: { actionType: string; timeZone?: 
     {timingLabel(actionType, timeZone)}
   </span>
 );
+/**
+ * A small drawing of what each rule actually does.
+ *
+ * Every one of these is a claim about behaviour, so each mirrors what
+ * evaluateTimeAutomations and updateCell really do — a diagram that drifts from
+ * the rule is worse than no diagram. Colour comes from Tailwind text classes on
+ * the wrapper and `currentColor` inside, so both themes work without a second
+ * set of values.
+ */
+
+/**
+ * An item being filed into the Completed group.
+ *
+ * Drawn as a list losing a row into a tray, deliberately unlike the Overdue
+ * diagram below: this rule *moves* an item between groups, while that one
+ * *rewrites* a status value. Two different mechanisms must not look alike.
+ */
+const DiagramArchive = () => (
+  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label="A task being filed out of its list into the Completed group">
+    <rect x="6" y="8" width="42" height="6" rx="3" className="fill-gray-300 dark:fill-slate-600" />
+    <rect x="6" y="19" width="42" height="6" rx="3" className="fill-gray-200 dark:fill-slate-700" />
+    <rect x="6" y="30" width="28" height="6" rx="3" className="fill-gray-200 dark:fill-slate-700" />
+    <path d="M56 14c14 0 14 14 28 14" className="stroke-gray-400 dark:stroke-slate-500" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3" />
+    <path d="M80 24l5 4-5 4" className="stroke-gray-400 dark:stroke-slate-500" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M96 20h44v14a2 2 0 0 1-2 2H98a2 2 0 0 1-2-2z" className="fill-emerald-50 stroke-emerald-500 dark:fill-emerald-500/10" strokeWidth="1.3" strokeLinejoin="round" />
+    <rect x="94" y="13" width="48" height="7" rx="2" className="fill-emerald-500" />
+    <path d="M110 28h16" className="stroke-emerald-500" strokeWidth="2.4" strokeLinecap="round" />
+  </svg>
+);
+
+/** The clock reaching the date, which rings a notification. */
+const DiagramDueAlert = () => (
+  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label="The due date arriving and raising an alert">
+    <circle cx="38" cy="22" r="14" className="stroke-amber-500" fill="none" strokeWidth="1.8" />
+    <path d="M38 14v9l6 3" className="stroke-amber-500" fill="none" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M62 22h20" className="stroke-gray-400 dark:stroke-slate-500" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3 3" />
+    <path d="M79 18l5 4-5 4" className="stroke-gray-400 dark:stroke-slate-500" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M112 16a6 6 0 0 0-12 0c0 6-2.5 8-2.5 8h17s-2.5-2-2.5-8z" className="stroke-amber-600 dark:stroke-amber-400" fill="none" strokeWidth="1.6" strokeLinejoin="round" />
+    <path d="M104 27a2.4 2.4 0 0 0 4 0" className="stroke-amber-600 dark:stroke-amber-400" fill="none" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
+/** A task's status being rewritten to Overdue. */
+const DiagramOverdue = () => (
+  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label="A task's status being set to Overdue">
+    <rect x="8" y="12" width="56" height="20" rx="4" className="fill-gray-200 dark:fill-slate-700" />
+    <rect x="15" y="19" width="30" height="6" rx="3" className="fill-gray-400 dark:fill-slate-500" />
+    <path d="M72 22h14" className="stroke-gray-400 dark:stroke-slate-500" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3 3" />
+    <path d="M83 18l5 4-5 4" className="stroke-gray-400 dark:stroke-slate-500" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="96" y="12" width="46" height="20" rx="4" className="fill-rose-50 stroke-rose-500 dark:fill-rose-500/10" strokeWidth="1.2" />
+    <rect x="103" y="19" width="32" height="6" rx="3" className="fill-rose-500" />
+  </svg>
+);
+
+/** One bar pushed later, and the bar depending on it moving the same distance. */
+const DiagramShift = () => (
+  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label="A date moving later and its dependent dates moving by the same amount">
+    <rect x="10" y="9" width="44" height="8" rx="4" className="fill-gray-200 dark:fill-slate-700" />
+    <rect x="34" y="9" width="44" height="8" rx="4" className="fill-violet-500/80" />
+    <rect x="22" y="27" width="36" height="8" rx="4" className="fill-gray-200 dark:fill-slate-700" />
+    <rect x="46" y="27" width="36" height="8" rx="4" className="fill-violet-500/50" />
+    <path d="M96 13h18M96 31h18" className="stroke-gray-400 dark:stroke-slate-500" strokeWidth="1.4" strokeLinecap="round" strokeDasharray="3 3" />
+    <path d="M110 9l5 4-5 4M110 27l5 4-5 4" className="stroke-violet-500" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+
 export default function AutomationsModal({ board, groups, items, boardAutomations, profiles, timeZone, onClose }: AutomationsModalProps) {
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
@@ -451,112 +518,89 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   Cancel
                 </button>
               </div>
-
-              <div className="flex flex-col gap-0.5 -mx-1">
-                <button
-                  type="button"
-                  key="move_done"
-                  onClick={() => setSelectedRecipe("move_done")}
-                  className={`w-full text-left flex gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                    selectedRecipe === "move_done"
-                      ? "border-gray-300 bg-gray-50 dark:border-white/20 dark:bg-white/[0.05]"
-                      : "border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`w-[3px] rounded-full shrink-0 ${
-                      selectedRecipe === "move_done" ? "bg-[#1A2C5B] dark:bg-amber-400" : "bg-transparent"
-                    }`}
-                  />
-                  <span className="min-w-0">
-                    <span className="flex items-baseline gap-2 flex-wrap">
-                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">Archive finished work</span>
-                      <TimingBadge actionType="move_group" timeZone={timeZone} />
-                    </span>
-                    <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-0.5">
-                      When a task is marked <b className="font-semibold text-gray-700 dark:text-slate-200">{effectiveTriggerValue}</b>, move it to <b className="font-semibold text-gray-700 dark:text-slate-200">{COMPLETED_GROUP_TITLE}</b>.
-                    </span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  key="sla_alert"
-                  onClick={() => setSelectedRecipe("sla_alert")}
-                  className={`w-full text-left flex gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                    selectedRecipe === "sla_alert"
-                      ? "border-gray-300 bg-gray-50 dark:border-white/20 dark:bg-white/[0.05]"
-                      : "border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`w-[3px] rounded-full shrink-0 ${
-                      selectedRecipe === "sla_alert" ? "bg-[#1A2C5B] dark:bg-amber-400" : "bg-transparent"
-                    }`}
-                  />
-                  <span className="min-w-0">
-                    <span className="flex items-baseline gap-2 flex-wrap">
-                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">Alert on the due date</span>
-                      <TimingBadge actionType="sla_alert" timeZone={timeZone} />
-                    </span>
-                    <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-0.5">
-                      The date arrives and the task isn&apos;t underway &mdash; notify and email whoever it&apos;s assigned to.
-                    </span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  key="overdue_tagging"
-                  onClick={() => setSelectedRecipe("overdue_tagging")}
-                  className={`w-full text-left flex gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                    selectedRecipe === "overdue_tagging"
-                      ? "border-gray-300 bg-gray-50 dark:border-white/20 dark:bg-white/[0.05]"
-                      : "border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`w-[3px] rounded-full shrink-0 ${
-                      selectedRecipe === "overdue_tagging" ? "bg-[#1A2C5B] dark:bg-amber-400" : "bg-transparent"
-                    }`}
-                  />
-                  <span className="min-w-0">
-                    <span className="flex items-baseline gap-2 flex-wrap">
-                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">Flag overdue work</span>
-                      <TimingBadge actionType="overdue_tagging" timeZone={timeZone} />
-                    </span>
-                    <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-0.5">
-                      The date has passed and the task isn&apos;t done &mdash; set its status to <b className="font-semibold text-gray-700 dark:text-slate-200">Overdue</b> and email the assignee.
-                    </span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  key="timeline_shifting"
-                  onClick={() => setSelectedRecipe("timeline_shifting")}
-                  className={`w-full text-left flex gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                    selectedRecipe === "timeline_shifting"
-                      ? "border-gray-300 bg-gray-50 dark:border-white/20 dark:bg-white/[0.05]"
-                      : "border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`w-[3px] rounded-full shrink-0 ${
-                      selectedRecipe === "timeline_shifting" ? "bg-[#1A2C5B] dark:bg-amber-400" : "bg-transparent"
-                    }`}
-                  />
-                  <span className="min-w-0">
-                    <span className="flex items-baseline gap-2 flex-wrap">
-                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">Shift dependent dates</span>
-                      <TimingBadge actionType="timeline_shifting" timeZone={timeZone} />
-                    </span>
-                    <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-0.5">
-                      Push a date back and everything that depends on it moves by the same number of days.
-                    </span>
-                  </span>
-                </button>
+              {/*
+                Recipe cards, each with a diagram of the mechanism. Driven from one
+                array rather than four near-identical blocks, so a fifth recipe is a
+                data entry and the selected/hover treatment cannot drift between them.
+                Selection, timing badges and copy are unchanged — this is presentation
+                only.
+              */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {(
+                  [
+                    {
+                      id: "move_done" as const,
+                      actionType: "move_group",
+                      title: "Archive finished work",
+                      diagram: <DiagramArchive />,
+                      description: (
+                        <>
+                          When a task is marked{" "}
+                          <b className="font-semibold text-gray-700 dark:text-slate-200">{effectiveTriggerValue}</b>, move it to{" "}
+                          <b className="font-semibold text-gray-700 dark:text-slate-200">{COMPLETED_GROUP_TITLE}</b>.
+                        </>
+                      ),
+                    },
+                    {
+                      id: "sla_alert" as const,
+                      actionType: "sla_alert",
+                      title: "Alert on the due date",
+                      diagram: <DiagramDueAlert />,
+                      description: <>The date arrives and the task isn&apos;t underway — notify and email whoever it&apos;s assigned to.</>,
+                    },
+                    {
+                      id: "overdue_tagging" as const,
+                      actionType: "overdue_tagging",
+                      title: "Flag overdue work",
+                      diagram: <DiagramOverdue />,
+                      description: (
+                        <>
+                          The date has passed and the task isn&apos;t done — set its status to{" "}
+                          <b className="font-semibold text-gray-700 dark:text-slate-200">Overdue</b> and email the assignee.
+                        </>
+                      ),
+                    },
+                    {
+                      id: "timeline_shifting" as const,
+                      actionType: "timeline_shifting",
+                      title: "Shift dependent dates",
+                      diagram: <DiagramShift />,
+                      description: <>Push a date back and everything that depends on it moves by the same number of days.</>,
+                    },
+                  ]
+                ).map((recipe) => {
+                  const isSelected = selectedRecipe === recipe.id;
+                  return (
+                    <button
+                      type="button"
+                      key={recipe.id}
+                      onClick={() => setSelectedRecipe(recipe.id)}
+                      aria-pressed={isSelected}
+                      className={`text-left flex flex-col gap-2.5 p-3 rounded-xl border transition-all ${
+                        isSelected
+                          ? "border-[#1A2C5B] dark:border-amber-400 bg-gray-50 dark:bg-white/[0.05] shadow-sm"
+                          : "border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600 hover:bg-gray-50/60 dark:hover:bg-white/[0.03]"
+                      }`}
+                    >
+                      <span
+                        className={`flex items-center justify-center rounded-lg py-2.5 px-2 transition-colors ${
+                          isSelected ? "bg-white dark:bg-slate-900/60" : "bg-gray-50 dark:bg-slate-800/60"
+                        }`}
+                      >
+                        {recipe.diagram}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{recipe.title}</span>
+                          <TimingBadge actionType={recipe.actionType} timeZone={timeZone} />
+                        </span>
+                        <span className="block text-[12px] leading-relaxed text-gray-500 dark:text-slate-400 mt-1">
+                          {recipe.description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Customization Options for Selected Recipe */}
