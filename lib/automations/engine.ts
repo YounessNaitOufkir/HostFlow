@@ -2,15 +2,8 @@ import { Board, Item, Profile, Automation } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { todayInTimezone } from "@/lib/orgTime";
 
-/**
- * What counts as a "done" status label.
- *
- * Boards do not agree on the word: an imported French board uses "Fait", and the
- * importer writes each board's own labels into column.settings.statusLabels. This
- * lives here, exported, so the engine and the Automations UI cannot drift apart
- * on the question — which is exactly how the staff/directory rules once diverged.
- */
-export const DONE_STATUS_PATTERN = /done|terminé|termine|achevée|achevee|completed|fait/i;
+export { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
+import { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
 import { toast } from "sonner";
 
 export interface EventAutomationResult {
