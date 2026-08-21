@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { notifyUsersViaTelegram } from "@/app/actions/telegram-notifications";
+import { buildDigestMessage } from "@/lib/digestMessage";
 
 // Helper to get due state of a date string
 function getDueState(dateString: string): "today" | "overdue" | "future" | "none" {
@@ -137,24 +138,16 @@ export async function GET(request: Request) {
     for (const userId of Object.keys(userTasks)) {
       const tasks = userTasks[userId];
       if (tasks.length > 0) {
-        const todayTasks = tasks.filter(t => t.state === "today");
-        const overdueTasks = tasks.filter(t => t.state === "overdue");
-        
-        let message = `📋 *Your Daily HostFlow Digest*\nYou have ${tasks.length} task(s) needing attention:\n\n`;
-        
-        if (todayTasks.length > 0) {
-          message += `🚨 *Due Today (${todayTasks.length}):*\n`;
-          message += todayTasks.map(t => `- ${t.item.name}`).join("\n");
-          message += `\n\n`;
-        }
-        
-        if (overdueTasks.length > 0) {
-          message += `⚠️ *Overdue (${overdueTasks.length}):*\n`;
-          message += overdueTasks.map(t => `- ${t.item.name}`).join("\n");
-        }
+        // Capped, escaped and HTML-formatted. Built inline before, in Markdown and
+        // uncapped: a user with 201 due/overdue tasks produced roughly 6,300
+        // characters and Telegram rejected the whole message as too long.
+        const message = buildDigestMessage(
+          tasks.filter((t) => t.state === "today").map((t) => ({ name: t.item.name })),
+          tasks.filter((t) => t.state === "overdue").map((t) => ({ name: t.item.name }))
+        );
 
         // Already filtered for activeUserIds above, so each of these is eligible.
-        sends.push(notifyUsersViaTelegram([userId], message.trim()));
+        sends.push(notifyUsersViaTelegram([userId], message));
         sentCount++;
       }
     }

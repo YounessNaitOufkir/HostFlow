@@ -68,6 +68,15 @@ interface TelegramSendResult {
 /**
  * Sends a text message to a Telegram chat via the Bot API.
  */
+/**
+ * Telegram rejects any sendMessage over 4096 characters with
+ * "Bad Request: message is too long". The daily digest hit this the moment a user
+ * had a real backlog: 201 due/overdue tasks came to roughly 6,300 characters.
+ */
+export const TELEGRAM_MAX_MESSAGE_CHARS = 4096;
+
+export { escapeHtml } from "@/lib/escapeHtml";
+
 export async function sendTelegramMessage(
   chatId: string,
   text: string,
@@ -78,12 +87,24 @@ export async function sendTelegramMessage(
     return { ok: false, description: "BOT_TOKEN missing" };
   }
 
+  // Last-resort guard. Callers should keep their own messages within budget, but a
+  // message that is one character too long is rejected outright, and losing a
+  // notification is worse than losing its tail.
+  let safeText = text;
+  if (safeText.length > TELEGRAM_MAX_MESSAGE_CHARS) {
+    console.warn(
+      `[Telegram] message of ${safeText.length} chars exceeds the ${TELEGRAM_MAX_MESSAGE_CHARS} limit; truncating.`
+    );
+    const notice = "\n\n… truncated.";
+    safeText = safeText.slice(0, TELEGRAM_MAX_MESSAGE_CHARS - notice.length) + notice;
+  }
+
   const response = await fetch(`${TELEGRAM_API}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text,
+      text: safeText,
       parse_mode: parseMode,
     }),
   });
