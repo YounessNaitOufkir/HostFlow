@@ -54,6 +54,32 @@ describe("buildDigestMessage", () => {
     expect(message).not.toContain("<review>");
   });
 
+  it("names the property, so identical task names stay tellable apart", () => {
+    // Every apartment runs the same lifecycle, so the same task name exists on
+    // many properties. Without the workspace these lines are indistinguishable.
+    const message = buildDigestMessage(
+      [],
+      [
+        { name: "Commander les rideaux", workspace: "App C" },
+        { name: "Commander les rideaux", workspace: "Studio A" },
+      ]
+    );
+
+    expect(message).toContain("Commander les rideaux — <i>App C</i>");
+    expect(message).toContain("Commander les rideaux — <i>Studio A</i>");
+  });
+
+  it("still lists a task whose property is unknown", () => {
+    const message = buildDigestMessage([{ name: "Orphan task" }], []);
+    expect(message).toContain("Orphan task");
+    expect(message).not.toContain("—");
+  });
+
+  it("escapes the property name too", () => {
+    const message = buildDigestMessage([{ name: "Task", workspace: "A & B <x>" }], []);
+    expect(message).toContain("A &amp; B &lt;x&gt;");
+  });
+
   it("uses HTML tags rather than Markdown, matching the parse mode", () => {
     const message = buildDigestMessage(tasks(1, "Due"), []);
     expect(message).toContain("<b>Your Daily HostFlow Digest</b>");

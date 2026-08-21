@@ -1,13 +1,19 @@
 "use client";
 
 import React from "react";
-import { Item, Board, STATUS_OPTIONS } from "@/types";
+import { Item, Board, Workspace, STATUS_OPTIONS } from "@/types";
 import { LayoutDashboard, AlertCircle } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
 
 interface MyWorkViewProps {
   items: Item[];
   boards: Board[];
+  /**
+   * Needed to tell same-named boards apart. A workspace is one property and its
+   * boards are that property's lifecycle phases, so every apartment has a
+   * "Lancement" — the board name alone identifies nothing.
+   */
+  workspaces?: Workspace[];
   onSelectItem: (item: Item) => void;
   /**
    * My Work is where a signed-in user lands when there is no previous location
@@ -17,7 +23,7 @@ interface MyWorkViewProps {
   onBrowseWorkspaces?: () => void;
 }
 
-export default function MyWorkView({ items, boards, onSelectItem, onBrowseWorkspaces }: MyWorkViewProps) {
+export default function MyWorkView({ items, boards, workspaces = [], onSelectItem, onBrowseWorkspaces }: MyWorkViewProps) {
   const t = useT();
   // Group items by board
   const itemsByBoard: Record<string, Item[]> = {};
@@ -28,9 +34,14 @@ export default function MyWorkView({ items, boards, onSelectItem, onBrowseWorksp
     itemsByBoard[item.board_id].push(item);
   });
 
+  // "App C › Lancement", not "Lancement". Every property runs the same lifecycle,
+  // so several boards share a name and the property is the part that differs.
+  // Falls back to the board name alone when the workspace is not loaded.
   const getBoardName = (boardId: string) => {
     const board = boards.find((b) => b.id === boardId);
-    return board ? board.name : t("myWork.unknownBoard");
+    if (!board) return t("myWork.unknownBoard");
+    const workspace = workspaces.find((w) => w.id === board.workspace_id);
+    return workspace ? `${workspace.name} › ${board.name}` : board.name;
   };
 
   const getStatusChip = (item: Item, boardId: string) => {

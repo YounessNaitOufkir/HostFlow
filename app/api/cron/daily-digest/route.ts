@@ -55,11 +55,25 @@ export async function GET(request: Request) {
     // 3. Fetch boards to map column IDs to types (we need to find 'people' and 'date' columns)
     const { data: boards, error: boardsError } = await supabase
       .from("boards")
-      .select("id, columns");
+      .select("id, columns, workspace_id");
 
     if (boardsError || !boards) {
       return NextResponse.json({ error: "Failed to fetch boards" }, { status: 500 });
     }
+
+    // Workspace names disambiguate the digest. A workspace is one property and its
+    // boards are that property's lifecycle phases, so the same task name appears on
+    // every apartment — without the property, several lines read identically.
+    // Not fatal if this fails: tasks simply list without it.
+    const { data: workspaces } = await supabase.from("workspaces").select("id, name");
+    const workspaceNameById = new Map<string, string>(
+      (workspaces || []).map((w: { id: string; name: string }) => [w.id, w.name])
+    );
+    const workspaceNameForBoard = (boardId: string): string | null => {
+      const board = boards.find((b) => b.id === boardId);
+      if (!board?.workspace_id) return null;
+      return workspaceNameById.get(board.workspace_id) ?? null;
+    };
 
     // 4. Fetch all active items
     const { data: items, error: itemsError } = await supabase
@@ -155,8 +169,18 @@ export async function GET(request: Request) {
         // uncapped: a user with 201 due/overdue tasks produced roughly 6,300
         // characters and Telegram rejected the whole message as too long.
         const message = buildDigestMessage(
-          tasks.filter((t) => t.state === "today").map((t) => ({ name: t.item.name })),
-          tasks.filter((t) => t.state === "overdue").map((t) => ({ name: t.item.name }))
+          tasks
+            .filter((t) => t.state === "today")
+            .map((t) => ({
+              name: t.item.name,
+              workspace: workspaceNameForBoard(t.item.board_id),
+            })),
+          tasks
+            .filter((t) => t.state === "overdue")
+            .map((t) => ({
+              name: t.item.name,
+              workspace: workspaceNameForBoard(t.item.board_id),
+            }))
         );
 
         // Already filtered for activeUserIds above, so each of these is eligible.
