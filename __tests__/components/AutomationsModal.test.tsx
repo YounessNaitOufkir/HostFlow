@@ -80,10 +80,10 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getByText("Automation Center")).toBeInTheDocument();
+    expect(screen.getByText("Automations")).toBeInTheDocument();
     await waitFor(() => {
       expect(
-        screen.getByText(/no automations active on this board/i)
+        screen.getByText(/nothing is automated on this board yet/i)
       ).toBeInTheDocument();
     });
   });
@@ -101,13 +101,13 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
       { wrapper: createWrapper() }
     );
 
-    const addBtn = screen.getByText(/add new automation/i);
+    const addBtn = screen.getByText(/new rule/i);
     fireEvent.click(addBtn);
 
-    expect(screen.getByText("Auto-Archive / Completion")).toBeInTheDocument();
-    expect(screen.getByText("Due Date Warning (SLA Alert)")).toBeInTheDocument();
-    expect(screen.getByText("Automatic Overdue Tagging")).toBeInTheDocument();
-    expect(screen.getByText("Timeline & Date Shifting")).toBeInTheDocument();
+    expect(screen.getByText("Archive finished work")).toBeInTheDocument();
+    expect(screen.getByText("Alert on the due date")).toBeInTheDocument();
+    expect(screen.getByText("Flag overdue work")).toBeInTheDocument();
+    expect(screen.getByText("Shift dependent dates")).toBeInTheDocument();
   });
 
   it("uses the board's own done label for the move trigger, not a hard-coded 'Done'", () => {
@@ -150,8 +150,8 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
       { wrapper: createWrapper() }
     );
 
-    fireEvent.click(screen.getByText(/add new automation/i));
-    fireEvent.click(screen.getByText("Auto-Archive / Completion"));
+    fireEvent.click(screen.getByText(/new rule/i));
+    fireEvent.click(screen.getByText("Archive finished work"));
 
     // "Fait" is the board's done label; it is not the only label, nor merely the
     // first one, so this also guards against falling back to statusLabels[0].
@@ -184,13 +184,13 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
       { wrapper: createWrapper() }
     );
 
-    fireEvent.click(screen.getByText(/add new automation/i));
-    fireEvent.click(screen.getByText("Auto-Archive / Completion"));
+    fireEvent.click(screen.getByText(/new rule/i));
+    fireEvent.click(screen.getByText("Archive finished work"));
 
     expect(screen.getByText(/enabling this will create one/i)).toBeInTheDocument();
   });
 
-  it("renders Active Rules section without manual SLA banner", () => {
+  it("lists rules without the old manual SLA banner", () => {
     render(
       <AutomationsModal
         board={mockBoard}
@@ -203,7 +203,7 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getByText("Active Rules")).toBeInTheDocument();
+    expect(screen.getByText("Automations")).toBeInTheDocument();
     expect(screen.queryByText("Run SLA Check Now")).not.toBeInTheDocument();
   });
 });
