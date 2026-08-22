@@ -94,7 +94,17 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
     
     const formattedStart = format(s, "MMM d");
     const formattedEnd = format(e, "MMM d");
-    displayText = formattedStart === formattedEnd ? formattedStart : `${formattedStart} - ${formattedEnd}`;
+    // A range inside one month repeats the month for no reason: "Feb 20 - Feb 22"
+    // is six characters longer than "Feb 20 – 22" and no clearer. Width matters —
+    // in Cards view this pill sits in a narrow column.
+    const sameMonth =
+      s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth();
+    displayText =
+      formattedStart === formattedEnd
+        ? formattedStart
+        : sameMonth
+          ? `${formattedStart} – ${format(e, "d")}`
+          : `${formattedStart} – ${formattedEnd}`;
     
     // Status color logic based on end date
     const now = new Date();
@@ -213,11 +223,15 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
     >
       {/* Sleek Pill UI */}
       {displayText !== "-" ? (
-        <div className={`w-[88%] h-[75%] min-h-[24px] rounded-full flex items-center justify-center text-xs font-bold tracking-wide transition-all duration-200 ${pillBg} ${pillText} shadow-sm hover:shadow-md hover:scale-[1.02] relative`}>
-          <span>{displayText}</span>
+        // h-[75%] with wrapping text was the bug: a long range broke onto a second
+        // line and spilled out of the fixed-height pill. Height now comes from
+        // padding, the text never wraps, and if the column really is too narrow it
+        // ellipsises inside the pill instead of escaping it.
+        <div className={`w-[88%] max-w-full min-w-0 py-1 min-h-[24px] px-2.5 rounded-full flex items-center justify-center text-xs font-bold tracking-wide transition-all duration-200 ${pillBg} ${pillText} shadow-sm hover:shadow-md hover:scale-[1.02] relative`}>
+          <span className="truncate whitespace-nowrap" title={displayText}>{displayText}</span>
         </div>
       ) : (
-        <div className="w-[88%] h-[75%] min-h-[24px] rounded-full bg-gray-100/50 dark:bg-slate-800/30 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xl pb-1 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+        <div className="w-[88%] max-w-full py-1 min-h-[24px] rounded-full bg-gray-100/50 dark:bg-slate-800/30 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xl pb-1 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
           -
         </div>
       )}
