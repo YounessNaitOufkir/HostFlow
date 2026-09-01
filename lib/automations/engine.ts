@@ -5,11 +5,9 @@ import { todayInTimezone } from "@/lib/orgTime";
 export { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
 import { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
 import { toast } from "sonner";
-import { startDateOf, daysBetween } from "@/lib/gantt/dates";
 
 export interface EventAutomationResult {
   targetGroupId?: string;
-  shiftDays?: number;
   matchedRuleId?: string;
 }
 
@@ -48,21 +46,10 @@ export function evaluateEventAutomations(
     result.matchedRuleId = matchedMoveRule.id;
   }
 
-  // 2. Check if this is a Date or Timeline column postponement for Timeline/Date Shifting
-  const columnDef = board.columns.find((c) => c.id === columnId);
-  if (columnDef && (columnDef.type === "date" || columnDef.type === "timeline")) {
-    const oldStart = startDateOf(oldValue);
-    const newStart = startDateOf(newValue);
-    if (oldStart && newStart) {
-      // Only a postponement cascades. Pulling work earlier leaves the tasks
-      // behind it where they are, which is the long-standing behaviour of this
-      // rule - the Gantt's own rescheduling handles both directions.
-      const diffDays = daysBetween(oldStart, newStart);
-      if (diffDays > 0) {
-        result.shiftDays = diffDays;
-      }
-    }
-  }
+  // Date postponement used to be measured here for the "Timeline & Date
+  // Shifting" rule. Dependencies now reschedule successors on every edit,
+  // through one engine, so there is nothing left for a rule to opt into - and
+  // the figure this computed had no consumer even before that.
 
   return result;
 }

@@ -26,7 +26,7 @@ interface AutomationsModalProps {
   onClose: () => void;
 }
 
-type RecipeType = "move_done" | "sla_alert" | "overdue_tagging" | "timeline_shifting" | null;
+type RecipeType = "move_done" | "sla_alert" | "overdue_tagging" | null;
 
 
 // that cannot possibly do anything until the next daily run must say so, or it
@@ -120,19 +120,6 @@ const DiagramOverdue = () => (
     <rect x="103" y="19" width="32" height="6" rx="3" className="fill-rose-500" />
   </svg>
 );
-
-/** One bar pushed later, and the bar depending on it moving the same distance. */
-const DiagramShift = () => (
-  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label="A date moving later and its dependent dates moving by the same amount">
-    <rect x="10" y="9" width="44" height="8" rx="4" className="fill-gray-200 dark:fill-slate-700" />
-    <rect x="34" y="9" width="44" height="8" rx="4" className="fill-violet-500/80" />
-    <rect x="22" y="27" width="36" height="8" rx="4" className="fill-gray-200 dark:fill-slate-700" />
-    <rect x="46" y="27" width="36" height="8" rx="4" className="fill-violet-500/50" />
-    <path d="M96 13h18M96 31h18" className="stroke-gray-400 dark:stroke-slate-500" strokeWidth="1.4" strokeLinecap="round" strokeDasharray="3 3" />
-    <path d="M110 9l5 4-5 4M110 27l5 4-5 4" className="stroke-violet-500" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
 
 export default function AutomationsModal({ board, groups, items, boardAutomations, profiles, timeZone, onClose }: AutomationsModalProps) {
   const queryClient = useQueryClient();
@@ -320,14 +307,6 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
         action_type: "overdue_tagging",
         action_target_id: "assignee_email",
       };
-    } else if (recipe === "timeline_shifting") {
-      payload = {
-        ...workspaceScope,
-        trigger_column_id: triggerDateColId || dateCols[0]?.id || "date",
-        trigger_value: "date_postponed",
-        action_type: "timeline_shifting",
-        action_target_id: "dependent_items",
-      };
     }
 
     if (!payload) return;
@@ -442,10 +421,18 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       );
     }
     if (auto.action_type === 'timeline_shifting') {
+      // Kept only so an existing rule can still be read and removed. Dependencies
+      // now reschedule successors on every date change, through one engine, so
+      // there is nothing left for this to switch on.
       return (
         <>
-          When <Chip>{getColName(auto.trigger_column_id)}</Chip> is postponed, shift every dependent
-          item by the same number of days
+          <span className="line-through opacity-60">
+            When <Chip>{getColName(auto.trigger_column_id)}</Chip> is postponed, shift every
+            dependent item
+          </span>{" "}
+          <span className="font-semibold text-amber-600 dark:text-amber-400">
+            — no longer needed: dependent dates now always shift. Safe to delete.
+          </span>
         </>
       );
     }
@@ -559,13 +546,6 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                           <b className="font-semibold text-gray-700 dark:text-slate-200">Overdue</b> and email the assignee.
                         </>
                       ),
-                    },
-                    {
-                      id: "timeline_shifting" as const,
-                      actionType: "timeline_shifting",
-                      title: "Shift dependent dates",
-                      diagram: <DiagramShift />,
-                      description: <>Push a date back and everything that depends on it moves by the same number of days.</>,
                     },
                   ]
                 ).map((recipe) => {

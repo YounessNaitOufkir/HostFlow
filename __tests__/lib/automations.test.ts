@@ -97,27 +97,6 @@ describe("Automation Engine — Sprint 7", () => {
       expect(result.matchedRuleId).toBe("auto-2");
     });
 
-    it("calculates shiftDays correctly when date column is postponed", () => {
-      const item: Item = {
-        id: "item-3",
-        board_id: "board-1",
-        group_id: "group-backlog",
-        name: "Task C",
-        position: 2,
-        column_values: { "col-date": "2026-08-05" },
-      };
-
-      const result = evaluateEventAutomations(
-        mockBoard,
-        item,
-        "col-date",
-        "2026-08-02",
-        "2026-08-05",
-        []
-      );
-
-      expect(result.shiftDays).toBe(3);
-    });
   });
 
   describe("evaluateTimeAutomations", () => {
