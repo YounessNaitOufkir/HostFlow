@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CalendarClock,
   Check,
+  ChevronRight,
   Columns3,
   Flag,
   Maximize2,
@@ -37,6 +38,8 @@ interface GanttToolbarProps {
   criticalCount: number;
   violationCount: number;
   cycleCount: number;
+  /** Jumps to the next broken link. Absent, the count is just a report. */
+  onGoToViolation?: () => void;
   showBaseline: boolean;
   onShowBaselineChange: (value: boolean) => void;
   /** How many tasks already have a captured plan. Zero means there is nothing to show. */
@@ -62,6 +65,7 @@ export function GanttToolbar({
   criticalCount,
   violationCount,
   cycleCount,
+  onGoToViolation,
   showBaseline,
   onShowBaselineChange,
   baselineCount,
@@ -112,16 +116,25 @@ export function GanttToolbar({
     <div className="flex items-center gap-2 px-6 pt-4 pb-3 z-[100] relative">
       {children}
 
-      {/* A broken link used to look exactly like a working one - the arrow simply
-          pointed backwards. Saying how many are broken makes it findable. */}
+      {/* A broken link looks exactly like a working one - the arrow simply
+          points backwards - so the count is how you learn they exist. Pressing
+          it walks them: the number alone was a dead end. */}
       {violationCount > 0 && (
-        <span
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs font-medium"
-          title="These tasks start before the task they depend on has finished."
+        <button
+          type="button"
+          onClick={onGoToViolation}
+          disabled={!onGoToViolation}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs font-medium enabled:hover:bg-red-100 dark:enabled:hover:bg-red-900/35 transition-colors disabled:cursor-default"
+          title={
+            onGoToViolation
+              ? "These tasks start before the task they depend on has finished. Click to go to the next one."
+              : "These tasks start before the task they depend on has finished."
+          }
         >
           <AlertTriangle size={12} />
           {violationCount} broken {violationCount === 1 ? "link" : "links"}
-        </span>
+          {onGoToViolation && <ChevronRight size={12} className="opacity-70" />}
+        </button>
       )}
 
       {cycleCount > 0 && (
