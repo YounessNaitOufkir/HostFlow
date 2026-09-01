@@ -112,6 +112,32 @@ export interface Profile {
   in_app_alerts_enabled?: boolean;
 }
 
+/** Timeline granularity of a Gantt chart. */
+export type GanttZoom = "day" | "week" | "month" | "quarter";
+
+/**
+ * Per-board Gantt settings.
+ *
+ * Without these the chart has to guess which column holds the dates it should
+ * plot, and it guesses per item — so a board with two date columns plots some
+ * bars from one and some from the other. Declaring the choice once makes a
+ * board's chart deterministic, and lets the Master Gantt resolve every item
+ * against its own board rather than a merged pile of every board's columns.
+ */
+export interface GanttConfig {
+  /** The date or timeline column that positions a bar. */
+  timelineColumnId?: string;
+  /** A checkbox column marking an item as a milestone. */
+  milestoneColumnId?: string;
+  /** The status column that colours a bar when colouring by status. */
+  statusColumnId?: string;
+  defaultZoom?: GanttZoom;
+  /** Which fields the left-hand task table shows, in order. */
+  leftColumns?: string[];
+  showBaseline?: boolean;
+  showCriticalPath?: boolean;
+}
+
 export interface Board {
   id: string;
   name: string;
@@ -124,6 +150,7 @@ export interface Board {
   type?: BoardType;
   item_name_column?: string;
   item_name_column_width?: number;
+  gantt_config?: GanttConfig | null;
 }
 
 export interface Group {
@@ -145,14 +172,35 @@ export interface Item {
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null; // For Soft Delete
+  /** Set when a baseline has been captured for this item. */
+  baseline?: ItemBaseline | null;
 }
+
+/**
+ * How two tasks are tied together. Finish-to-start is the common case and the
+ * only one the chart used to assume; the other three are ordinary in real
+ * plans — two surveys that run together, two approvals that must land the same
+ * day — and a plan that cannot express them has to fake them with dates.
+ */
+export type DependencyType = "FS" | "SS" | "FF" | "SF";
 
 export interface ItemLink {
   id: string;
   source_item_id: string;
   target_item_id: string;
   link_type: LinkType;
+  /** Only meaningful for `dependency` links. Absent on rows written before types existed; treat as "FS". */
+  dep_type?: DependencyType;
+  /** Days of delay (positive) or overlap (negative) on the dependency. */
+  lag_days?: number;
   created_at: string;
+}
+
+/** The plan as it was agreed, so the chart can show drift from it. */
+export interface ItemBaseline {
+  start: string;
+  end: string;
+  captured_at: string;
 }
 
 /** A single comment/update posted on an item */
