@@ -147,6 +147,8 @@ export function useBoardStore() {
     toggleColumnVisibility: columnMutations.toggleColumnVisibility,
     // Item operations
     updateCell: itemMutations.updateCell,
+    updateCells: itemMutations.updateCells,
+    captureBaseline: itemMutations.captureBaseline,
     addItem: itemMutations.addItem,
     deleteItem: itemMutations.deleteItem,
     restoreItem: itemMutations.restoreItem,
@@ -155,6 +157,7 @@ export function useBoardStore() {
     renameItem: itemMutations.renameItem,
     // Item Link operations
     addLink: itemMutations.addLink,
+    updateLink: itemMutations.updateLink,
     removeLink: itemMutations.removeLink,
     // Board CRUD
     createBoard: boardMutations.createBoard,

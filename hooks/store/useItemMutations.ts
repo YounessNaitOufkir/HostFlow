@@ -1,51 +1,18 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import type { Board, Item, ItemLink, Profile, Automation, Column } from "@/types";
+import type { Board, CellValue, DependencyType, Item, ItemLink, Profile, Automation, Column } from "@/types";
 import type { BoardStoreDispatch } from "./types";
 import { reportMutationError, runWrite } from "@/lib/errorReporting";
 import { evaluateEventAutomations } from "@/lib/automations/engine";
 import { notifyTabSync } from "@/hooks/useRealtimeSync";
 import { toast } from "sonner";
 import { escapeHtml } from "@/lib/escapeHtml";
+import { addDaysOnly, dayIndex, toDateOnly } from "@/lib/gantt/dates";
+import { plotItemDates } from "@/lib/gantt/rows";
+import { collectDependencies } from "@/lib/gantt/dependencies";
+import { rescheduleFrom } from "@/lib/gantt/reschedule";
 
-function getStartDateMs(val: any): number | null {
-  if (!val) return null;
-  if (typeof val === "string" && val.includes("-")) {
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? null : d.getTime();
-  }
-  if (typeof val === "object") {
-    const dateStr = val.start || val.date;
-    if (dateStr) {
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? null : d.getTime();
-    }
-  }
-  return null;
-}
-
-function shiftDateValue(val: any, diffDays: number): any {
-  if (!val) return null;
-  const shiftStr = (s: string) => {
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return s;
-    const nd = new Date(d.getTime() + diffDays * 24 * 60 * 60 * 1000);
-    return nd.toISOString().split("T")[0];
-  };
-
-  if (typeof val === "string" && val.includes("-")) {
-    return shiftStr(val);
-  }
-  if (typeof val === "object") {
-    const out = { ...val };
-    if (out.start) out.start = shiftStr(out.start);
-    if (out.end) out.end = shiftStr(out.end);
-    if (out.date) out.date = shiftStr(out.date);
-    return out;
-  }
-  return null;
-}
 
 interface UseItemMutationsProps {
   dispatch: BoardStoreDispatch;
@@ -63,6 +30,102 @@ export function useItemMutations({
   reorderColumns,
 }: UseItemMutationsProps) {
   const queryClient = useQueryClient();
+  const updateCells = useCallback(
+    async (
+      currentItems: Item[],
+      changes: { itemId: string; columnId: string; value: CellValue }[],
+      options: { message?: string } = {}
+    ) => {
+      if (changes.length === 0) return;
+
+      // Several changes can land on one item, so they are merged before writing.
+      const nextValues = new Map<string, Item["column_values"]>();
+      const previous = new Map<string, Item>();
+
+      for (const change of changes) {
+        const item = currentItems.find((i) => i.id === change.itemId);
+        if (!item) continue;
+        if (!previous.has(item.id)) previous.set(item.id, { ...item });
+        nextValues.set(item.id, {
+          ...(nextValues.get(item.id) ?? item.column_values ?? {}),
+          [change.columnId]: change.value,
+        });
+      }
+
+      if (nextValues.size === 0) return;
+
+      for (const [itemId, column_values] of Array.from(nextValues.entries())) {
+        dispatch({
+          type: "UPDATE_ITEM",
+          payload: { ...previous.get(itemId)!, column_values },
+        });
+      }
+
+      const results = await Promise.all(
+        Array.from(nextValues.entries()).map(([itemId, column_values]) =>
+          supabase
+            .from("items")
+            .update({ column_values })
+            .eq("id", itemId)
+            .then(({ error }) => ({ itemId, error }))
+        )
+      );
+
+      const failed = results.filter((r) => r.error);
+      for (const { itemId, error } of failed) {
+        // Put the ones that did not save back where they were, so the screen
+        // never shows a date the database does not have.
+        const original = previous.get(itemId);
+        if (original) dispatch({ type: "UPDATE_ITEM", payload: original });
+        reportMutationError(error, "Failed to save the rescheduled dates", {
+          table: "items",
+          operation: "update",
+          itemId,
+        });
+      }
+
+      if (failed.length > 0) {
+        toast.error(
+          failed.length === nextValues.size
+            ? "Could not save the new dates."
+            : `Could not save ${failed.length} of ${nextValues.size} tasks.`
+        );
+      }
+
+      const saved = Array.from(nextValues.keys()).filter(
+        (id) => !failed.some((f) => f.itemId === id)
+      );
+      if (saved.length === 0) return;
+
+      notifyTabSync(previous.get(saved[0])!.board_id);
+
+      if (options.message) {
+        toast.success(options.message, {
+          duration: 8000,
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              for (const itemId of saved) {
+                const original = previous.get(itemId)!;
+                dispatch({ type: "UPDATE_ITEM", payload: original });
+                await runWrite(
+                  supabase
+                    .from("items")
+                    .update({ column_values: original.column_values })
+                    .eq("id", itemId),
+                  "Failed to undo the reschedule",
+                  { table: "items", operation: "update", itemId }
+                );
+              }
+              notifyTabSync(previous.get(saved[0])!.board_id);
+            },
+          },
+        });
+      }
+    },
+    [dispatch]
+  );
+
   const updateCell = useCallback(
     async (
       currentItems: Item[],
@@ -169,137 +232,83 @@ export function useItemMutations({
           throw cellError;
         }
 
-        // --- Combined Date & Timeline Dependency Cascading ---
-        // Only cascade if the "Timeline & Date Shifting" automation is enabled for this board
-        const hasTimelineShiftingAutomation = boardAutomations.some(
-          (a) => a.action_type === "timeline_shifting" && a.enabled !== false
-        );
-        const columnDef = activeBoard.columns.find((c) => c.id === columnId);
-        if (
-          hasTimelineShiftingAutomation &&
-          columnDef &&
-          (columnDef.type === "timeline" || columnDef.type === "date")
-        ) {
-          const oldTime = getStartDateMs(existingValues[columnId]);
-          const newTime = getStartDateMs(newValue);
-          if (oldTime && newTime && newTime !== oldTime) {
-            const diffDays = Math.round(
-              (newTime - oldTime) / (1000 * 60 * 60 * 24)
+        // --- Dependencies constrain the plan, wherever the date was changed ---
+        //
+        // This used to be a separate, weaker engine to the Gantt's: it shifted
+        // every successor by the same raw delta regardless of link type or lag,
+        // only ever forwards, and only on boards carrying an enabled
+        // "Timeline & Date Shifting" automation. So the same edit did one thing
+        // in the table and another on the chart, and on most boards a
+        // dependency constrained nothing at all until you dragged a bar.
+        //
+        // One engine now, ungated: an arrow means the same thing on every screen.
+        const editedItem = { ...itemToUpdate, column_values: updatedValues };
+        const plotted = plotItemDates(editedItem, activeBoard);
+
+        // Only the column a task is actually plotted from moves its successors.
+        // Editing some other date on the item is not a change to the schedule.
+        if (plotted && plotted.columnId === columnId) {
+          const tasks = new Map<string, { start: number; end: number }>();
+          for (const candidate of currentItems) {
+            const at = plotItemDates(candidate, activeBoard);
+            if (at) {
+              tasks.set(candidate.id, {
+                start: dayIndex(at.start),
+                end: dayIndex(at.end),
+              });
+            }
+          }
+
+          const dependencies = collectDependencies(
+            currentItems,
+            new Map([[activeBoard.id, activeBoard]]),
+            currentItemLinks
+          );
+
+          const { moves, cycleDetected } = rescheduleFrom({
+            tasks,
+            dependencies,
+            movedId: itemId,
+            movedTo: { start: dayIndex(plotted.start), end: dayIndex(plotted.end) },
+          });
+
+          if (cycleDetected) {
+            toast.warning(
+              "These tasks depend on each other in a loop, so the plan could not be fully rescheduled."
+            );
+          }
+
+          // The edited task itself is already written above.
+          const changes: { itemId: string; columnId: string; value: CellValue }[] = [];
+          for (const [movedId, position] of Array.from(moves.entries())) {
+            if (movedId === itemId) continue;
+            const target = currentItems.find((i) => i.id === movedId);
+            const targetPlot = target && plotItemDates(target, activeBoard);
+            if (!target || !targetPlot) continue;
+
+            const start = addDaysOnly(
+              targetPlot.start,
+              position.start - dayIndex(targetPlot.start)
+            );
+            const end = addDaysOnly(
+              targetPlot.end,
+              position.end - dayIndex(targetPlot.end)
             );
 
-            if (diffDays !== 0) {
-              const cascadeUpdates = new Map<string, any>();
+            changes.push({
+              itemId: movedId,
+              columnId: targetPlot.columnId,
+              value:
+                targetPlot.colType === "date"
+                  ? toDateOnly(start)
+                  : { start: toDateOnly(start), end: toDateOnly(end) },
+            });
+          }
 
-              const cascade = (currentId: string, currentDiffDays: number) => {
-                const childrenLinks = currentItemLinks.filter(
-                  (l) =>
-                    l.source_item_id === currentId &&
-                    l.link_type === "dependency"
-                );
-
-                for (const link of childrenLinks) {
-                  const childId = link.target_item_id;
-                  const childItemIndex = currentItems.findIndex(
-                    (i) => i.id === childId
-                  );
-                  if (childItemIndex !== -1) {
-                    const childItem = currentItems[childItemIndex];
-                    const currentValues =
-                      cascadeUpdates.get(childId) ||
-                      childItem.column_values ||
-                      {};
-                    const childVal = currentValues[columnId];
-
-                    if (childVal) {
-                      const shiftedVal = shiftDateValue(
-                        childVal,
-                        currentDiffDays
-                      );
-                      if (shiftedVal) {
-                        const shiftedValues = {
-                          ...currentValues,
-                          [columnId]: shiftedVal,
-                        };
-                        cascadeUpdates.set(childId, shiftedValues);
-                        cascade(childId, currentDiffDays);
-                      }
-                    }
-                  }
-                }
-              };
-
-              cascade(itemId, diffDays);
-
-              if (cascadeUpdates.size > 0) {
-                for (const [depId, shiftedValues] of Array.from(
-                  cascadeUpdates.entries()
-                )) {
-                  const depItemIndex = currentItems.findIndex(
-                    (i) => i.id === depId
-                  );
-                  if (depItemIndex !== -1) {
-                    const depItem = currentItems[depItemIndex];
-                    const shiftedItem = {
-                      ...depItem,
-                      column_values: shiftedValues,
-                    };
-                    dispatch({ type: "UPDATE_ITEM", payload: shiftedItem });
-                    supabase
-                      .from("items")
-                      .update({ column_values: shiftedValues })
-                      .eq("id", depId)
-                      .then(({ error }) => {
-                        if (error)
-                          reportMutationError(
-                            error,
-                            "Date/Timeline cascade update failed",
-                            {
-                              table: "items",
-                              operation: "update",
-                              itemId: depId,
-                            }
-                          );
-                      });
-                  }
-                }
-
-                if (cascadeUpdates.size > 0) {
-                  const affectedIds = Array.from(cascadeUpdates.keys());
-                  const originalState = affectedIds.map((id) => {
-                    const found = currentItems.find((i) => i.id === id);
-                    return {
-                      id,
-                      item: found ? { ...found } : null,
-                    };
-                  });
-
-                  toast.success(
-                    `⚡ Automation: Shifted dates for ${affectedIds.length} dependent task(s)`,
-                    {
-                      duration: 10000,
-                      action: {
-                        label: "Revert",
-                        onClick: async () => {
-                          for (const { id, item } of originalState) {
-                            if (!item) continue;
-                            dispatch({ type: "UPDATE_ITEM", payload: item });
-                            await runWrite(
-                              supabase
-                                .from("items")
-                                .update({ column_values: item.column_values })
-                                .eq("id", id),
-                              "Failed to revert the timeline shift",
-                              { table: "items", operation: "update", itemId: id }
-                            );
-                          }
-                          toast.info(`↩️ Reverted timeline shift automation.`);
-                        },
-                      },
-                    }
-                  );
-                }
-              }
-            }
+          if (changes.length > 0) {
+            await updateCells(currentItems, changes, {
+              message: `Moved ${changes.length} dependent task${changes.length === 1 ? "" : "s"}`,
+            });
           }
         }
 
@@ -340,7 +349,9 @@ export function useItemMutations({
         }
 
         // --- Google Calendar Sync ---
-        const isDateColumn = columnDef?.type === "date" || columnDef?.type === "timeline";
+        const editedColumn = activeBoard.columns.find((c) => c.id === columnId);
+        const isDateColumn =
+          editedColumn?.type === "date" || editedColumn?.type === "timeline";
         if (isPeopleColumn || isDateColumn || columnId === "name") {
           // If we changed people, dates, or the task name, we should sync to GCal for all assignees.
           // Find all assignees in the updated values:
@@ -402,6 +413,105 @@ export function useItemMutations({
           operation: "update",
         });
       }
+    },
+    [dispatch, updateCells]
+  );
+
+  /**
+   * Write several cells as one change.
+   *
+   * This is how the Gantt applies a reschedule: dragging a task moves it and
+   * everything downstream of it, and that has to land as a single thing the
+   * user can undo — not as one toast per task, and not as a half-applied plan
+   * if the fourth write fails.
+   *
+   * It deliberately runs no dependency cascade of its own. The caller has
+   * already worked out every task that moves, honouring link types and lag; a
+   * second pass here would shift the same successors twice.
+   */
+  /**
+   * Freeze the current dates as the agreed plan.
+   *
+   * A Gantt drawn only from today's dates always looks on time, because the
+   * slippage is exactly what has been edited away. Storing what was agreed is
+   * the only way the chart can show drift from it.
+   */
+  const captureBaseline = useCallback(
+    async (
+      currentItems: Item[],
+      baselines: { itemId: string; start: string; end: string }[]
+    ) => {
+      if (baselines.length === 0) return;
+
+      const capturedAt = new Date().toISOString();
+      const previous = new Map<string, Item>();
+
+      for (const { itemId } of baselines) {
+        const item = currentItems.find((i) => i.id === itemId);
+        if (item) previous.set(itemId, { ...item });
+      }
+
+      const applicable = baselines.filter((b) => previous.has(b.itemId));
+      if (applicable.length === 0) return;
+
+      for (const { itemId, start, end } of applicable) {
+        dispatch({
+          type: "UPDATE_ITEM",
+          payload: {
+            ...previous.get(itemId)!,
+            baseline: { start, end, captured_at: capturedAt },
+          },
+        });
+      }
+
+      const results = await Promise.all(
+        applicable.map(({ itemId, start, end }) =>
+          supabase
+            .from("items")
+            .update({ baseline: { start, end, captured_at: capturedAt } })
+            .eq("id", itemId)
+            .then(({ error }) => ({ itemId, error }))
+        )
+      );
+
+      const failed = results.filter((r) => r.error);
+      for (const { itemId, error } of failed) {
+        dispatch({ type: "UPDATE_ITEM", payload: previous.get(itemId)! });
+        reportMutationError(error, "Failed to save the baseline", {
+          table: "items",
+          operation: "update",
+          itemId,
+        });
+      }
+
+      if (failed.length === applicable.length) {
+        toast.error("Could not save the baseline.");
+        return;
+      }
+
+      const saved = applicable.length - failed.length;
+      notifyTabSync(previous.get(applicable[0].itemId)!.board_id);
+      toast.success(`Baseline set for ${saved} task${saved === 1 ? "" : "s"}`, {
+        duration: 8000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            for (const { itemId } of applicable) {
+              const original = previous.get(itemId)!;
+              dispatch({ type: "UPDATE_ITEM", payload: original });
+              await runWrite(
+                supabase
+                  .from("items")
+                  .update({ baseline: original.baseline ?? null })
+                  .eq("id", itemId),
+                "Failed to undo the baseline",
+                { table: "items", operation: "update", itemId }
+              );
+            }
+            notifyTabSync(previous.get(applicable[0].itemId)!.board_id);
+          },
+        },
+      });
     },
     [dispatch]
   );
@@ -668,15 +778,22 @@ export function useItemMutations({
     async (
       sourceItemId: string,
       targetItemId: string,
-      linkType: "dependency" | "relation" | "subitem" = "relation"
+      linkType: "dependency" | "relation" | "subitem" = "relation",
+      // Only meaningful for dependencies. Defaulted so every existing caller
+      // keeps making the plain finish-to-start links it always made.
+      options: { depType?: DependencyType; lagDays?: number } = {}
     ) => {
       try {
+        const depType = options.depType ?? "FS";
+        const lagDays = options.lagDays ?? 0;
         const tempId = `temp-link-${Date.now()}`;
         const newLink = {
           id: tempId,
           source_item_id: sourceItemId,
           target_item_id: targetItemId,
           link_type: linkType,
+          dep_type: depType,
+          lag_days: lagDays,
           created_at: new Date().toISOString(),
         };
         dispatch({ type: "ADD_ITEM_LINK", payload: newLink });
@@ -686,18 +803,66 @@ export function useItemMutations({
             source_item_id: sourceItemId,
             target_item_id: targetItemId,
             link_type: linkType,
+            dep_type: depType,
+            lag_days: lagDays,
           })
           .select()
           .single();
         if (!error && data) {
           dispatch({ type: "REMOVE_ITEM_LINK", payload: tempId });
           dispatch({ type: "ADD_ITEM_LINK", payload: data });
+        } else if (error) {
+          // Take the optimistic link back off the chart: leaving it there shows
+          // an arrow the database does not have.
+          dispatch({ type: "REMOVE_ITEM_LINK", payload: tempId });
+          reportMutationError(error, "Failed to link items", {
+            table: "item_links",
+            operation: "insert",
+          });
+          toast.error("Could not link those tasks.");
         }
       } catch (err) {
         reportMutationError(err, "Failed to link items", {
           table: "item_links",
           operation: "insert",
         });
+      }
+    },
+    [dispatch]
+  );
+
+  /** Change an existing dependency's type or lag. */
+  const updateLink = useCallback(
+    async (
+      currentItemLinks: ItemLink[],
+      linkId: string,
+      changes: { depType?: DependencyType; lagDays?: number }
+    ) => {
+      const existing = currentItemLinks.find((l) => l.id === linkId);
+      if (!existing) return;
+
+      const updated: ItemLink = {
+        ...existing,
+        dep_type: changes.depType ?? existing.dep_type ?? "FS",
+        lag_days: changes.lagDays ?? existing.lag_days ?? 0,
+      };
+
+      dispatch({ type: "REMOVE_ITEM_LINK", payload: linkId });
+      dispatch({ type: "ADD_ITEM_LINK", payload: updated });
+
+      const { error } = await supabase
+        .from("item_links")
+        .update({ dep_type: updated.dep_type, lag_days: updated.lag_days })
+        .eq("id", linkId);
+
+      if (error) {
+        dispatch({ type: "REMOVE_ITEM_LINK", payload: linkId });
+        dispatch({ type: "ADD_ITEM_LINK", payload: existing });
+        reportMutationError(error, "Failed to change the dependency", {
+          table: "item_links",
+          operation: "update",
+        });
+        toast.error("Could not change that dependency.");
       }
     },
     [dispatch]
@@ -857,6 +1022,8 @@ export function useItemMutations({
 
   return {
     updateCell,
+    updateCells,
+    captureBaseline,
     addItem,
     duplicateItem,
     renameItem,
@@ -864,6 +1031,7 @@ export function useItemMutations({
     restoreItem,
     permanentlyDeleteItem,
     addLink,
+    updateLink,
     removeLink,
     handleDragEnd,
   };
