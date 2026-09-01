@@ -1,6 +1,14 @@
 import { Board, Item, Profile, Automation } from "@/types";
 import { sendEmail } from "@/lib/email";
-import { renderEmail, itemUrl } from "@/lib/emailTemplate";
+import { renderEmail, itemUrl, formatEmailDate } from "@/lib/emailTemplate";
+import {
+  translate,
+  isLocale,
+  DEFAULT_LOCALE,
+  type Locale,
+  type TranslateVars,
+  type TranslationKey,
+} from "@/lib/i18n";
 import { todayInTimezone } from "@/lib/orgTime";
 
 export { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
@@ -172,6 +180,14 @@ export async function evaluateTimeAutomations(
     const shouldEmailAssignee =
       !!assigneeProfile?.email && assigneeProfile.email_notifications_enabled !== false;
 
+    // Write to the reader in their own language. The choice is made in the
+    // browser and kept in localStorage, which this cron cannot see, so it is
+    // mirrored onto the profile by useLocaleSync and read back here. Anyone who
+    // has never chosen falls back to English.
+    const assigneeLanguage = assigneeProfile?.language;
+    const locale: Locale = isLocale(assigneeLanguage) ? assigneeLanguage : DEFAULT_LOCALE;
+    const tr = (key: TranslationKey, vars?: TranslateVars) => translate(locale, key, vars);
+
     const isDoneStatus = currentStatus && DONE_STATUS_PATTERN.test(currentStatus);
     // 1. Overdue Tagging Rule: Due Date has passed (< todayStr) AND Status != Done
     if (overdueRule && itemDateStr < todayStr && !isDoneStatus) {
@@ -234,26 +250,24 @@ export async function evaluateTimeAutomations(
 
         // Send Gmail / Resend email alert
         if (shouldEmailAssignee) {
+          const due = formatEmailDate(itemDateStr, locale);
           const mail = renderEmail({
-            preheader: `${item.name} missed its due date on ${itemDateStr}.`,
-            heading: "A task is overdue",
-            recipientName,
-            paragraphs: [
-              "This task missed its due date, so its status has been changed to Overdue.",
-            ],
+            preheader: tr("email.overdue.preheader", { task: item.name, date: due }),
+            heading: tr("email.overdue.heading"),
+            greeting: tr("email.greeting", { name: recipientName }),
+            paragraphs: [tr("email.overdue.body")],
             details: [
-              { label: "Task", value: item.name },
-              { label: "Board", value: board.name },
-              { label: "Was due", value: itemDateStr },
+              { label: tr("email.label.task"), value: item.name },
+              { label: tr("email.label.board"), value: board.name },
+              { label: tr("email.label.wasDue"), value: due },
             ],
             accent: "red",
-            cta: { label: "Open the task", href: itemUrl(board.id, item.id) },
-            footerNote:
-              "You are receiving this because the task is assigned to you. You can turn these off in Profile Settings.",
+            cta: { label: tr("email.cta.openTask"), href: itemUrl(board.id, item.id) },
+            footerNote: tr("email.footer.assigned"),
           });
           await sendEmail({
             to: recipientEmail,
-            subject: `⚠️ [HostFlow Overdue] Task '${item.name}' is overdue`,
+            subject: tr("email.overdue.subject", { task: item.name }),
             html: mail.html,
             text: mail.text,
           });
@@ -283,27 +297,25 @@ export async function evaluateTimeAutomations(
         }
 
         if (shouldEmailAssignee) {
+          const due = formatEmailDate(todayStr, locale);
           const mail = renderEmail({
-            preheader: `${item.name} is due today.`,
-            heading: "A task is due today",
-            recipientName,
-            paragraphs: [
-              "This task is due today and has not been marked as being worked on.",
-            ],
+            preheader: tr("email.sla.preheader", { task: item.name }),
+            heading: tr("email.sla.heading"),
+            greeting: tr("email.greeting", { name: recipientName }),
+            paragraphs: [tr("email.sla.body")],
             details: [
-              { label: "Task", value: item.name },
-              { label: "Board", value: board.name },
-              { label: "Due", value: todayStr },
-              { label: "Status", value: currentStatus || "Not Started" },
+              { label: tr("email.label.task"), value: item.name },
+              { label: tr("email.label.board"), value: board.name },
+              { label: tr("email.label.due"), value: due },
+              { label: tr("email.label.status"), value: currentStatus || tr("email.status.notStarted") },
             ],
             accent: "amber",
-            cta: { label: "Open the task", href: itemUrl(board.id, item.id) },
-            footerNote:
-              "You are receiving this because the task is assigned to you. You can turn these off in Profile Settings.",
+            cta: { label: tr("email.cta.openTask"), href: itemUrl(board.id, item.id) },
+            footerNote: tr("email.footer.assigned"),
           });
           await sendEmail({
             to: recipientEmail,
-            subject: `⏰ [HostFlow SLA Alert] Task '${item.name}' is due today!`,
+            subject: tr("email.sla.subject", { task: item.name }),
             html: mail.html,
             text: mail.text,
           });

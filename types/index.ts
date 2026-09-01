@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/i18n";
 // ============================================================
 // Shared TypeScript interfaces for the HostFlow platform
 // ============================================================
@@ -110,6 +111,8 @@ export interface Profile {
   email_notifications_enabled?: boolean;
   daily_digest_enabled?: boolean;
   in_app_alerts_enabled?: boolean;
+  /** Interface language, mirrored from the browser so the cron can match it. */
+  language?: Locale;
 }
 
 /** Timeline granularity of a Gantt chart. */
