@@ -162,8 +162,14 @@ export default function BoardHeader({
       </div>
 
       {/* Filter Bar */}
-      {(mainView === "board" || mainView === "kanban" || mainView === "cards") && (
-        <FilterBar 
+      {(mainView === "board" ||
+        mainView === "kanban" ||
+        mainView === "cards" ||
+        mainView === "gantt") && (
+        <FilterBar
+          // The Gantt has its own field picker and ignores hidden board
+          // columns, so this one would be a dead control beside it.
+          showColumnPicker={mainView !== "gantt"}
           searchQuery={searchQuery}
           setSearchQuery={onSetSearchQuery}
           columns={columns}

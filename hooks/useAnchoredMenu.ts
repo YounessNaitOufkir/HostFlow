@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -25,6 +26,10 @@ type Align = "left" | "right" | "center";
  * Returns fixed coordinates, so the menu also escapes any `overflow: hidden`
  * ancestor — which is why board cells could clip their own dropdowns.
  *
+ * Pass `onDismiss` to have it close on Escape or a click outside itself.
+ * Opt-in rather than automatic: callers that already run their own outside-click
+ * handling would otherwise close twice.
+ *
  * @example
  * const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: "left" });
  * <div ref={anchorRef}>
@@ -33,10 +38,11 @@ type Align = "left" | "right" | "center";
  */
 export function useAnchoredMenu(
   isOpen: boolean,
-  options?: { align?: Align; gap?: number }
+  options?: { align?: Align; gap?: number; onDismiss?: () => void }
 ) {
   const align: Align = options?.align ?? "left";
   const gap = options?.gap ?? 4;
+  const onDismiss = options?.onDismiss;
 
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -140,7 +146,6 @@ export function useAnchoredMenu(
     }
     // Measure-then-position has to write the result to state, and runs before
     // paint so nothing flickers.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     place();
     // A second pass once the browser has laid the menu out at its real size.
     // The first measurement can read a width the element had while it was still
@@ -164,6 +169,31 @@ export function useAnchoredMenu(
       ro?.disconnect();
     };
   }, [isOpen, place]);
+
+  useEffect(() => {
+    if (!isOpen || !onDismiss) return;
+
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (anchorRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      onDismiss();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onDismiss();
+    };
+
+    // Deferred a tick, or the click that opened the menu closes it again.
+    const timer = setTimeout(() => {
+      window.addEventListener("mousedown", onPointerDown);
+    }, 0);
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [isOpen, onDismiss]);
 
   return { anchorRef, menuRef, menuStyle };
 }

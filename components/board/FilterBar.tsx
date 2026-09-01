@@ -13,9 +13,17 @@ interface FilterBarProps {
   hiddenColumns?: string[];
   onToggleColumnVisibility?: (columnId: string) => void;
   onAddTask?: () => void;
+  /**
+   * Hides the column show/hide control.
+   *
+   * It governs which board columns the table and kanban render. The Gantt draws
+   * bars from a date column and keeps its own field picker, so the control did
+   * nothing there but sit next to a second button also called "Columns".
+   */
+  showColumnPicker?: boolean;
 }
 
-export default function FilterBar({ searchQuery, setSearchQuery, columns, filters, hiddenColumns = [], onToggleColumnVisibility, onAddTask }: FilterBarProps) {
+export default function FilterBar({ searchQuery, setSearchQuery, columns, filters, hiddenColumns = [], onToggleColumnVisibility, onAddTask, showColumnPicker = true }: FilterBarProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [newColumnId, setNewColumnId] = useState("");
   const [newOperator, setNewOperator] = useState("equals");
@@ -271,6 +279,8 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           )}
           </div>
 
+          {showColumnPicker && (
+          <>
           <div className="h-4 w-px bg-gray-200 dark:bg-slate-700/50 mx-1"></div>
 
           {/* Hide Columns Button */}
@@ -307,6 +317,8 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
               </div>
             )}
           </div>
+          </>
+          )}
 
           <div className="h-4 w-px bg-gray-200 dark:bg-slate-700/50 mx-1"></div>
 
