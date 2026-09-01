@@ -35,6 +35,7 @@ import {
 import { useBoardDataQuery } from "@/hooks/queries/useBoardDataQuery";
 import { supabase } from "@/lib/supabase";
 import { readNavState, writeNavState, clearLegacyNavKeys, isBoardIndependentView } from "@/lib/navState";
+import { readDeepLink, clearDeepLink } from "@/lib/deepLink";
 import type { Board, Workspace } from "@/types";
 
 import { duplicateBoard, duplicateWorkspace } from "@/lib/templateUtils";
@@ -239,12 +240,37 @@ export default function MondayClone() {
         !!profile?.id && restoredForUser.current !== profile.id;
       if (isFirstLoadForThisUser && !state.activeBoard) {
         restoredForUser.current = profile!.id;
+
+        // A link followed in from outside — today, an automation email — beats
+        // wherever this user happened to be last. They clicked it to reach one
+        // specific task, not to resume a session.
+        const deepLink = readDeepLink();
+        const linkedBoard = deepLink
+          ? boardsData.find((b) => b.id === deepLink.boardId) || null
+          : null;
+        // Taken out of the address bar as soon as it has been read, whether or
+        // not the board turned out to be visible to this user: leaving it there
+        // would drag them back to the same task on every later reload.
+        if (deepLink) clearDeepLink();
+
         const saved = readNavState(profile?.id);
         const savedBoard = saved?.boardId
           ? boardsData.find((b) => b.id === saved.boardId) || null
           : null;
 
-        if (savedBoard) {
+        if (linkedBoard) {
+          dispatch({ type: "SET_ACTIVE_BOARD", payload: linkedBoard });
+          dispatch({ type: "SET_MAIN_VIEW", payload: "board" as any });
+          if (deepLink!.itemId) {
+            // The board's items have not been fetched yet. The effect watching
+            // pendingSelectedItemId opens the panel once they arrive — the same
+            // path notifications and My Work use to cross boards.
+            dispatch({
+              type: "SET_PENDING_SELECTED_ITEM",
+              payload: deepLink!.itemId,
+            });
+          }
+        } else if (savedBoard) {
           // Carry on where they left off, including which view they were using.
           dispatch({ type: "SET_ACTIVE_BOARD", payload: savedBoard });
           if (saved?.mainView) {
