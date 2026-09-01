@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { GanttSkeleton } from "@/components/skeletons/GanttSkeleton";
+import { useT } from "@/components/LanguageProvider";
 import type { GanttBoardContext } from "@/lib/gantt/rows";
 import { projectRowId } from "@/lib/gantt/rows";
 import { GanttPortfolioFilters } from "@/components/gantt/GanttPortfolioFilters";
@@ -113,6 +114,7 @@ export default function WorkspaceGanttView({
   onUpdateLink,
   onDeleteLink,
 }: WorkspaceGanttViewProps) {
+  const t = useT();
   const [selectedBoardIds, setSelectedBoardIds] = useState<Set<string>>(
     () => new Set(allBoards.map((b) => b.id))
   );
@@ -171,8 +173,8 @@ export default function WorkspaceGanttView({
 
   const workspaceName = useCallback(
     (board: Board) =>
-      workspaces.find((w) => w.id === board.workspace_id)?.name ?? "Unknown workspace",
-    [workspaces]
+      workspaces.find((w) => w.id === board.workspace_id)?.name ?? t("master.unknownWorkspace"),
+    [workspaces, t]
   );
 
   /**
@@ -228,7 +230,7 @@ export default function WorkspaceGanttView({
 
     for (const board of allBoards) {
       const ws = workspaces.find((w) => w.id === board.workspace_id);
-      const name = ws?.name || "Unknown workspace";
+      const name = ws?.name || t("master.unknownWorkspace");
       // Matching the workspace keeps a property's boards findable by the
       // property's name, which is how they are actually referred to.
       if (
@@ -247,7 +249,7 @@ export default function WorkspaceGanttView({
     }
 
     return Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allBoards, workspaces, boardFilter]);
+  }, [allBoards, workspaces, boardFilter, t]);
 
   const togglePanel = () => {
     setIsPanelCollapsed((prev) => {
@@ -414,7 +416,7 @@ export default function WorkspaceGanttView({
           full width; the toggle stays reachable in both states. */}
       <div
         role="region"
-        aria-label="Included boards"
+        aria-label={t("master.includedBoards")}
         className={`${
           isPanelCollapsed ? "w-12" : "w-64"
         } shrink-0 border-r border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex flex-col z-20 shadow-[2px_0_10px_rgba(0,0,0,0.05)] dark:shadow-[2px_0_10px_rgba(0,0,0,0.5)] transition-[width] duration-200`}
@@ -427,15 +429,15 @@ export default function WorkspaceGanttView({
           {!isPanelCollapsed && (
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2 min-w-0">
               <LayoutList size={16} className="shrink-0" />
-              <span className="truncate">Included Boards</span>
+              <span className="truncate">{t("master.includedBoards")}</span>
             </h3>
           )}
           <button
             type="button"
             onClick={togglePanel}
             aria-expanded={!isPanelCollapsed}
-            aria-label={isPanelCollapsed ? "Show included boards" : "Hide included boards"}
-            title={isPanelCollapsed ? "Show included boards" : "Hide included boards"}
+            aria-label={t(isPanelCollapsed ? "master.showBoards" : "master.hideBoards")}
+            title={t(isPanelCollapsed ? "master.showBoards" : "master.hideBoards")}
             className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors shrink-0"
           >
             {isPanelCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
@@ -467,15 +469,15 @@ export default function WorkspaceGanttView({
                   type="text"
                   value={boardFilter}
                   onChange={(e) => setBoardFilter(e.target.value)}
-                  placeholder="Find a board or property"
-                  aria-label="Filter boards"
+                  placeholder={t("master.findBoard")}
+                  aria-label={t("master.filterBoards")}
                   className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
                 {boardFilter && (
                   <button
                     type="button"
                     onClick={() => setBoardFilter("")}
-                    aria-label="Clear the board filter"
+                    aria-label={t("master.clearFilter")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                   >
                     <X size={13} />
@@ -489,14 +491,14 @@ export default function WorkspaceGanttView({
                   onClick={() => setAll(visibleBoardIds)}
                   className="text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  Select all
+                  {t("master.selectAll")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setAll([])}
                   className="text-gray-500 dark:text-gray-400 hover:underline"
                 >
-                  Clear
+                  {t("master.clear")}
                 </button>
                 <span className="ml-auto text-gray-400 dark:text-gray-500 tabular-nums">
                   {selectedBoardIds.size}/{allBoards.length}
@@ -507,11 +509,11 @@ export default function WorkspaceGanttView({
             <div className="flex-1 overflow-y-auto p-2 pt-0 space-y-1">
               {allBoards.length === 0 ? (
                 <div className="p-4 text-xs text-gray-500 text-center">
-                  No boards in workspace
+                  {t("master.noBoards")}
                 </div>
               ) : boardsByWorkspace.length === 0 ? (
                 <div className="p-4 text-xs text-gray-500 text-center">
-                  No board matches “{boardFilter}”
+                  {t("master.noMatch", { query: boardFilter })}
                 </div>
               ) : (
                 boardsByWorkspace.map((group) => (
@@ -568,7 +570,7 @@ export default function WorkspaceGanttView({
           <GanttSkeleton />
         ) : selectedBoardIds.size === 0 ? (
           <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
-            Select at least one board to view the Master Gantt chart.
+            {t("master.selectOne")}
           </div>
         ) : (
           <GanttChart
@@ -590,13 +592,13 @@ export default function WorkspaceGanttView({
                       ? "bg-blue-50 dark:bg-blue-900/25 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
                       : "bg-white dark:bg-[#1e2333] border-gray-200 dark:border-[#2d3555] hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-200"
                   }`}
-                  title="One row per property, with every lane shut"
+                  title={t("master.projectsOnlyHint")}
                 >
                   <Rows3
                     size={14}
                     className={projectsOnly ? "" : "text-gray-500 dark:text-gray-400"}
                   />
-                  Projects only
+                  {t("master.projectsOnly")}
                 </button>
 
                 <GanttPortfolioFilters
@@ -617,16 +619,15 @@ export default function WorkspaceGanttView({
             readOnlyReason={
               handleUpdateItem
                 ? undefined
-                : "Open a board to change its dates."
+                : t("master.readOnlyReason")
             }
             emptyMessage={
               <>
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                  Nothing dated in these boards
+                  {t("master.emptyTitle")}
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400">
-                  The selected boards have no items with a{" "}
-                  <strong>Timeline</strong> or <strong>Date</strong> filled in.
+                  {t("master.emptyBody")}
                 </p>
               </>
             }

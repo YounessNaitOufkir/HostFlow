@@ -5,6 +5,7 @@ import { Trash2, X } from "lucide-react";
 import type { DependencyType } from "@/types";
 import type { GanttDependency } from "@/lib/gantt/dependencies";
 import { clampLag, describeDependency } from "@/lib/gantt/linking";
+import { useT } from "@/components/LanguageProvider";
 
 const TYPES: DependencyType[] = ["FS", "SS", "FF", "SF"];
 
@@ -18,7 +19,7 @@ interface GanttLinkEditorProps {
   onDelete: () => void;
   onClose: () => void;
   /** Set when the link only exists on an item's dependency column, which carries no type. */
-  readOnlyReason?: string;
+  readOnly?: boolean;
 }
 
 /**
@@ -37,8 +38,9 @@ export function GanttLinkEditor({
   onChange,
   onDelete,
   onClose,
-  readOnlyReason,
+  readOnly,
 }: GanttLinkEditorProps) {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   // Seeded once. The caller keys this component by link id, so opening a
   // different arrow remounts it rather than needing the field synced back.
@@ -73,7 +75,7 @@ export function GanttLinkEditor({
     <div
       ref={ref}
       role="dialog"
-      aria-label="Dependency"
+      aria-label={t("gantt.dependency")}
       className="fixed z-[200] w-72 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-lg shadow-xl p-3"
       style={{
         // Clamped so a link near the right or bottom edge still opens on screen.
@@ -84,7 +86,7 @@ export function GanttLinkEditor({
       <div className="flex items-start gap-2 mb-3">
         <div className="min-w-0 flex-1">
           <div className="text-[11px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500">
-            Dependency
+            {t("gantt.dependency")}
           </div>
           <div className="text-[13px] text-gray-700 dark:text-gray-200 truncate" title={`${sourceName} → ${targetName}`}>
             <span className="font-medium">{sourceName}</span>
@@ -95,23 +97,23 @@ export function GanttLinkEditor({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("common.close")}
           className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
         >
           <X size={14} />
         </button>
       </div>
 
-      {readOnlyReason ? (
+      {readOnly ? (
         <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-snug">
-          {readOnlyReason}
+          {t("gantt.linkColumnOnly")}
         </p>
       ) : (
         <>
           <div
             className="grid grid-cols-4 gap-1 mb-3"
             role="group"
-            aria-label="Dependency type"
+            aria-label={t("gantt.dependencyType")}
           >
             {TYPES.map((type) => (
               <button
@@ -119,7 +121,7 @@ export function GanttLinkEditor({
                 type="button"
                 onClick={() => onChange({ type })}
                 aria-pressed={dependency.type === type}
-                title={describeDependency(type, 0)}
+                title={describeDependency(t, type, 0)}
                 className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
                   dependency.type === type
                     ? "bg-blue-500 text-white"
@@ -132,12 +134,12 @@ export function GanttLinkEditor({
           </div>
 
           <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3">
-            {describeDependency(dependency.type, dependency.lag)}
+            {describeDependency(t, dependency.type, dependency.lag)}
           </p>
 
           <label className="flex items-center gap-2 mb-3">
             <span className="text-[12px] text-gray-600 dark:text-gray-300 shrink-0">
-              Lag
+              {t("gantt.lag")}
             </span>
             <input
               type="number"
@@ -147,13 +149,13 @@ export function GanttLinkEditor({
               onKeyDown={(e) => {
                 if (e.key === "Enter") commitLag();
               }}
-              aria-label="Lag in days"
+              aria-label={t("gantt.lag")}
               className="w-20 px-2 py-1 text-sm rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
             {/* Negative lag is an overlap, which is how a plan says two jobs
                 share a few days rather than queueing. */}
             <span className="text-[11px] text-gray-400 dark:text-gray-500">
-              days; negative overlaps
+              {t("gantt.lagHint")}
             </span>
           </label>
         </>
@@ -165,7 +167,7 @@ export function GanttLinkEditor({
         className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
       >
         <Trash2 size={13} />
-        Remove this dependency
+        {t("gantt.removeDependency")}
       </button>
     </div>
   );

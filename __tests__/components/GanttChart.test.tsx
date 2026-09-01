@@ -354,7 +354,7 @@ describe("GanttChart linking", () => {
     });
 
     await user.click(container.querySelector('svg path[stroke="transparent"]')!);
-    const lag = screen.getByLabelText("Lag in days");
+    const lag = screen.getByLabelText("Lag");
     await user.clear(lag);
     await user.type(lag, "3.7");
     fireEvent.blur(lag);

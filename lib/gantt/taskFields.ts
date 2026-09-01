@@ -8,6 +8,8 @@
  */
 
 import { format } from "date-fns";
+import type { Locale as DateFnsLocale } from "date-fns";
+import type { TranslationKey } from "@/lib/i18n";
 import type { GanttRow } from "./rows";
 import type { TaskSchedule } from "./schedule";
 import type { GanttDependency } from "./dependencies";
@@ -25,11 +27,15 @@ export interface GanttFieldContext {
   schedule?: TaskSchedule;
   dependencies: GanttDependency[];
   nameById: Map<string, string>;
+  /** Translator, so a cell can say "loop" in the reader's language. */
+  t: (key: TranslationKey) => string;
+  /** Month names in the reader's language rather than always English. */
+  dateLocale?: DateFnsLocale;
 }
 
 export interface GanttFieldDefinition {
   key: GanttFieldKey;
-  label: string;
+  labelKey: TranslationKey;
   /** Fixed width in px. `name` is the one that takes the remaining space. */
   width: number;
   align: "left" | "right";
@@ -52,7 +58,7 @@ const NAME_MIN_WIDTH = 140;
 export const GANTT_FIELDS: Record<GanttFieldKey, GanttFieldDefinition> = {
   name: {
     key: "name",
-    label: "Task",
+    labelKey: "gantt.field.name",
     width: NAME_MIN_WIDTH,
     align: "left",
     value: (row) =>
@@ -62,43 +68,45 @@ export const GANTT_FIELDS: Record<GanttFieldKey, GanttFieldDefinition> = {
   },
   start: {
     key: "start",
-    label: "Start",
+    labelKey: "gantt.field.start",
     width: 78,
     align: "left",
     numeric: true,
-    value: (row) => format(row.start, "d MMM yy"),
+    value: (row, { dateLocale }) => format(row.start, "d MMM yy", { locale: dateLocale }),
   },
   finish: {
     key: "finish",
-    label: "Finish",
+    labelKey: "gantt.field.finish",
     width: 78,
     align: "left",
     numeric: true,
-    value: (row) => format(row.end, "d MMM yy"),
+    value: (row, { dateLocale }) => format(row.end, "d MMM yy", { locale: dateLocale }),
   },
   duration: {
     key: "duration",
-    label: "Days",
-    width: 52,
+    labelKey: "gantt.field.duration",
+    // Sized for the longest label across languages, not just "Days": French
+    // renders "JOURS", which truncated to "JOU…" at 52.
+    width: 62,
     align: "right",
     numeric: true,
     value: (row) => String(daysBetween(row.start, row.end) + 1),
   },
   float: {
     key: "float",
-    label: "Slack",
+    labelKey: "gantt.field.float",
     width: 56,
     align: "right",
     numeric: true,
-    value: (row, { schedule }) => {
+    value: (row, { schedule, t }) => {
       if (row.kind !== "item" || !schedule) return "";
-      if (schedule.inCycle) return "loop";
+      if (schedule.inCycle) return t("gantt.field.loop");
       return schedule.totalFloat <= 0 ? "0" : String(schedule.totalFloat);
     },
   },
   predecessors: {
     key: "predecessors",
-    label: "Waits on",
+    labelKey: "gantt.field.predecessors",
     width: 150,
     align: "left",
     value: (row, { dependencies, nameById }) => {

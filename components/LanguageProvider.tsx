@@ -96,7 +96,9 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType>({
   locale: DEFAULT_LOCALE,
   setLocale: () => {},
-  t: (key) => translate(DEFAULT_LOCALE, key),
+  // Forwards vars: without them a default-context render shows the raw
+  // "{name}" placeholder rather than the value.
+  t: (key, vars) => translate(DEFAULT_LOCALE, key, vars),
   dateLocale: enUS,
   bcp47: BCP47[DEFAULT_LOCALE],
 });

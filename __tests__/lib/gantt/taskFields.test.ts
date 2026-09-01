@@ -36,16 +36,29 @@ const dependencies: GanttDependency[] = [
   { id: "l1", sourceId: "i1", targetId: "i2", type: "FS", lag: 0 },
 ];
 
+/** Echoes the key back, so a test asserts wording, not a lookup. */
+const echo = (key: string) => key.replace("gantt.field.", "");
+
 function context(overrides: Partial<GanttFieldContext> = {}): GanttFieldContext {
   return {
     dependencies,
     nameById: new Map([["i1", "Permis"], ["i2", "Devis"]]),
+    t: echo as GanttFieldContext["t"],
     ...overrides,
   };
 }
 
 const rowsOf = (showProjectRows = false) =>
   buildGanttRows({ contexts, showProjectRows }).rows;
+
+describe("field labels", () => {
+  it("names each column with a key rather than a word", () => {
+    // The chart has a locale; this module does not, so it hands back keys.
+    expect(GANTT_FIELDS.name.labelKey).toBe("gantt.field.name");
+    expect(GANTT_FIELDS.float.labelKey).toBe("gantt.field.float");
+    expect(GANTT_FIELDS.predecessors.labelKey).toBe("gantt.field.predecessors");
+  });
+});
 
 describe("field values", () => {
   it("reads dates and duration off a task", () => {
