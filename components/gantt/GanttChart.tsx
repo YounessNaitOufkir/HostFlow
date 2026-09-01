@@ -22,6 +22,7 @@ import {
 } from "@/lib/gantt/scale";
 import {
   buildGanttRows,
+  projectRowId,
   type GanttBoardContext,
   type GanttItemRow,
   type GanttRow,
@@ -725,6 +726,93 @@ export default function GanttChart({
     return current ? { dependency: current, at: selectedLink.at } : null;
   }, [selectedLink, dependencies]);
 
+  // ---------------------------------------------------------------- violations
+
+  /**
+   * Walking the broken links.
+   *
+   * The count on its own was a dead end: it said ten links were broken and gave
+   * you no way to reach any of them. Each press takes the next one, opening its
+   * group if it is shut, scrolling it into view and opening its editor - so the
+   * fix is one click from the report.
+   */
+  const [violationCursor, setViolationCursor] = useState(0);
+  const [pendingFocus, setPendingFocus] = useState<string | null>(null);
+
+  const goToNextViolation = useCallback(() => {
+    const violations = schedule.violations;
+    if (violations.length === 0) return;
+
+    const violation = violations[violationCursor % violations.length];
+    setViolationCursor((c) => (c + 1) % violations.length);
+
+    const target = model.byItemId.get(violation.targetId);
+    if (!target) return;
+
+    // Reveal it first: a task inside a shut lane has nowhere on screen to be
+    // scrolled to.
+    if (collapsed.has(target.group.id)) onToggleCollapse(target.group.id);
+    const lane = projectRowId(target.board.id);
+    if (collapsed.has(lane)) onToggleCollapse(lane);
+
+    setPendingFocus(violation.targetId);
+  }, [schedule.violations, violationCursor, model.byItemId, collapsed, onToggleCollapse]);
+
+  /**
+   * Runs once the row it wants actually exists.
+   *
+   * Revealing a lane re-lays out the rows, so the scroll cannot happen in the
+   * same tick as the request - the target has no position until then.
+   */
+  useEffect(() => {
+    if (!pendingFocus) return;
+
+    const row = rows.find(
+      (r): r is GanttItemRow => r.kind === "item" && r.item.id === pendingFocus
+    );
+    const el = bodyRef.current;
+    if (!row || !el) return;
+
+    const left = Math.max(0, scale.xOf(row.start) - el.clientWidth / 3);
+    const top = Math.max(0, row.y - el.clientHeight / 3);
+
+    // Smooth where it exists, plain assignment where it does not - scrollTo is
+    // absent in jsdom, and a missing convenience should not take the chart down.
+    if (typeof el.scrollTo === "function") {
+      el.scrollTo({ left, top, behavior: "smooth" });
+    } else {
+      el.scrollLeft = left;
+      el.scrollTop = top;
+    }
+    syncPanes();
+
+    const dependency = dependencies.find(
+      (d) => d.targetId === pendingFocus && violatedDependencyIds.has(d.id)
+    );
+    if (dependency && (onUpdateLink || onDeleteLink)) {
+      // Anchored to the middle of the viewport rather than a click: there was no
+      // click, and the bar's own position is still settling from the scroll.
+      // Deliberate: this effect exists to act once the requested row finally
+      // has a position, which is a render later than the request.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedLink({
+        dependency,
+        at: { x: window.innerWidth / 2 - 140, y: window.innerHeight / 3 },
+      });
+    }
+
+    setPendingFocus(null);
+  }, [
+    pendingFocus,
+    rows,
+    scale,
+    syncPanes,
+    dependencies,
+    violatedDependencyIds,
+    onUpdateLink,
+    onDeleteLink,
+  ]);
+
   // ---------------------------------------------------------------- pane resize
 
   const [resizingPane, setResizingPane] = useState(false);
@@ -913,6 +1001,7 @@ export default function GanttChart({
       onCaptureBaseline={onCaptureBaseline ? captureBaseline : undefined}
       criticalCount={schedule.criticalIds.size}
       violationCount={schedule.violations.length}
+      onGoToViolation={schedule.violations.length > 0 ? goToNextViolation : undefined}
       cycleCount={schedule.cycleIds.size}
       onExport={handleExport}
       fields={fields}

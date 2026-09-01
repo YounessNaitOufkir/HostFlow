@@ -522,6 +522,44 @@ describe("GanttChart critical path", () => {
     expect(screen.getByText("1 broken link")).toBeInTheDocument();
   });
 
+  it("walks to each broken link, opening its editor to be fixed", async () => {
+    // The count on its own was a dead end: it said a link was broken and gave
+    // no way to reach it.
+    const user = userEvent.setup();
+    const broken = [
+      items[0],
+      task("i2", "Devis", "2026-03-03", "2026-03-07", 1),
+      items[2],
+    ];
+    renderChart({
+      contexts: [{ board, groups: [group], items: broken }],
+      onUpdateLink: () => {},
+      onDeleteLink: () => {},
+    });
+
+    await user.click(screen.getByRole("button", { name: /1 broken link/ }));
+
+    const editor = await screen.findByRole("dialog", { name: "Dependency" });
+    expect(within(editor).getByText("Permis")).toBeInTheDocument();
+    expect(within(editor).getByText("Devis")).toBeInTheDocument();
+    // The type buttons are right there, so FS can be corrected to SS on the spot.
+    expect(within(editor).getByRole("button", { name: "SS" })).toBeInTheDocument();
+  });
+
+  it("still walks the broken links when they cannot be edited, without opening an editor", async () => {
+    // Finding one is useful even to a reader who cannot change it.
+    const user = userEvent.setup();
+    const broken = [
+      items[0],
+      task("i2", "Devis", "2026-03-03", "2026-03-07", 1),
+      items[2],
+    ];
+    renderChart({ contexts: [{ board, groups: [group], items: broken }] });
+
+    await user.click(screen.getByRole("button", { name: /1 broken link/ }));
+    expect(screen.queryByRole("dialog", { name: "Dependency" })).not.toBeInTheDocument();
+  });
+
   it("names a dependency loop instead of drawing a plan that cannot exist", () => {
     renderChart({
       itemLinks: [
