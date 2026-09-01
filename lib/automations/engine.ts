@@ -5,6 +5,7 @@ import { todayInTimezone } from "@/lib/orgTime";
 export { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
 import { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
 import { toast } from "sonner";
+import { startDateOf, daysBetween } from "@/lib/gantt/dates";
 
 export interface EventAutomationResult {
   targetGroupId?: string;
@@ -50,10 +51,13 @@ export function evaluateEventAutomations(
   // 2. Check if this is a Date or Timeline column postponement for Timeline/Date Shifting
   const columnDef = board.columns.find((c) => c.id === columnId);
   if (columnDef && (columnDef.type === "date" || columnDef.type === "timeline")) {
-    const oldTime = getStartDateMs(oldValue);
-    const newTime = getStartDateMs(newValue);
-    if (oldTime && newTime && newTime > oldTime) {
-      const diffDays = Math.round((newTime - oldTime) / (1000 * 60 * 60 * 24));
+    const oldStart = startDateOf(oldValue);
+    const newStart = startDateOf(newValue);
+    if (oldStart && newStart) {
+      // Only a postponement cascades. Pulling work earlier leaves the tasks
+      // behind it where they are, which is the long-standing behaviour of this
+      // rule - the Gantt's own rescheduling handles both directions.
+      const diffDays = daysBetween(oldStart, newStart);
       if (diffDays > 0) {
         result.shiftDays = diffDays;
       }
@@ -61,22 +65,6 @@ export function evaluateEventAutomations(
   }
 
   return result;
-}
-
-function getStartDateMs(val: any): number | null {
-  if (!val) return null;
-  if (typeof val === "string" && val.includes("-")) {
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? null : d.getTime();
-  }
-  if (typeof val === "object") {
-    const dateStr = val.start || val.date;
-    if (dateStr) {
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? null : d.getTime();
-    }
-  }
-  return null;
 }
 
 function parseIsoDateString(val: any): string | null {
