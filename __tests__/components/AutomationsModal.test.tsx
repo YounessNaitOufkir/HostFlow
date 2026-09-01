@@ -107,7 +107,10 @@ describe("AutomationsModal & Recipe Gallery — Batch 3", () => {
     expect(screen.getByText("Archive finished work")).toBeInTheDocument();
     expect(screen.getByText("Alert on the due date")).toBeInTheDocument();
     expect(screen.getByText("Flag overdue work")).toBeInTheDocument();
-    expect(screen.getByText("Shift dependent dates")).toBeInTheDocument();
+
+    // "Shift dependent dates" is gone: dependent dates now always shift, through
+    // the same engine the Gantt uses, so there is nothing left to opt into.
+    expect(screen.queryByText("Shift dependent dates")).not.toBeInTheDocument();
   });
 
   it("uses the board's own done label for the move trigger, not a hard-coded 'Done'", () => {
