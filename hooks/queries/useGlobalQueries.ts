@@ -11,6 +11,7 @@ import {
   Board,
   Item,
 } from "@/types";
+import { fetchAllRows } from "@/lib/supabasePaging";
 
 export function useGlobalSettingsQuery(enabled = true) {
   return useQuery({
@@ -60,9 +61,9 @@ export function useBoardsQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.boards(),
     queryFn: async () => {
-      const { data, error } = await supabase.from("boards").select("*").order("id");
-      if (error) throw error;
-      return (data || []) as Board[];
+      return fetchAllRows<Board>((from, to) =>
+        supabase.from("boards").select("*").order("id").range(from, to)
+      );
     },
     enabled,
   });
@@ -77,9 +78,14 @@ export function useMyWorkQuery(
     queryKey: queryKeys.myWorkItems(profile?.id || ""),
     queryFn: async () => {
       if (!profile) return [];
-      const { data, error } = await supabase.from("items").select("*");
-      if (error) throw error;
-      const allItems = (data || []) as Item[];
+
+      // Paged, and trash left behind. This reads every item the user can see -
+      // assignment lives in a per-board JSONB key, so it cannot be filtered
+      // server-side - which means it was both capped at 1000 rows and listing
+      // tasks that had been deleted.
+      const allItems = await fetchAllRows<Item>((from, to) =>
+        supabase.from("items").select("*").is("deleted_at", null).range(from, to)
+      );
 
       return allItems.filter((item) => {
         const board = boards.find((b) => b.id === item.board_id);

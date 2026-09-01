@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { queryKeys } from "./queryKeys";
 import { Group, Item, ItemLink, Automation } from "@/types";
+import { fetchAllRows, chunkIds } from "@/lib/supabasePaging";
 
 export interface BoardDataQueryResult {
   groups: Group[];
@@ -27,31 +28,40 @@ export function useBoardDataQuery(boardId: string | null, enabled = true) {
         };
       }
 
-      const [groupsRes, itemsRes, automationsRes] = await Promise.all([
-        supabase.from("groups").select("*").eq("board_id", boardId).order("position"),
-        supabase.from("items").select("*").eq("board_id", boardId).order("position"),
+      // Paged, not a single select: PostgREST caps a response at db.max_rows
+      // (1000 by default) and says nothing about it. A board past that limit
+      // rendered a partial plan in every view - table, kanban, cards and the
+      // Gantt - with no sign that anything was missing.
+      const [groups, allItems, automationsRes] = await Promise.all([
+        fetchAllRows<Group>((from, to) =>
+          supabase
+            .from("groups")
+            .select("*")
+            .eq("board_id", boardId)
+            .order("position")
+            .range(from, to)
+        ),
+        fetchAllRows<Item>((from, to) =>
+          supabase
+            .from("items")
+            .select("*")
+            .eq("board_id", boardId)
+            .order("position")
+            .range(from, to)
+        ),
         supabase.rpc("automations_for_board", { b_id: boardId }),
       ]);
 
-      if (groupsRes.error) throw groupsRes.error;
-      if (itemsRes.error) throw itemsRes.error;
       if (automationsRes.error) throw automationsRes.error;
 
-      let fetchedLinks: ItemLink[] = [];
-      const allItems = (itemsRes.data || []) as Item[];
+      const fetchedLinks: ItemLink[] = [];
       const activeItems = allItems.filter((i: Item) => !i.deleted_at);
       const trashItems = allItems.filter((i: Item) => !!i.deleted_at);
 
       if (allItems.length > 0) {
-        const itemIds = allItems.map((i: Item) => i.id);
-        
-        // Chunk itemIds to avoid URI Too Long error from Supabase
-        const CHUNK_SIZE = 50;
-        const chunks = [];
-        for (let i = 0; i < itemIds.length; i += CHUNK_SIZE) {
-          chunks.push(itemIds.slice(i, i + CHUNK_SIZE));
-        }
-        
+        // Chunked to avoid a URI Too Long: the ids travel in the query string.
+        const chunks = chunkIds(allItems.map((i: Item) => i.id), 50);
+
         for (const chunk of chunks) {
           const { data: linksData, error: linksError } = await supabase
             .from("item_links")
@@ -68,7 +78,7 @@ export function useBoardDataQuery(boardId: string | null, enabled = true) {
       }
 
       return {
-        groups: (groupsRes.data || []) as Group[],
+        groups,
         items: activeItems,
         trashItems: trashItems,
         automations: (automationsRes.data || []) as Automation[],
