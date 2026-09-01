@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { Board, CellValue, DependencyType, Item, Group, ItemLink, Profile } from "@/types";
 import GanttChart from "@/components/gantt/GanttChart";
+import { useT } from "@/components/LanguageProvider";
 import { candidateDateColumns } from "@/lib/gantt/config";
 import type { GanttBoardContext } from "@/lib/gantt/rows";
 
@@ -61,6 +62,7 @@ export default function GanttView({
   onSelectItem,
   profiles,
 }: GanttViewProps) {
+  const t = useT();
   const contexts = useMemo<GanttBoardContext[]>(
     () => (board ? [{ board, groups, items }] : []),
     [board, groups, items]
@@ -80,11 +82,10 @@ export default function GanttView({
       <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-slate-950 p-8">
         <div className="text-center bg-white dark:bg-slate-900 p-8 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-            Gantt Chart Needs Dates
+            {t("gantt.needsDatesTitle")}
           </h2>
           <p className="text-gray-500 dark:text-gray-400">
-            Add a <strong>Timeline</strong> or <strong>Date</strong> column to your board
-            to use the Gantt chart.
+            {t("gantt.needsDatesBody")}
           </p>
         </div>
       </div>
@@ -111,11 +112,10 @@ export default function GanttView({
       emptyMessage={
         <>
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-            No dated items yet
+            {t("gantt.noDatedTitle")}
           </h2>
           <p className="text-gray-500 dark:text-gray-400">
-            Fill in the <strong>Timeline</strong> or <strong>Date</strong> column on an
-            item and it will appear on the chart.
+            {t("gantt.noDatedBody")}
           </p>
         </>
       }

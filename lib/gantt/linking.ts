@@ -13,6 +13,7 @@
  */
 
 import type { DependencyType } from "@/types";
+import type { TranslateVars, TranslationKey } from "@/lib/i18n";
 import type { GanttDependency } from "./dependencies";
 
 /** Which end of a bar a drag started from or landed on. */
@@ -46,7 +47,8 @@ export type LinkRejection =
 export interface LinkValidation {
   ok: boolean;
   reason?: LinkRejection;
-  message?: string;
+  /** A key rather than a sentence: this module has no locale. */
+  messageKey?: TranslationKey;
 }
 
 const OK: LinkValidation = { ok: true };
@@ -65,32 +67,24 @@ export function validateNewLink(
   targetId: string
 ): LinkValidation {
   if (sourceId === targetId) {
-    return { ok: false, reason: "self", message: "A task cannot depend on itself." };
+    return { ok: false, reason: "self", messageKey: "gantt.linkSelf" };
   }
 
   for (const dependency of dependencies) {
     if (dependency.sourceId === sourceId && dependency.targetId === targetId) {
-      return {
-        ok: false,
-        reason: "duplicate",
-        message: "These tasks are already linked.",
-      };
+      return { ok: false, reason: "duplicate", messageKey: "gantt.linkDuplicate" };
     }
     if (dependency.sourceId === targetId && dependency.targetId === sourceId) {
       return {
         ok: false,
         reason: "reverse-duplicate",
-        message: "These tasks are already linked the other way round.",
+        messageKey: "gantt.linkReverse",
       };
     }
   }
 
   if (wouldCreateCycle(dependencies, sourceId, targetId)) {
-    return {
-      ok: false,
-      reason: "cycle",
-      message: "That would make these tasks depend on each other in a loop.",
-    };
+    return { ok: false, reason: "cycle", messageKey: "gantt.linkCycle" };
   }
 
   return OK;
@@ -139,15 +133,26 @@ export function clampLag(value: number): number {
   return Math.max(-365, Math.min(365, Math.trunc(value)));
 }
 
-export function describeDependency(type: DependencyType, lag: number): string {
-  const names: Record<DependencyType, string> = {
-    FS: "Finish → Start",
-    SS: "Start → Start",
-    FF: "Finish → Finish",
-    SF: "Start → Finish",
-  };
-  if (lag === 0) return names[type];
+const TYPE_KEYS: Record<DependencyType, TranslationKey> = {
+  FS: "gantt.dep.FS",
+  SS: "gantt.dep.SS",
+  FF: "gantt.dep.FF",
+  SF: "gantt.dep.SF",
+};
+
+export function dependencyTypeKey(type: DependencyType): TranslationKey {
+  return TYPE_KEYS[type];
+}
+
+/** Reads a link aloud: "Finish → Start, 3d later". */
+export function describeDependency(
+  t: (key: TranslationKey, vars?: TranslateVars) => string,
+  type: DependencyType,
+  lag: number
+): string {
+  const name = t(TYPE_KEYS[type]);
+  if (lag === 0) return name;
   return lag > 0
-    ? `${names[type]}, ${lag}d later`
-    : `${names[type]}, ${-lag}d overlap`;
+    ? t("gantt.depLater", { name, days: lag })
+    : t("gantt.depOverlap", { name, days: -lag });
 }

@@ -77,7 +77,7 @@ beforeEach(() => {
  * which is the point of the change, so any assertion about the picker has to
  * say it means the picker.
  */
-const picker = () => within(screen.getByRole("region", { name: "Included boards" }));
+const picker = () => within(screen.getByRole("region", { name: "Included Boards" }));
 
 describe("WorkspaceGanttView — which workspace each board comes from", () => {
   it("groups the boards under their workspace", () => {
@@ -101,7 +101,7 @@ describe("WorkspaceGanttView — which workspace each board comes from", () => {
 
   it("marks a private workspace so it is not mistaken for a shared one", () => {
     render(<WorkspaceGanttView allBoards={boards} workspaces={workspaces} />);
-    const panel = screen.getByRole("region", { name: "Included boards" });
+    const panel = screen.getByRole("region", { name: "Included Boards" });
     expect(panel.querySelectorAll("svg.lucide-lock").length).toBe(1);
   });
 });
@@ -263,7 +263,7 @@ describe("WorkspaceGanttView — cross-board dependencies", () => {
 
     expect(created).toHaveLength(0);
     const dialog = screen.getByRole("dialog", {
-      name: "Link work across two properties",
+      name: "Link work across two properties?",
     });
     expect(within(dialog).getByText("Studio A › Lancement")).toBeInTheDocument();
     expect(within(dialog).getByText("App C › Communication")).toBeInTheDocument();

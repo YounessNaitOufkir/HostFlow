@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useT } from "@/components/LanguageProvider";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Search, Filter, X, Plus, Trash2, ArrowUpDown, Eye, EyeOff } from "lucide-react";
 import { Column, STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/types";
@@ -24,6 +25,7 @@ interface FilterBarProps {
 }
 
 export default function FilterBar({ searchQuery, setSearchQuery, columns, filters, hiddenColumns = [], onToggleColumnVisibility, onAddTask, showColumnPicker = true }: FilterBarProps) {
+  const t = useT();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [newColumnId, setNewColumnId] = useState("");
   const [newOperator, setNewOperator] = useState("equals");
@@ -64,7 +66,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search items..."
+            placeholder={t("filter.searchItems")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8 pr-3 py-1.5 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 w-64 text-gray-700 dark:text-gray-200 placeholder:text-gray-400 transition-shadow"
@@ -93,15 +95,15 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
               }`}
             >
               <ArrowUpDown size={14} />
-              <span>Sort {activeSorts.length > 0 ? `/ ${activeSorts.length}` : ''}</span>
+              <span>{t("filter.sort")} {activeSorts.length > 0 ? `/ ${activeSorts.length}` : ""}</span>
             </button>
 
             {showSortMenu && (
               <div ref={sortMenuRef} style={sortMenuStyle} className="w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-[60] p-4">
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Sort by</h4>
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">{t("filter.sortBy")}</h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Column</label>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.column")}</label>
                     <select
                       value={newSortColumnId}
                       onChange={(e) => setNewSortColumnId(e.target.value)}
@@ -114,7 +116,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Order</label>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.order")}</label>
                     <select
                       value={newSortDirection}
                       onChange={(e) => setNewSortDirection(e.target.value as "asc" | "desc")}
@@ -154,7 +156,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
             }`}
           >
             <Filter size={14} />
-            <span>Filter</span>
+            <span>{t("filter.filter")}</span>
             {activeRules.length > 0 && (
               <span className="ml-1 bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {activeRules.length}
@@ -164,10 +166,10 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
 
           {showAdvanced && (
             <div ref={advancedMenuRef} style={advancedMenuStyle} className="w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-[60] p-4">
-              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Add Filter</h4>
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">{t("filter.addFilter")}</h4>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Column</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.column")}</label>
                   <select
                     value={newColumnId}
                     onChange={(e) => setNewColumnId(e.target.value)}
@@ -180,7 +182,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Condition</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.condition")}</label>
                   {(() => {
                     const selCol = columns.find((c) => c.id === newColumnId);
                     if (selCol?.type === "timeline") {
@@ -190,12 +192,12 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                           onChange={(e) => setNewOperator(e.target.value)}
                           className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
                         >
-                          <option value="equals">Is exactly</option>
-                          <option value="not_equals">Is not exactly</option>
-                          <option value="is_before">Is before</option>
-                          <option value="is_after">Is after</option>
-                          <option value="is_empty">Is empty</option>
-                          <option value="is_not_empty">Is not empty</option>
+                          <option value="equals">{t("filter.isExactly")}</option>
+                          <option value="not_equals">{t("filter.isNotExactly")}</option>
+                          <option value="is_before">{t("filter.isBefore")}</option>
+                          <option value="is_after">{t("filter.isAfter")}</option>
+                          <option value="is_empty">{t("filter.isEmpty")}</option>
+                          <option value="is_not_empty">{t("filter.isNotEmpty")}</option>
                         </select>
                       );
                     }
@@ -206,20 +208,20 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                         className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
                       >
                         <option value="equals">Is</option>
-                        <option value="not_equals">Is not</option>
-                        <option value="contains">Contains</option>
-                        <option value="not_contains">Does not contain</option>
-                        <option value="greater_than">Greater than</option>
-                        <option value="less_than">Less than</option>
-                        <option value="is_empty">Is empty</option>
-                        <option value="is_not_empty">Is not empty</option>
+                        <option value="not_equals">{t("filter.isNot")}</option>
+                        <option value="contains">{t("filter.contains")}</option>
+                        <option value="not_contains">{t("filter.doesNotContain")}</option>
+                        <option value="greater_than">{t("filter.greaterThan")}</option>
+                        <option value="less_than">{t("filter.lessThan")}</option>
+                        <option value="is_empty">{t("filter.isEmpty")}</option>
+                        <option value="is_not_empty">{t("filter.isNotEmpty")}</option>
                       </select>
                     );
                   })()}
                 </div>
                 {newOperator !== "is_empty" && newOperator !== "is_not_empty" && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Value</label>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.value")}</label>
                     {(() => {
                       const selCol = columns.find((c) => c.id === newColumnId);
                       if (selCol?.type === "status" || selCol?.type === "priority") {
@@ -252,7 +254,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                           type="text"
                           value={newValue}
                           onChange={(e) => setNewValue(e.target.value)}
-                          placeholder="Value..."
+                          placeholder={t("filter.valuePlaceholder")}
                           className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
                         />
                       );
@@ -292,15 +294,15 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                   ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" 
                   : "bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700/50 text-gray-700 dark:text-gray-200"
               }`}
-              title="Hide / Show Columns"
+              title={t("filter.columnsHint")}
             >
               {hiddenColumns.length > 0 ? <EyeOff size={14} /> : <Eye size={14} />}
-              <span>Columns {hiddenColumns.length > 0 ? `(${columns.length - hiddenColumns.length}/${columns.length})` : ''}</span>
+              <span>{t("filter.columns")} {hiddenColumns.length > 0 ? `(${columns.length - hiddenColumns.length}/${columns.length})` : ""}</span>
             </button>
 
             {showColumnsMenu && (
               <div ref={columnsMenuRef} style={columnsMenuStyle} className="w-64 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-[60] p-4 custom-scrollbar">
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Visible Columns</h4>
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">{t("filter.visibleColumns")}</h4>
                 <div className="space-y-1">
                   {columns.map(c => (
                     <label key={c.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded cursor-pointer transition-colors">
@@ -329,7 +331,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
               className="flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-[#181b34]"
             >
               <Plus size={14} />
-              <span>New Task</span>
+              <span>{t("filter.newTask")}</span>
             </button>
           )}
 

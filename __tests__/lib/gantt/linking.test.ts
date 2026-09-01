@@ -90,16 +90,18 @@ describe("validateNewLink", () => {
   it("refuses a link that would close a longer loop", () => {
     const result = validateNewLink([dep("A", "B"), dep("B", "C")], "C", "A");
     expect(result.reason).toBe("cycle");
-    expect(result.message).toContain("loop");
+    expect(result.messageKey).toBe("gantt.linkCycle");
   });
 
   it("explains itself, since the drag simply will not take otherwise", () => {
+    // A key rather than a sentence: this module has no locale, so the component
+    // that shows the refusal is the one that puts it into words.
     for (const result of [
       validateNewLink([], "A", "A"),
       validateNewLink([dep("A", "B")], "A", "B"),
       validateNewLink([dep("A", "B"), dep("B", "C")], "C", "A"),
     ]) {
-      expect(result.message).toBeTruthy();
+      expect(result.messageKey).toBeTruthy();
     }
   });
 });
@@ -121,9 +123,24 @@ describe("clampLag", () => {
 });
 
 describe("describeDependency", () => {
+  /** Stands in for the app's translator, echoing the English dictionary. */
+  const t = (key: string, vars?: Record<string, string | number>) => {
+    const words: Record<string, string> = {
+      "gantt.dep.FS": "Finish → Start",
+      "gantt.dep.SS": "Start → Start",
+      "gantt.dep.FF": "Finish → Finish",
+      "gantt.depLater": "{name}, {days}d later",
+      "gantt.depOverlap": "{name}, {days}d overlap",
+    };
+    return Object.entries(vars ?? {}).reduce<string>(
+      (out, [k, v]) => out.replace(`{${k}}`, String(v)),
+      words[key] ?? key
+    );
+  };
+
   it("names the link in words rather than a two-letter code", () => {
-    expect(describeDependency("FS", 0)).toBe("Finish → Start");
-    expect(describeDependency("SS", 3)).toBe("Start → Start, 3d later");
-    expect(describeDependency("FF", -2)).toBe("Finish → Finish, 2d overlap");
+    expect(describeDependency(t, "FS", 0)).toBe("Finish → Start");
+    expect(describeDependency(t, "SS", 3)).toBe("Start → Start, 3d later");
+    expect(describeDependency(t, "FF", -2)).toBe("Finish → Finish, 2d overlap");
   });
 });

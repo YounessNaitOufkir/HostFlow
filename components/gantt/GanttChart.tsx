@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { CellValue, DependencyType, Item, ItemLink, Profile } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { useLanguage } from "@/components/LanguageProvider";
+import type { TranslateVars, TranslationKey } from "@/lib/i18n";
 import {
   createGanttScale,
   ganttBounds,
@@ -152,6 +154,7 @@ export default function GanttChart({
   emptyMessage,
   toolbarExtras,
 }: GanttChartProps) {
+  const { t, dateLocale } = useLanguage();
   const editable = Boolean(onUpdateItem);
 
   const [zoom, setZoom] = useState<GanttZoom>("day");
@@ -257,8 +260,9 @@ export default function GanttChart({
       chartStart,
       chartEnd,
       pxPerDay: fitPxPerDay ?? undefined,
+      dateLocale,
     });
-  }, [starts, ends, zoom, fitPxPerDay]);
+  }, [starts, ends, zoom, fitPxPerDay, dateLocale]);
 
   // ---------------------------------------------------------------- schedule
 
@@ -700,7 +704,7 @@ export default function GanttChart({
       const check = validateNewLink(dependencies, drag.sourceId, targetId);
       if (!check.ok) {
         // Refusing silently would look like the drag simply missed.
-        toast.error(check.message ?? "Those tasks cannot be linked.");
+        toast.error(t(check.messageKey ?? "gantt.linkFailed"));
         return;
       }
 
@@ -719,7 +723,7 @@ export default function GanttChart({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [linkDrag, dependencies, onCreateLink, hitTestBar]);
+  }, [linkDrag, dependencies, onCreateLink, hitTestBar, t]);
 
   /** The point the rubber band is tied to - the edge of the bar it left. */
   const linkAnchor = useMemo(() => {
@@ -910,6 +914,7 @@ export default function GanttChart({
           chartStart: bounds.chartStart,
           chartEnd: bounds.chartEnd,
           pxPerDay: available / days,
+          dateLocale,
         });
       }
 
@@ -939,6 +944,7 @@ export default function GanttChart({
       violatedDependencyIds,
       showCriticalPath,
       paneContentWidth,
+      dateLocale,
     ]
   );
 
@@ -975,7 +981,7 @@ export default function GanttChart({
         if (kind === "print") {
           // Paper, so the same page-fitted rendering the PDF uses.
           if (!printGanttSvg(buildSvg({ widthPx: PDF_CONTENT_WIDTH_PX }), exportTitle)) {
-            toast.error("Your browser blocked the print window. Allow pop-ups and try again.");
+            toast.error(t("gantt.exportBlocked"));
           }
           return;
         }
@@ -996,10 +1002,10 @@ export default function GanttChart({
         );
       } catch (error) {
         console.error("Gantt export failed:", error);
-        toast.error("Could not export the chart.");
+        toast.error(t("gantt.exportFailed"));
       }
     },
-    [buildSvg, exportTitle, rows, dependencies, schedule.tasks]
+    [buildSvg, exportTitle, rows, dependencies, schedule.tasks, t]
   );
 
   // ---------------------------------------------------------------- render
@@ -1044,11 +1050,10 @@ export default function GanttChart({
             {emptyMessage ?? (
               <>
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                  Nothing to plot yet
+                  {t("gantt.nothingToPlotTitle")}
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400">
-                  Give some items a <strong>Timeline</strong> or <strong>Date</strong>{" "}
-                  and they will appear here.
+                  {t("gantt.nothingToPlotBody")}
                 </p>
               </>
             )}
@@ -1092,7 +1097,7 @@ export default function GanttChart({
                         }}
                       >
                         <span className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider truncate">
-                          {field.label}
+                          {t(field.labelKey)}
                         </span>
                       </div>
                     );
@@ -1113,8 +1118,8 @@ export default function GanttChart({
               onClick={() => setLeftCollapsed((v) => !v)}
               className="absolute z-50 flex items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] shadow-md hover:bg-gray-100 dark:hover:bg-[#252a3f] transition-all"
               style={{ right: -12, top: "50%", transform: "translateY(-50%)" }}
-              title={leftCollapsed ? "Show the task list" : "Hide the task list"}
-              aria-label={leftCollapsed ? "Show the task list" : "Hide the task list"}
+              title={t(leftCollapsed ? "gantt.showTaskList" : "gantt.hideTaskList")}
+              aria-label={t(leftCollapsed ? "gantt.showTaskList" : "gantt.hideTaskList")}
             >
               <ChevronDown
                 size={12}
@@ -1150,6 +1155,8 @@ export default function GanttChart({
                     fields={fields}
                     nameWidth={nameWidth}
                     context={{
+                      t,
+                      dateLocale,
                       schedule:
                         row.kind === "item"
                           ? schedule.tasks.get(row.item.id)
@@ -1221,6 +1228,8 @@ export default function GanttChart({
                     capturePointer(e);
                     setResize({ id, edge, startX: e.clientX, dx: 0 });
                   }}
+                  t={t}
+                  dateLocale={dateLocale}
                   taskSchedule={
                     row.kind === "item" ? schedule.tasks.get(row.item.id) : undefined
                   }
@@ -1294,18 +1303,16 @@ export default function GanttChart({
           dependency={openLink.dependency}
           at={openLink.at}
           sourceName={
-            model.byItemId.get(openLink.dependency.sourceId)?.label ?? "Unknown task"
+            model.byItemId.get(openLink.dependency.sourceId)?.label ??
+            t("master.unknownTask")
           }
           targetName={
-            model.byItemId.get(openLink.dependency.targetId)?.label ?? "Unknown task"
+            model.byItemId.get(openLink.dependency.targetId)?.label ??
+            t("master.unknownTask")
           }
           // A link recorded only on an item's dependency column has no row to
           // carry a type or a lag, so it can be removed but not reshaped.
-          readOnlyReason={
-            openLink.dependency.id.startsWith("col-")
-              ? "This link was made in the item's Dependency column, which cannot carry a type or a lag."
-              : undefined
-          }
+          readOnly={openLink.dependency.id.startsWith("col-")}
           onChange={(changes) => onUpdateLink?.(openLink.dependency.id, changes)}
           onDelete={() => {
             onDeleteLink?.(openLink.dependency.id);
@@ -1492,10 +1499,10 @@ function Chevron({ collapsed, style }: { collapsed: boolean; style?: React.CSSPr
 }
 
 /** "Mar 3 – 12" inside a month, "Mar 3 – Apr 2" across one, a bare date for a single day. */
-function formatSpan(start: Date, end: Date): string {
-  if (daysBetween(start, end) === 0) return format(start, "MMM d");
+function formatSpan(start: Date, end: Date, locale?: GanttFieldContext["dateLocale"]): string {
+  if (daysBetween(start, end) === 0) return format(start, "MMM d", { locale });
   const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
-  return `${format(start, "MMM d")} – ${format(end, sameMonth ? "d" : "MMM d")}`;
+  return `${format(start, "MMM d", { locale })} – ${format(end, sameMonth ? "d" : "MMM d", { locale })}`;
 }
 
 // ------------------------------------------------------------------ timeline
@@ -1511,6 +1518,8 @@ interface TimelineRowProps {
   onStartResize: (e: React.PointerEvent, id: string, edge: "left" | "right") => void;
   taskSchedule?: TaskSchedule;
   highlightCritical: boolean;
+  t: (key: TranslationKey, vars?: TranslateVars) => string;
+  dateLocale: GanttFieldContext["dateLocale"];
   showBaseline: boolean;
   onBarKeyDown: (e: React.KeyboardEvent, row: GanttItemRow) => void;
   linkable: boolean;
@@ -1529,6 +1538,8 @@ function TimelineRow({
   onStartResize,
   taskSchedule,
   highlightCritical,
+  t,
+  dateLocale,
   showBaseline,
   onBarKeyDown,
   linkable,
@@ -1578,11 +1589,11 @@ function TimelineRow({
   // Float is the one number that says how much room a task has, and it is only
   // knowable from the whole network - so it is worth saying out loud.
   const floatLabel = taskSchedule?.inCycle
-    ? "in a dependency loop"
+    ? t("gantt.inLoopShort")
     : taskSchedule && taskSchedule.totalFloat > 0
-      ? `${taskSchedule.totalFloat}d of slack`
+      ? t("gantt.slack", { days: taskSchedule.totalFloat })
       : taskSchedule
-        ? "no slack — on the critical path"
+        ? t("gantt.noSlack")
         : "";
 
   return (
@@ -1608,6 +1619,8 @@ function TimelineRow({
           date={row.start}
           editable={editable}
           floatLabel={floatLabel}
+          t={t}
+          dateLocale={dateLocale}
           onPointerDown={(e) => onStartDrag(e, row.item.id)}
           onKeyDown={(e) => onBarKeyDown(e, row)}
         />
@@ -1616,11 +1629,11 @@ function TimelineRow({
           role="button"
           tabIndex={0}
           onKeyDown={(e) => onBarKeyDown(e, row)}
-          aria-label={`${row.label}, ${formatSpan(row.start, row.end)}${
+          aria-label={`${row.label}, ${formatSpan(row.start, row.end, dateLocale)}${
             floatLabel ? `, ${floatLabel}` : ""
           }`}
           title={`${row.label}
-${formatSpan(row.start, row.end)} · ${
+${formatSpan(row.start, row.end, dateLocale)} · ${
             daysBetween(row.start, row.end) + 1
           }d${floatLabel ? `
 ${floatLabel}` : ""}${
@@ -1679,6 +1692,7 @@ ${row.assigneeNames}` : ""
             x={barX + activeDx}
             centerY={centerY}
             edge="start"
+            t={t}
             active={linkHoverEdge === "start"}
             onPointerDown={(e) => onStartLink(e, row, "start")}
           />
@@ -1686,6 +1700,7 @@ ${row.assigneeNames}` : ""
             x={barX + activeDx + Math.max(scale.pxPerDay, barWidth)}
             centerY={centerY}
             edge="finish"
+            t={t}
             active={linkHoverEdge === "finish"}
             onPointerDown={(e) => onStartLink(e, row, "finish")}
           />
@@ -1773,18 +1788,20 @@ function LinkHandle({
   centerY,
   edge,
   active,
+  t,
   onPointerDown,
 }: {
   x: number;
   centerY: number;
   edge: BarEdge;
   active: boolean;
+  t: (key: TranslationKey, vars?: TranslateVars) => string;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
   return (
     <div
       onPointerDown={onPointerDown}
-      title={edge === "finish" ? "Drag to link from this finish" : "Drag to link from this start"}
+      title={t(edge === "finish" ? "gantt.linkFromFinish" : "gantt.linkFromStart")}
       className={`absolute z-40 rounded-full border-2 border-white dark:border-slate-900 cursor-crosshair transition-opacity ${
         active
           ? "opacity-100 bg-blue-500 scale-125"
@@ -1881,6 +1898,8 @@ function Milestone({
   date,
   editable,
   floatLabel,
+  t,
+  dateLocale,
   onPointerDown,
   onKeyDown,
 }: {
@@ -1892,6 +1911,8 @@ function Milestone({
   editable: boolean;
   /** Said out loud here too: a milestone has float like any other task. */
   floatLabel: string;
+  t: (key: TranslationKey, vars?: TranslateVars) => string;
+  dateLocale: GanttFieldContext["dateLocale"];
   onPointerDown: (e: React.PointerEvent) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
@@ -1901,10 +1922,10 @@ function Milestone({
         role="button"
         tabIndex={0}
         onKeyDown={onKeyDown}
-        aria-label={`Milestone: ${label}, ${format(date, "MMM d yyyy")}${
+        aria-label={`${t("gantt.milestone", { name: label })}, ${format(date, "MMM d yyyy", { locale: dateLocale })}${
           floatLabel ? `, ${floatLabel}` : ""
         }`}
-        title={`${label} — ${format(date, "MMM d, yyyy")}${
+        title={`${label} — ${format(date, "MMM d, yyyy", { locale: dateLocale })}${
           floatLabel ? `
 ${floatLabel}` : ""
         }`}

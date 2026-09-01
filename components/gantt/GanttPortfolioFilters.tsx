@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { Check, Filter, X } from "lucide-react";
 import type { Profile } from "@/types";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
+import { useT } from "@/components/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n";
 import {
   countActiveClauses,
   isPortfolioFilterActive,
@@ -25,11 +27,11 @@ interface GanttPortfolioFiltersProps {
   showing: { shown: number; total: number };
 }
 
-const PRESETS: { key: PortfolioWindowPreset; label: string }[] = [
-  { key: "all", label: "Any time" },
-  { key: "30", label: "Next 30 days" },
-  { key: "90", label: "Next 90 days" },
-  { key: "quarter", label: "This quarter" },
+const PRESETS: { key: PortfolioWindowPreset; labelKey: TranslationKey }[] = [
+  { key: "all", labelKey: "master.windowAll" },
+  { key: "30", labelKey: "master.window30" },
+  { key: "90", labelKey: "master.window90" },
+  { key: "quarter", labelKey: "master.windowQuarter" },
 ];
 
 /**
@@ -47,6 +49,7 @@ export function GanttPortfolioFilters({
   statuses,
   showing,
 }: GanttPortfolioFiltersProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(open, {
     align: "left",
@@ -57,7 +60,7 @@ export function GanttPortfolioFilters({
   const clauses = countActiveClauses(filter);
 
   const nameOf = (id: string) =>
-    profiles.find((p) => p.id === id)?.full_name ?? "Unknown person";
+    profiles.find((p) => p.id === id)?.full_name ?? t("master.unknownPerson");
 
   const toggle = (key: "assigneeIds" | "statuses", value: string) => {
     const current = filter[key];
@@ -82,10 +85,10 @@ export function GanttPortfolioFilters({
             ? "bg-blue-50 dark:bg-blue-900/25 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
             : "bg-white dark:bg-[#1e2333] border-gray-200 dark:border-[#2d3555] hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-200"
         }`}
-        title="Filter the portfolio by owner, status or dates"
+        title={t("master.filtersHint")}
       >
         <Filter size={14} className={active ? "" : "text-gray-500 dark:text-gray-400"} />
-        Filters
+        {t("master.filters")}
         {clauses > 0 && (
           <span className="ml-0.5 px-1.5 rounded-full bg-blue-500 text-white text-[10px] font-bold tabular-nums">
             {clauses}
@@ -95,7 +98,7 @@ export function GanttPortfolioFilters({
 
       {active && (
         <span className="ml-2 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
-          {showing.shown} of {showing.total} tasks
+          {t("master.showingTasks", { shown: showing.shown, total: showing.total })}
         </span>
       )}
 
@@ -107,7 +110,7 @@ export function GanttPortfolioFilters({
         >
           <div className="flex items-center justify-between px-1 pb-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-              Filters
+              {t("master.filters")}
             </span>
             {active && (
               <button
@@ -116,14 +119,14 @@ export function GanttPortfolioFilters({
                 className="flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-red-500 dark:text-gray-400"
               >
                 <X size={11} />
-                Clear all
+                {t("master.clearAll")}
               </button>
             )}
           </div>
 
-          <Section title="Owner">
+          <Section title={t("master.filterOwner")}>
             {assigneeIds.length === 0 ? (
-              <Empty>No one is assigned on these boards</Empty>
+              <Empty>{t("master.noOwners")}</Empty>
             ) : (
               assigneeIds.map((id) => (
                 <Option
@@ -136,9 +139,9 @@ export function GanttPortfolioFilters({
             )}
           </Section>
 
-          <Section title="Status">
+          <Section title={t("master.filterStatus")}>
             {statuses.length === 0 ? (
-              <Empty>These boards have no status column</Empty>
+              <Empty>{t("master.noStatuses")}</Empty>
             ) : (
               statuses.map((status) => (
                 <Option
@@ -151,11 +154,11 @@ export function GanttPortfolioFilters({
             )}
           </Section>
 
-          <Section title="Dates">
-            {PRESETS.map(({ key, label }) => (
+          <Section title={t("master.filterDates")}>
+            {PRESETS.map(({ key, labelKey }) => (
               <Option
                 key={key}
-                label={label}
+                label={t(labelKey)}
                 checked={key === "all" ? activePreset === "all" : isPreset(filter, key)}
                 onClick={() => onChange({ ...filter, ...windowForPreset(key, new Date()) })}
               />
@@ -164,15 +167,15 @@ export function GanttPortfolioFilters({
             <div className="flex items-center gap-1.5 px-2 pt-1.5">
               <input
                 type="date"
-                aria-label="From"
+                aria-label={t("master.windowFrom")}
                 value={filter.from ?? ""}
                 onChange={(e) => onChange({ ...filter, from: e.target.value || undefined })}
                 className="w-full px-1.5 py-1 text-[11px] rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
               />
-              <span className="text-gray-400 text-[11px]">to</span>
+              <span className="text-gray-400 text-[11px]">{t("master.windowTo").toLowerCase()}</span>
               <input
                 type="date"
-                aria-label="To"
+                aria-label={t("master.windowTo")}
                 value={filter.to ?? ""}
                 onChange={(e) => onChange({ ...filter, to: e.target.value || undefined })}
                 className="w-full px-1.5 py-1 text-[11px] rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
@@ -181,7 +184,7 @@ export function GanttPortfolioFilters({
             {/* Overlap, not containment: a task running through the window is in
                 it, even though neither of its own dates falls inside. */}
             <p className="px-2 pt-1.5 text-[10px] text-gray-400 dark:text-gray-500">
-              Shows anything running during the window.
+              {t("master.windowHint")}
             </p>
           </Section>
         </div>

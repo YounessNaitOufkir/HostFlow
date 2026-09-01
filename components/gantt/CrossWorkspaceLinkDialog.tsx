@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { AlertTriangle, ArrowDown } from "lucide-react";
 import type { DependencyType } from "@/types";
 import { describeDependency } from "@/lib/gantt/linking";
+import { useT } from "@/components/LanguageProvider";
 
 export interface CrossWorkspaceLinkRequest {
   type: DependencyType;
@@ -34,6 +35,8 @@ export function CrossWorkspaceLinkDialog({
   onConfirm,
   onCancel,
 }: CrossWorkspaceLinkDialogProps) {
+  const t = useT();
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCancel();
@@ -49,7 +52,7 @@ export function CrossWorkspaceLinkDialog({
       className="fixed inset-0 z-[220] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Link work across two properties"
+      aria-label={t("gantt.crossTitle")}
     >
       <div
         className="absolute inset-0 bg-slate-900/20 dark:bg-slate-950/60 backdrop-blur-md"
@@ -66,10 +69,10 @@ export function CrossWorkspaceLinkDialog({
             </span>
             <div className="min-w-0">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight">
-                Link work across two properties?
+                {t("gantt.crossTitle")}
               </h3>
               <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-0.5">
-                {describeDependency(request.type, 0)}
+                {describeDependency(t, request.type, 0)}
               </p>
             </div>
           </div>
@@ -79,19 +82,17 @@ export function CrossWorkspaceLinkDialog({
             <div className="flex items-center gap-2 px-4 py-1.5 bg-gray-50 dark:bg-white/5">
               <ArrowDown size={13} className="text-gray-400" />
               <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500">
-                must wait for the above
+                {t("gantt.crossWaits")}
               </span>
             </div>
             <Endpoint {...target} />
           </div>
 
           <p className="text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed mb-1">
-            These are two different properties. Once linked, moving the first
-            task will move the second one too.
+            {t("gantt.crossBody")}
           </p>
           <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">
-            Anyone who can see only one of the two properties will see their
-            dates change without being able to see why.
+            {t("gantt.crossCaveat")}
           </p>
         </div>
 
@@ -101,7 +102,7 @@ export function CrossWorkspaceLinkDialog({
             onClick={onCancel}
             className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="button"
@@ -109,7 +110,7 @@ export function CrossWorkspaceLinkDialog({
             autoFocus
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 transition-colors shadow-sm"
           >
-            Link them anyway
+            {t("gantt.crossConfirm")}
           </button>
         </div>
       </div>

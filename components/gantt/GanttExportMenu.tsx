@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { Download, FileImage, FileSpreadsheet, FileText, Printer, Loader2 } from "lucide-react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
+import { useT } from "@/components/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n";
 
 export type GanttExportKind = "png" | "pdf" | "print" | "csv" | "xlsx";
 
@@ -13,15 +15,15 @@ interface GanttExportMenuProps {
 
 const OPTIONS: {
   kind: GanttExportKind;
-  label: string;
-  hint: string;
+  labelKey: TranslationKey;
+  hintKey: TranslationKey;
   Icon: typeof FileImage;
 }[] = [
-  { kind: "pdf", label: "PDF", hint: "Paginated, task list on every page", Icon: FileText },
-  { kind: "png", label: "PNG image", hint: "The whole chart, at 2× scale", Icon: FileImage },
-  { kind: "print", label: "Print…", hint: "Opens the full chart ready to print", Icon: Printer },
-  { kind: "xlsx", label: "Excel", hint: "Dates, duration, float and predecessors", Icon: FileSpreadsheet },
-  { kind: "csv", label: "CSV", hint: "The same table as plain text", Icon: FileSpreadsheet },
+  { kind: "pdf", labelKey: "gantt.export.pdf", hintKey: "gantt.export.pdfHint", Icon: FileText },
+  { kind: "png", labelKey: "gantt.export.png", hintKey: "gantt.export.pngHint", Icon: FileImage },
+  { kind: "print", labelKey: "gantt.export.print", hintKey: "gantt.export.printHint", Icon: Printer },
+  { kind: "xlsx", labelKey: "gantt.export.xlsx", hintKey: "gantt.export.xlsxHint", Icon: FileSpreadsheet },
+  { kind: "csv", labelKey: "gantt.export.csv", hintKey: "gantt.export.csvHint", Icon: FileSpreadsheet },
 ];
 
 /**
@@ -29,6 +31,7 @@ const OPTIONS: {
  * contractor, a lender. Until now there was no way to get one out of here at all.
  */
 export function GanttExportMenu({ onExport, disabled }: GanttExportMenuProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<GanttExportKind | null>(null);
   const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(open, {
@@ -56,14 +59,14 @@ export function GanttExportMenu({ onExport, disabled }: GanttExportMenuProps) {
         disabled={disabled}
         aria-expanded={open}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors text-sm font-medium text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
-        title="Export or print this chart"
+        title={t("gantt.exportHint")}
       >
         {busy ? (
           <Loader2 size={14} className="animate-spin text-gray-500 dark:text-gray-400" />
         ) : (
           <Download size={14} className="text-gray-500 dark:text-gray-400" />
         )}
-        Export
+        {t("gantt.export")}
       </button>
 
       {open && (
@@ -72,7 +75,7 @@ export function GanttExportMenu({ onExport, disabled }: GanttExportMenuProps) {
           style={menuStyle}
           className="w-64 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-lg z-[60] overflow-hidden p-1.5"
         >
-          {OPTIONS.map(({ kind, label, hint, Icon }) => (
+          {OPTIONS.map(({ kind, labelKey, hintKey, Icon }) => (
             <button
               key={kind}
               type="button"
@@ -87,9 +90,9 @@ export function GanttExportMenu({ onExport, disabled }: GanttExportMenuProps) {
               )}
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  {label}
+                  {t(labelKey)}
                 </span>
-                <span className="block text-[11px] text-gray-400 dark:text-gray-500">{hint}</span>
+                <span className="block text-[11px] text-gray-400 dark:text-gray-500">{t(hintKey)}</span>
               </span>
             </button>
           ))}

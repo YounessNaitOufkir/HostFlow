@@ -26,7 +26,9 @@ import {
   addYears,
   format,
 } from "date-fns";
+import type { Locale as DateFnsLocale } from "date-fns";
 import type { GanttZoom } from "@/types";
+import type { TranslationKey } from "@/lib/i18n";
 import { addDaysOnly, daysBetween, today, isSameDateOnly } from "./dates";
 
 export type { GanttZoom };
@@ -45,11 +47,12 @@ export const PX_PER_DAY: Record<GanttZoom, number> = {
   quarter: 1.8,
 };
 
-export const ZOOM_LABELS: Record<GanttZoom, string> = {
-  day: "Day",
-  week: "Week",
-  month: "Month",
-  quarter: "Quarter",
+/** Keys rather than words: this module has no locale. */
+export const ZOOM_LABEL_KEYS: Record<GanttZoom, TranslationKey> = {
+  day: "gantt.zoom.day",
+  week: "gantt.zoom.week",
+  month: "gantt.zoom.month",
+  quarter: "gantt.zoom.quarter",
 };
 
 /** A cell in one of the two header bands. */
@@ -101,6 +104,8 @@ export interface CreateScaleOptions {
   weekStartsOn?: 0 | 1;
   /** Override for fit-to-window, which solves for the ratio that makes the chart fit. */
   pxPerDay?: number;
+  /** Month and weekday names in the reader's language, not always English. */
+  dateLocale?: DateFnsLocale;
 }
 
 export function createGanttScale({
@@ -109,7 +114,10 @@ export function createGanttScale({
   chartEnd,
   weekStartsOn = 1,
   pxPerDay: pxPerDayOverride,
+  dateLocale,
 }: CreateScaleOptions): GanttScale {
+  const label = (date: Date, pattern: string) =>
+    format(date, pattern, { locale: dateLocale });
   const pxPerDay = pxPerDayOverride ?? PX_PER_DAY[zoom];
   const totalDays = Math.max(1, daysBetween(chartStart, chartEnd) + 1);
   const width = totalDays * pxPerDay;
@@ -179,8 +187,8 @@ export function createGanttScale({
         return band(
           (d) => d,
           (d) => addDaysOnly(d, 1),
-          (d) => format(d, "d"),
-          (d) => format(d, "EEE"),
+          (d) => label(d, "d"),
+          (d) => label(d, "EEE"),
           "d",
           window,
           true
@@ -189,7 +197,7 @@ export function createGanttScale({
         return band(
           (d) => startOfWeek(d, { weekStartsOn }),
           (d) => addWeeks(startOfWeek(d, { weekStartsOn }), 1),
-          (d) => format(d, "MMM d"),
+          (d) => label(d, "MMM d"),
           null,
           "w",
           window,
@@ -199,7 +207,7 @@ export function createGanttScale({
         return band(
           startOfMonth,
           (d) => addMonths(startOfMonth(d), 1),
-          (d) => format(d, "MMM"),
+          (d) => label(d, "MMM"),
           null,
           "m",
           window,
@@ -223,7 +231,7 @@ export function createGanttScale({
       return band(
         startOfMonth,
         (d) => addMonths(startOfMonth(d), 1),
-        (d) => format(d, "MMMM yyyy"),
+        (d) => label(d, "MMMM yyyy"),
         null,
         "M",
         window,
@@ -233,7 +241,7 @@ export function createGanttScale({
     return band(
       startOfYear,
       (d) => addYears(startOfYear(d), 1),
-      (d) => format(d, "yyyy"),
+      (d) => label(d, "yyyy"),
       null,
       "Y",
       window,

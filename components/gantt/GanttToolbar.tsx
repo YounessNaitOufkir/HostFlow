@@ -16,7 +16,8 @@ import {
   Lock,
 } from "lucide-react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import { GANTT_ZOOMS, ZOOM_LABELS, type GanttZoom } from "@/lib/gantt/scale";
+import { useT } from "@/components/LanguageProvider";
+import { GANTT_ZOOMS, ZOOM_LABEL_KEYS, type GanttZoom } from "@/lib/gantt/scale";
 import { GanttExportMenu, type GanttExportKind } from "./GanttExportMenu";
 import {
   GANTT_FIELDS,
@@ -76,6 +77,7 @@ export function GanttToolbar({
   readOnlyReason,
   children,
 }: GanttToolbarProps) {
+  const t = useT();
   const [showColorMenu, setShowColorMenu] = React.useState(false);
   const [showFieldMenu, setShowFieldMenu] = React.useState(false);
   const [showBaselineMenu, setShowBaselineMenu] = React.useState(false);
@@ -125,14 +127,12 @@ export function GanttToolbar({
           onClick={onGoToViolation}
           disabled={!onGoToViolation}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs font-medium enabled:hover:bg-red-100 dark:enabled:hover:bg-red-900/35 transition-colors disabled:cursor-default"
-          title={
-            onGoToViolation
-              ? "These tasks start before the task they depend on has finished. Click to go to the next one."
-              : "These tasks start before the task they depend on has finished."
-          }
+          title={t(onGoToViolation ? "gantt.brokenLinksGoHint" : "gantt.brokenLinksHint")}
         >
           <AlertTriangle size={12} />
-          {violationCount} broken {violationCount === 1 ? "link" : "links"}
+          {violationCount === 1
+            ? t("gantt.brokenLink", { count: violationCount })
+            : t("gantt.brokenLinks", { count: violationCount })}
           {onGoToViolation && <ChevronRight size={12} className="opacity-70" />}
         </button>
       )}
@@ -140,10 +140,10 @@ export function GanttToolbar({
       {cycleCount > 0 && (
         <span
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs font-medium"
-          title="These tasks depend on each other in a loop, so the plan has no order and no critical path."
+          title={t("gantt.inLoopHint")}
         >
           <AlertTriangle size={12} />
-          {cycleCount} in a dependency loop
+          {t("gantt.inLoop", { count: cycleCount })}
         </span>
       )}
 
@@ -153,7 +153,7 @@ export function GanttToolbar({
           title={readOnlyReason}
         >
           <Lock size={12} />
-          Read-only
+          {t("gantt.readOnly")}
         </span>
       )}
 
@@ -162,10 +162,10 @@ export function GanttToolbar({
           type="button"
           onClick={onScrollToToday}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
-          title="Scroll to today"
+          title={t("gantt.todayHint")}
         >
           <CalendarClock size={14} className="text-gray-500 dark:text-gray-400" />
-          Today
+          {t("gantt.today")}
         </button>
 
         <button
@@ -177,10 +177,10 @@ export function GanttToolbar({
               ? "bg-red-50 dark:bg-red-900/25 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
               : "bg-white dark:bg-[#1e2333] border-gray-200 dark:border-[#2d3555] hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-200"
           }`}
-          title="Highlight the chain of tasks with no slack — the one that sets the finish date"
+          title={t("gantt.criticalPathHint")}
         >
           <Route size={14} className={showCriticalPath ? "" : "text-gray-500 dark:text-gray-400"} />
-          Critical path
+          {t("gantt.criticalPath")}
           {showCriticalPath && criticalCount > 0 && (
             <span className="tabular-nums opacity-70">{criticalCount}</span>
           )}
@@ -204,13 +204,13 @@ export function GanttToolbar({
                   ? "bg-slate-100 dark:bg-slate-700/40 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200"
                   : "bg-white dark:bg-[#1e2333] border-gray-200 dark:border-[#2d3555] hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-200"
               }`}
-              title="The plan as it was agreed, and how far today's dates have drifted from it"
+              title={t("gantt.baselineHint")}
             >
               <Flag
                 size={14}
                 className={showBaseline && baselineCount > 0 ? "" : "text-gray-500 dark:text-gray-400"}
               />
-              Baseline
+              {t("gantt.baseline")}
             </button>
 
             {showBaselineMenu && (
@@ -239,12 +239,14 @@ export function GanttToolbar({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                      Show the agreed plan
+                      {t("gantt.baselineShow")}
                     </span>
                     <span className="block text-[11px] text-gray-400 dark:text-gray-500">
-                      {baselineCount > 0
-                        ? `${baselineCount} task${baselineCount === 1 ? "" : "s"} have one`
-                        : "Nothing captured yet"}
+                      {baselineCount === 0
+                        ? t("gantt.baselineNone")
+                        : baselineCount === 1
+                          ? t("gantt.baselineHasOne")
+                          : t("gantt.baselineHas", { count: baselineCount })}
                     </span>
                   </span>
                 </button>
@@ -261,12 +263,10 @@ export function GanttToolbar({
                     <Flag size={14} className="mt-0.5 shrink-0 text-gray-400 dark:text-gray-500" />
                     <span className="min-w-0">
                       <span className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                        {baselineCount > 0 ? "Update baseline" : "Set baseline"}
+                        {t(baselineCount > 0 ? "gantt.baselineUpdate" : "gantt.baselineSet")}
                       </span>
                       <span className="block text-[11px] text-gray-400 dark:text-gray-500">
-                        {baselineCount > 0
-                          ? "Replaces it with today's dates"
-                          : "Freeze today's dates as the agreed plan"}
+                        {t(baselineCount > 0 ? "gantt.baselineUpdateHint" : "gantt.baselineSetHint")}
                       </span>
                     </span>
                   </button>
@@ -280,10 +280,10 @@ export function GanttToolbar({
           type="button"
           onClick={onFitToWindow}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
-          title="Fit the whole plan in the window"
+          title={t("gantt.fitHint")}
         >
           <Maximize2 size={14} className="text-gray-500 dark:text-gray-400" />
-          Fit
+          {t("gantt.fit")}
         </button>
 
         {/* Zoom: a stepper for quick moves, with every scale named so the
@@ -291,15 +291,15 @@ export function GanttToolbar({
         <div
           className="flex items-center bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-sm overflow-hidden"
           role="group"
-          aria-label="Timeline scale"
+          aria-label={t("gantt.timelineScale")}
         >
           <button
             type="button"
             onClick={() => stepZoom(-1)}
             disabled={zoomIndex === 0}
             className="px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Zoom in"
-            aria-label="Zoom in"
+            title={t("gantt.zoomIn")}
+            aria-label={t("gantt.zoomIn")}
           >
             <ZoomIn size={14} className="text-gray-500 dark:text-gray-400" />
           </button>
@@ -315,7 +315,7 @@ export function GanttToolbar({
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#252a3f]"
               }`}
             >
-              {ZOOM_LABELS[option]}
+              {t(ZOOM_LABEL_KEYS[option])}
             </button>
           ))}
           <button
@@ -323,8 +323,8 @@ export function GanttToolbar({
             onClick={() => stepZoom(1)}
             disabled={zoomIndex === GANTT_ZOOMS.length - 1}
             className="px-2 py-1.5 border-l border-gray-200 dark:border-[#2d3555] hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Zoom out"
-            aria-label="Zoom out"
+            title={t("gantt.zoomOut")}
+            aria-label={t("gantt.zoomOut")}
           >
             <ZoomOut size={14} className="text-gray-500 dark:text-gray-400" />
           </button>
@@ -338,10 +338,10 @@ export function GanttToolbar({
             onClick={() => setShowFieldMenu((v) => !v)}
             aria-expanded={showFieldMenu}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
-            title="Choose the fields shown in the task table beside the chart"
+            title={t("gantt.fieldsHint")}
           >
             <Columns3 size={14} className="text-gray-500 dark:text-gray-400" />
-            Fields
+            {t("gantt.fields")}
           </button>
           {showFieldMenu && (
             <div
@@ -376,7 +376,7 @@ export function GanttToolbar({
                     >
                       {active && <Check size={11} strokeWidth={3} />}
                     </span>
-                    {GANTT_FIELDS[key].label}
+                    {t(GANTT_FIELDS[key].labelKey)}
                   </button>
                 );
               })}
@@ -393,7 +393,7 @@ export function GanttToolbar({
             className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
           >
             <Palette size={14} className="text-gray-500 dark:text-gray-400" />
-            Color by
+            {t("gantt.colorBy")}
           </button>
           {showColorMenu && (
             <div
@@ -410,13 +410,13 @@ export function GanttToolbar({
                       onColorByChange(option);
                       setShowColorMenu(false);
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors capitalize ${
+                    className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
                       colorBy === option
                         ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold"
                         : "hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-300"
                     } ${option === "status" ? "mt-1" : ""}`}
                   >
-                    {option}
+                    {t(option === "group" ? "gantt.colorBy.group" : "gantt.colorBy.status")}
                   </button>
                 ))}
               </div>
