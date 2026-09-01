@@ -211,14 +211,14 @@ describe("WorkspaceGanttView — cross-board dependencies", () => {
     const from = barOf(fromItem);
     const fromRow = from.parentElement as HTMLElement;
     const fromHandles = fromRow.querySelectorAll('[title^="Drag to link"]');
-    fireEvent.mouseDown(fromHandles[1], { clientX: 0, clientY: 0 });
+    fireEvent.pointerDown(fromHandles[1], { clientX: 0, clientY: 0 });
 
     const to = barOf(toItem);
     const toRow = to.parentElement as HTMLElement;
     const x = parseFloat(to.style.left) + parseFloat(to.style.width) * 0.25;
     const y = parseFloat(toRow.style.top) + parseFloat(toRow.style.height) / 2;
-    fireEvent.mouseMove(window, { clientX: x, clientY: y });
-    fireEvent.mouseUp(window);
+    fireEvent.pointerMove(window, { clientX: x, clientY: y });
+    fireEvent.pointerUp(window);
   }
 
   it("shows link handles once links can be made", () => {

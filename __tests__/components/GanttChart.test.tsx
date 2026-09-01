@@ -235,9 +235,9 @@ describe("GanttChart linking", () => {
       .parentElement as HTMLElement;
     const y = parseFloat(row.style.top) + parseFloat(row.style.height) / 2;
 
-    fireEvent.mouseDown(handles(container)[handleIndex], { clientX: 0, clientY: 0 });
-    fireEvent.mouseMove(window, { clientX: x, clientY: y });
-    fireEvent.mouseUp(window);
+    fireEvent.pointerDown(handles(container)[handleIndex], { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(window, { clientX: x, clientY: y });
+    fireEvent.pointerUp(window);
   }
 
   /** Handle order is DOM order: each task's start then its finish. */
@@ -302,9 +302,9 @@ describe("GanttChart linking", () => {
     const created: unknown[] = [];
     const { container } = renderChart({ itemLinks: [], onCreateLink: (l) => created.push(l) });
 
-    fireEvent.mouseDown(handles(container)[PERMIS_FINISH], { clientX: 0, clientY: 0 });
-    fireEvent.mouseMove(window, { clientX: 4000, clientY: 4000 });
-    fireEvent.mouseUp(window);
+    fireEvent.pointerDown(handles(container)[PERMIS_FINISH], { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(window, { clientX: 4000, clientY: 4000 });
+    fireEvent.pointerUp(window);
 
     expect(created).toHaveLength(0);
   });
@@ -598,9 +598,9 @@ describe("GanttChart editing", () => {
     });
 
     // Five days at 50px per day.
-    fireEvent.mouseDown(bar("Permis"), { clientX: 0 });
-    fireEvent.mouseMove(window, { clientX: 250 });
-    fireEvent.mouseUp(window);
+    fireEvent.pointerDown(bar("Permis"), { clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 250 });
+    fireEvent.pointerUp(window);
 
     expect(changes).toHaveLength(1);
     const byId = new Map(changes[0].map((c) => [c.itemId, c.value]));
@@ -617,9 +617,9 @@ describe("GanttChart editing", () => {
     });
 
     // One day later: Permis finishes Mar 7, Devis still starts Mar 9.
-    fireEvent.mouseDown(bar("Permis"), { clientX: 0 });
-    fireEvent.mouseMove(window, { clientX: 50 });
-    fireEvent.mouseUp(window);
+    fireEvent.pointerDown(bar("Permis"), { clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 50 });
+    fireEvent.pointerUp(window);
 
     expect(changes[0].map((c) => c.itemId)).toEqual(["i1"]);
   });
@@ -628,9 +628,9 @@ describe("GanttChart editing", () => {
     const updates: string[] = [];
     renderChart({ onUpdateItem: (id) => updates.push(id) });
 
-    fireEvent.mouseDown(bar("Permis"), { clientX: 0 });
-    fireEvent.mouseMove(window, { clientX: 250 });
-    fireEvent.mouseUp(window);
+    fireEvent.pointerDown(bar("Permis"), { clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 250 });
+    fireEvent.pointerUp(window);
 
     expect(updates).toEqual(["i1"]);
   });
