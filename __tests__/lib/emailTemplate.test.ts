@@ -4,6 +4,7 @@ import {
   itemUrl,
   appUrl,
   escapeHtml,
+  formatEmailDate,
 } from "@/lib/emailTemplate";
 
 afterEach(() => {
@@ -40,11 +41,28 @@ describe("escapeHtml", () => {
   });
 });
 
+describe("formatEmailDate", () => {
+  it("writes the date the way each reader writes it", () => {
+    expect(formatEmailDate("2026-08-28", "en")).toBe("28 August 2026");
+    expect(formatEmailDate("2026-08-28", "fr")).toBe("28 août 2026");
+  });
+
+  it("does not slip a day west of Greenwich", () => {
+    // new Date("2026-03-01") is UTC midnight, which renders as Feb 28 in any
+    // negative offset. parseDateOnly builds local midnight instead.
+    expect(formatEmailDate("2026-03-01", "en")).toContain("1 March");
+  });
+
+  it("leaves an unparseable value alone rather than printing Invalid Date", () => {
+    expect(formatEmailDate("not a date", "en")).toBe("not a date");
+  });
+});
+
 describe("renderEmail", () => {
   const base = {
     preheader: "Preview line",
     heading: "A task is overdue",
-    recipientName: "Amina",
+    greeting: "Hi Amina,",
     paragraphs: ["This task missed its due date."],
   };
 

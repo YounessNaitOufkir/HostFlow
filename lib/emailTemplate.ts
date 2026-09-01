@@ -10,6 +10,14 @@
  * and they were previously interpolated raw into the message body.
  */
 
+import { format } from "date-fns";
+import { enUS, fr as frDateFns } from "date-fns/locale";
+import type { Locale as DateFnsLocale } from "date-fns";
+import { parseDateOnly } from "@/lib/gantt/dates";
+import type { Locale as AppLocale } from "@/lib/i18n";
+
+const DATE_LOCALES: Record<AppLocale, DateFnsLocale> = { en: enUS, fr: frDateFns };
+
 /** Brand, matching components/ui/Logo.tsx and public/icon.svg. */
 const NAVY = "#1A2C5B";
 const AMBER = "#F5A623";
@@ -40,8 +48,8 @@ export interface EmailOptions {
   /** Sits under the subject in the inbox list. Never rendered in the body. */
   preheader: string;
   heading: string;
-  /** Recipient's display name, for the greeting line. */
-  recipientName?: string;
+  /** Already translated by the caller — this module holds no dictionary. */
+  greeting?: string;
   /** Sentences of the message. Plain text; markup is escaped. */
   paragraphs: string[];
   /** The label/value block — board, due date, status. */
@@ -74,6 +82,18 @@ export function itemUrl(boardId: string, itemId: string): string {
   return `${appUrl()}/?${params.toString()}`;
 }
 
+/**
+ * A yyyy-MM-dd value written the way the reader writes dates.
+ *
+ * Goes through parseDateOnly rather than new Date(): the latter reads a bare
+ * date as UTC midnight and renders the day before west of Greenwich.
+ */
+export function formatEmailDate(value: string, locale: AppLocale): string {
+  const date = parseDateOnly(value);
+  if (!date) return value;
+  return format(date, "d MMMM yyyy", { locale: DATE_LOCALES[locale] });
+}
+
 export function escapeHtml(value: string): string {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -92,10 +112,10 @@ export function renderEmail(options: EmailOptions): { html: string; text: string
   const accent = ACCENTS[options.accent ?? "amber"];
   const logo = `${appUrl()}/email-logo.png`;
 
-  const greeting = options.recipientName
-    ? `<p style="margin:0 0 12px;font:400 15px/1.55 ${FONT};color:${INK};">Hi ${escapeHtml(
-        options.recipientName
-      )},</p>`
+  const greeting = options.greeting
+    ? `<p style="margin:0 0 12px;font:400 15px/1.55 ${FONT};color:${INK};">${escapeHtml(
+        options.greeting
+      )}</p>`
     : "";
 
   const body = options.paragraphs
@@ -179,7 +199,7 @@ export function renderEmail(options: EmailOptions): { html: string; text: string
   const text = [
     options.heading,
     "",
-    options.recipientName ? `Hi ${options.recipientName},` : "",
+    options.greeting ?? "",
     ...options.paragraphs,
     "",
     ...(options.details ?? []).map((d) => `${d.label}: ${d.value}`),

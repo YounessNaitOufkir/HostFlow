@@ -36,6 +36,7 @@ import { useBoardDataQuery } from "@/hooks/queries/useBoardDataQuery";
 import { supabase } from "@/lib/supabase";
 import { readNavState, writeNavState, clearLegacyNavKeys, isBoardIndependentView } from "@/lib/navState";
 import { readDeepLink, clearDeepLink } from "@/lib/deepLink";
+import { useLocaleSync } from "@/hooks/useLocaleSync";
 import type { Board, Workspace } from "@/types";
 
 import { duplicateBoard, duplicateWorkspace } from "@/lib/templateUtils";
@@ -77,6 +78,10 @@ import type { ColumnType } from "@/types";
 
 export default function MondayClone() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
+
+  // Mirrors the language chosen in this browser onto the profile, so the cron
+  // that sends automation emails can write to people in their own language.
+  useLocaleSync(profile);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
   const [showReadabilityModal, setShowReadabilityModal] = useState(false);

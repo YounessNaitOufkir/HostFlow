@@ -45,6 +45,19 @@ function readLocale(): Locale {
   return preferred.toLowerCase().startsWith("fr") ? "fr" : DEFAULT_LOCALE;
 }
 
+/**
+ * Whether this browser holds a deliberate choice, as opposed to the default
+ * inferred from navigator.language. useLocaleSync needs the difference: an
+ * inferred locale must not overwrite what the account already says.
+ */
+export function hasStoredLocale(): boolean {
+  try {
+    return isLocale(localStorage.getItem(LOCALE_STORAGE_KEY));
+  } catch {
+    return false;
+  }
+}
+
 function getSnapshot(): Locale {
   // Cached so the snapshot is referentially stable between renders; without this
   // useSyncExternalStore would loop.
