@@ -58,7 +58,7 @@ import MyWorkView from "@/components/MyWorkView";
 import TrashView from "@/components/views/TrashView";
 import BoardCardsView from "@/components/views/BoardCardsView";
 import WorkspaceOverview from "@/components/WorkspaceOverview";
-import WorkspaceGanttView from "@/components/WorkspaceGanttView";
+import WorkspaceGanttView, { type WorkspaceGanttUpdate } from "@/components/WorkspaceGanttView";
 
 // Feature components
 import ItemPanel from "@/components/ItemPanel";
@@ -435,6 +435,43 @@ export default function MondayClone() {
     [state.items, state.itemLinks, state.activeBoard, state.boardAutomations, profile, store.updateCell]
   );
 
+  /**
+   * A Gantt drag: the task that moved plus everything it pushed, written as one
+   * undoable change. The chart has already resolved the whole reschedule, so
+   * this deliberately does not run the dependency cascade a single-cell edit
+   * would — that would shift the same successors a second time.
+   */
+  const handleGanttReschedule = useCallback(
+    (
+      changes: { itemId: string; columnId: string; value: any }[],
+      summary: { movedCount: number; cycleDetected: boolean }
+    ) => {
+      if (summary.cycleDetected) {
+        toast.warning("These tasks depend on each other in a loop, so the plan could not be fully rescheduled.");
+      }
+      store.updateCells(state.items, changes, {
+        message:
+          summary.movedCount > 0
+            ? `Moved ${summary.movedCount} dependent task${summary.movedCount === 1 ? "" : "s"}`
+            : undefined,
+      });
+    },
+    [state.items, store.updateCells]
+  );
+
+  /**
+   * A drag on the Master Gantt. There is no active board there, so the view
+   * hands over the board the item belongs to and that board's rules, letting
+   * the edit run through the same path a drag on the board's own Gantt takes.
+   */
+  const handleWorkspaceGanttUpdate = useCallback(
+    ({ board, automations, items, itemLinks, itemId, columnId, value }: WorkspaceGanttUpdate) => {
+      if (!profile) return;
+      store.updateCell(items, itemLinks, board, automations, profile, itemId, columnId, value);
+    },
+    [profile, store.updateCell]
+  );
+
   const handleAddColumn = useCallback(
     (type: ColumnType) => {
       if (state.activeBoard) store.addColumn(state.activeBoard, type);
@@ -710,6 +747,29 @@ export default function MondayClone() {
           <WorkspaceGanttView
             workspaces={state.workspaces}
             allBoards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
+            profiles={state.profiles}
+            onUpdateCell={handleWorkspaceGanttUpdate}
+            onCreateLink={({ sourceId, targetId, type }) =>
+              store.addLink(sourceId, targetId, "dependency", { depType: type })
+            }
+            onUpdateLink={(links, linkId, changes) =>
+              store.updateLink(links, linkId, {
+                depType: changes.type,
+                lagDays: changes.lag,
+              })
+            }
+            onDeleteLink={(linkId) => store.removeLink(linkId)}
+            onRescheduleCells={(items, changes, summary) => {
+              if (summary.cycleDetected) {
+                toast.warning("These tasks depend on each other in a loop, so the plan could not be fully rescheduled.");
+              }
+              store.updateCells(items, changes, {
+                message:
+                  summary.movedCount > 0
+                    ? `Moved ${summary.movedCount} dependent task${summary.movedCount === 1 ? "" : "s"}`
+                    : undefined,
+              });
+            }}
           />
         </div>
       ) : (
@@ -813,13 +873,26 @@ export default function MondayClone() {
               {state.mainView === "gantt" && (
                 <GanttView
                   board={state.activeBoard}
-                  items={state.items}
+                  items={filters.filteredItems}
                   groups={state.groups}
                   itemLinks={state.itemLinks}
                   onUpdateItem={handleUpdateCell}
+                  onRescheduleItems={handleGanttReschedule}
+                  onCaptureBaseline={(baselines) => store.captureBaseline(state.items, baselines)}
+                  onCreateLink={({ sourceId, targetId, type }) =>
+                    store.addLink(sourceId, targetId, "dependency", { depType: type })
+                  }
+                  onUpdateLink={(linkId, changes) =>
+                    store.updateLink(state.itemLinks, linkId, {
+                      depType: changes.type,
+                      lagDays: changes.lag,
+                    })
+                  }
+                  onDeleteLink={(linkId) => store.removeLink(linkId)}
                   onMoveItem={handleGanttMoveItem}
                   collapsedGroups={state.collapsedGroups}
                   onToggleGroupCollapse={store.toggleGroupCollapse}
+                  onSelectItem={(item) => dispatch({ type: "SET_SELECTED_ITEM", payload: item })}
                   profiles={state.profiles}
                 />
               )}
