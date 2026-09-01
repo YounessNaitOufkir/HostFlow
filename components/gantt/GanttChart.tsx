@@ -117,6 +117,20 @@ const DEFAULT_LEFT_WIDTH = 420;
 /** Pointer travel, in px, that turns a click on a bar into a drag. */
 const DRAG_THRESHOLD = 4;
 
+/**
+ * Keeps a gesture with the element it started on.
+ *
+ * Without capture a drag ends the moment the pointer leaves the bar, which for
+ * a finger crossing the chart is immediately.
+ */
+function capturePointer(e: React.PointerEvent) {
+  try {
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  } catch {
+    /* not supported here; the window listeners still carry the gesture */
+  }
+}
+
 export default function GanttChart({
   contexts,
   itemLinks = [],
@@ -502,7 +516,7 @@ export default function GanttChart({
   useEffect(() => {
     if (!drag) return;
 
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       const dx = e.clientX - drag.startX;
       setDrag((d) =>
         d ? { ...d, dx, moved: d.moved || Math.abs(dx) > DRAG_THRESHOLD } : d
@@ -526,18 +540,20 @@ export default function GanttChart({
       setDrag(null);
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
   }, [drag, rowsById, scale, writeDates, onSelectItem]);
 
   useEffect(() => {
     if (!resize) return;
 
-    const onMove = (e: MouseEvent) =>
+    const onMove = (e: PointerEvent) =>
       setResize((r) => (r ? { ...r, dx: e.clientX - r.startX } : r));
 
     const onUp = () => {
@@ -555,11 +571,13 @@ export default function GanttChart({
       setResize(null);
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
   }, [resize, rowsById, scale, writeDates]);
 
@@ -644,10 +662,11 @@ export default function GanttChart({
   );
 
   const startLink = useCallback(
-    (e: React.MouseEvent, row: GanttItemRow, edge: BarEdge) => {
+    (e: React.PointerEvent, row: GanttItemRow, edge: BarEdge) => {
       if (!linkable) return;
       e.preventDefault();
       e.stopPropagation();
+      capturePointer(e);
       const rect = bodyRef.current?.getBoundingClientRect();
       setLinkDrag({
         sourceId: row.item.id,
@@ -663,7 +682,7 @@ export default function GanttChart({
   useEffect(() => {
     if (!linkDrag) return;
 
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       const el = bodyRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
@@ -692,11 +711,13 @@ export default function GanttChart({
       });
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
   }, [linkDrag, dependencies, onCreateLink, hitTestBar]);
 
@@ -821,7 +842,7 @@ export default function GanttChart({
   useEffect(() => {
     if (!resizingPane) return;
 
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       const rect = rootRef.current?.getBoundingClientRect();
       if (!rect) return;
       setLeftWidth(
@@ -840,11 +861,13 @@ export default function GanttChart({
       });
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
   }, [resizingPane, storageKey]);
 
@@ -1077,7 +1100,8 @@ export default function GanttChart({
                 </div>
                 <div
                   className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/50 transition-colors z-40"
-                  onMouseDown={(e) => {
+                  style={{ touchAction: "none" }}
+                  onPointerDown={(e) => {
                     e.preventDefault();
                     setResizingPane(true);
                   }}
@@ -1188,11 +1212,13 @@ export default function GanttChart({
                     if (!editable && !onSelectItem) return;
                     e.preventDefault();
                     e.stopPropagation();
+                    capturePointer(e);
                     setDrag({ id, startX: e.clientX, dx: 0, moved: false });
                   }}
                   onStartResize={(e, id, edge) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    capturePointer(e);
                     setResize({ id, edge, startX: e.clientX, dx: 0 });
                   }}
                   taskSchedule={
@@ -1481,14 +1507,14 @@ interface TimelineRowProps {
   editable: boolean;
   drag: { dx: number; moved: boolean } | null;
   resize: { edge: "left" | "right"; dx: number } | null;
-  onStartDrag: (e: React.MouseEvent, id: string) => void;
-  onStartResize: (e: React.MouseEvent, id: string, edge: "left" | "right") => void;
+  onStartDrag: (e: React.PointerEvent, id: string) => void;
+  onStartResize: (e: React.PointerEvent, id: string, edge: "left" | "right") => void;
   taskSchedule?: TaskSchedule;
   highlightCritical: boolean;
   showBaseline: boolean;
   onBarKeyDown: (e: React.KeyboardEvent, row: GanttItemRow) => void;
   linkable: boolean;
-  onStartLink: (e: React.MouseEvent, row: GanttItemRow, edge: BarEdge) => void;
+  onStartLink: (e: React.PointerEvent, row: GanttItemRow, edge: BarEdge) => void;
   linkHoverEdge: BarEdge | null;
 }
 
@@ -1582,7 +1608,7 @@ function TimelineRow({
           date={row.start}
           editable={editable}
           floatLabel={floatLabel}
-          onMouseDown={(e) => onStartDrag(e, row.item.id)}
+          onPointerDown={(e) => onStartDrag(e, row.item.id)}
           onKeyDown={(e) => onBarKeyDown(e, row)}
         />
       ) : (
@@ -1601,7 +1627,7 @@ ${floatLabel}` : ""}${
             row.assigneeNames ? `
 ${row.assigneeNames}` : ""
           }`}
-          onMouseDown={(e) => onStartDrag(e, row.item.id)}
+          onPointerDown={(e) => onStartDrag(e, row.item.id)}
           className={`absolute rounded-[3px] group/bar overflow-hidden flex items-center border border-white/20 hover:border-white/60 ${
             editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
           } ${drag?.moved ? "opacity-80 shadow-xl z-30" : ""}`}
@@ -1614,12 +1640,17 @@ ${row.assigneeNames}` : ""
             backgroundColor: color,
             boxShadow: `0 0 12px 1px ${color}55`,
             transitionDuration: drag || resize ? "0ms" : "150ms",
+            // Without this a finger on a bar scrolls the chart instead of
+            // moving the task: the browser claims the gesture before the
+            // pointermove handler ever sees it.
+            touchAction: "none",
           }}
         >
           {editable && row.colType === "timeline" && (
             <div
               className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-20 hover:bg-white/30 transition-colors"
-              onMouseDown={(e) => onStartResize(e, row.item.id, "left")}
+              style={{ touchAction: "none" }}
+              onPointerDown={(e) => onStartResize(e, row.item.id, "left")}
             />
           )}
 
@@ -1635,7 +1666,8 @@ ${row.assigneeNames}` : ""
           {editable && row.colType === "timeline" && (
             <div
               className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-20 hover:bg-white/30 transition-colors"
-              onMouseDown={(e) => onStartResize(e, row.item.id, "right")}
+              style={{ touchAction: "none" }}
+              onPointerDown={(e) => onStartResize(e, row.item.id, "right")}
             />
           )}
         </div>
@@ -1648,14 +1680,14 @@ ${row.assigneeNames}` : ""
             centerY={centerY}
             edge="start"
             active={linkHoverEdge === "start"}
-            onMouseDown={(e) => onStartLink(e, row, "start")}
+            onPointerDown={(e) => onStartLink(e, row, "start")}
           />
           <LinkHandle
             x={barX + activeDx + Math.max(scale.pxPerDay, barWidth)}
             centerY={centerY}
             edge="finish"
             active={linkHoverEdge === "finish"}
-            onMouseDown={(e) => onStartLink(e, row, "finish")}
+            onPointerDown={(e) => onStartLink(e, row, "finish")}
           />
         </>
       )}
@@ -1741,22 +1773,24 @@ function LinkHandle({
   centerY,
   edge,
   active,
-  onMouseDown,
+  onPointerDown,
 }: {
   x: number;
   centerY: number;
   edge: BarEdge;
   active: boolean;
-  onMouseDown: (e: React.MouseEvent) => void;
+  onPointerDown: (e: React.PointerEvent) => void;
 }) {
   return (
     <div
-      onMouseDown={onMouseDown}
+      onPointerDown={onPointerDown}
       title={edge === "finish" ? "Drag to link from this finish" : "Drag to link from this start"}
       className={`absolute z-40 rounded-full border-2 border-white dark:border-slate-900 cursor-crosshair transition-opacity ${
         active
           ? "opacity-100 bg-blue-500 scale-125"
-          : "opacity-0 group-hover/row:opacity-100 bg-gray-400 hover:bg-blue-500"
+          : // Revealed on hover, but a touch screen has no hover - there it is
+            // always visible, or it could never be found at all.
+            "opacity-0 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100 bg-gray-400 hover:bg-blue-500"
       }`}
       style={{
         // Sat just outside the bar rather than on its edge. Centred on the edge
@@ -1766,6 +1800,7 @@ function LinkHandle({
         top: centerY - 5,
         width: 10,
         height: 10,
+        touchAction: "none",
       }}
     />
   );
@@ -1846,7 +1881,7 @@ function Milestone({
   date,
   editable,
   floatLabel,
-  onMouseDown,
+  onPointerDown,
   onKeyDown,
 }: {
   x: number;
@@ -1857,7 +1892,7 @@ function Milestone({
   editable: boolean;
   /** Said out loud here too: a milestone has float like any other task. */
   floatLabel: string;
-  onMouseDown: (e: React.MouseEvent) => void;
+  onPointerDown: (e: React.PointerEvent) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
   return (
@@ -1873,7 +1908,7 @@ function Milestone({
           floatLabel ? `
 ${floatLabel}` : ""
         }`}
-        onMouseDown={onMouseDown}
+        onPointerDown={onPointerDown}
         className={editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
         style={{
           position: "absolute",
@@ -1886,6 +1921,7 @@ ${floatLabel}` : ""
           backgroundColor: color,
           boxShadow: `0 0 10px 1px ${color}66`,
           borderRadius: 2,
+          touchAction: "none",
         }}
       />
       <span
