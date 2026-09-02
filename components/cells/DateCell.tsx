@@ -3,6 +3,7 @@
 import React, { useRef } from "react";
 import { Item, Column } from "@/types";
 import { Calendar, X } from "lucide-react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface DateCellProps {
   item: Item;
@@ -11,6 +12,7 @@ interface DateCellProps {
 }
 
 export default function DateCell({ item, column, onUpdate }: DateCellProps) {
+  const { bcp47 } = useLanguage();
   const value = item.column_values[column.id] || "";
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -20,7 +22,7 @@ export default function DateCell({ item, column, onUpdate }: DateCellProps) {
       const parts = dateStr.split("-");
       if (parts.length === 3) {
         const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return date.toLocaleDateString(bcp47, { month: "short", day: "numeric" });
       }
       return dateStr;
     } catch {

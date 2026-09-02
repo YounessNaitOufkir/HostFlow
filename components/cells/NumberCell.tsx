@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Item, Column } from "@/types";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface NumberCellProps {
   item: Item;
@@ -10,6 +11,7 @@ interface NumberCellProps {
 }
 
 export default function NumberCell({ item, column, onUpdate }: NumberCellProps) {
+  const { bcp47 } = useLanguage();
   const rawValue = item.column_values[column.id];
   const [localValue, setLocalValue] = useState(rawValue ?? "");
   const [isFocused, setIsFocused] = useState(false);
@@ -26,7 +28,7 @@ export default function NumberCell({ item, column, onUpdate }: NumberCellProps) 
     if (isFocused) return localValue;
     const num = parseFloat(String(localValue));
     if (isNaN(num) || localValue === "") return "";
-    return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    return num.toLocaleString(bcp47, { maximumFractionDigits: 2 });
   })();
 
   return (
