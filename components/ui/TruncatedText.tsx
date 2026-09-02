@@ -33,7 +33,15 @@ interface Coords {
  */
 export function useTruncationTooltip<T extends HTMLElement>(
   content: React.ReactNode,
-  side: Side = "top"
+  side: Side = "top",
+  /**
+   * Show on hover regardless of whether anything is clipped.
+   *
+   * For elements that carry no text of their own - a Gantt bar is a coloured
+   * rectangle - where the tooltip is the only way to read what they are, and
+   * the clipping test would therefore never pass.
+   */
+  always = false
 ) {
   const ref = useRef<T | null>(null);
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -47,9 +55,11 @@ export function useTruncationTooltip<T extends HTMLElement>(
 
     // Horizontal clipping comes from `truncate` and from inputs overflowing
     // their box; vertical clipping comes from `line-clamp`.
-    const isClipped =
-      el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
-    if (!isClipped) return;
+    if (!always) {
+      const isClipped =
+        el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+      if (!isClipped) return;
+    }
 
     const rect = el.getBoundingClientRect();
     const placement: Side = side === "top" && rect.top < 80 ? "bottom" : side;
@@ -59,7 +69,7 @@ export function useTruncationTooltip<T extends HTMLElement>(
       left: Math.min(Math.max(rect.left + rect.width / 2, 8), window.innerWidth - 8),
       placement,
     });
-  }, [side]);
+  }, [side, always]);
 
   const hide = useCallback(() => setCoords(null), []);
 
