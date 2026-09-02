@@ -208,8 +208,6 @@ function anchors(
       return [sourceStart, targetStart];
     case "FF":
       return [sourceEnd, targetEnd];
-    case "SF":
-      return [sourceStart, targetEnd];
   }
 }
 

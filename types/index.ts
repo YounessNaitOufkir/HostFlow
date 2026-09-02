@@ -185,7 +185,7 @@ export interface Item {
  * plans — two surveys that run together, two approvals that must land the same
  * day — and a plan that cannot express them has to fake them with dates.
  */
-export type DependencyType = "FS" | "SS" | "FF" | "SF";
+export type DependencyType = "FS" | "SS" | "FF";
 
 export interface ItemLink {
   id: string;

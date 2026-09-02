@@ -139,7 +139,5 @@ function requiredStart(
     case "FF":
       // Its finish is pinned, so its start follows from its own length.
       return predEnd + lag - duration;
-    case "SF":
-      return predStart + lag - duration;
   }
 }

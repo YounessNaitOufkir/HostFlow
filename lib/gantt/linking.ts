@@ -20,14 +20,13 @@ import type { GanttDependency } from "./dependencies";
 export type BarEdge = "start" | "finish";
 
 /**
- * The types a link may be given.
+ * Every type a link may be given.
  *
- * Start-to-finish is gone from the list: it says "this cannot finish until that
- * starts", which describes a shift handover rather than anything on a building
- * site, and in practice it was only ever produced by a mis-drag. It stays in
- * DependencyType because links already carrying it must keep meaning what they
- * meant - they render, and the editor still shows the type so it can be
- * changed. Only creating a new one is refused.
+ * Start-to-finish used to be a fourth. It says "this cannot finish until that
+ * starts" - a shift handover, not anything on a building site - and the only
+ * way to make one was a drag as easy to do by accident as on purpose. It was
+ * withdrawn from the UI first and removed here once the single link carrying
+ * it had been changed by hand, so no stored link ever lost its meaning.
  */
 export const SELECTABLE_DEPENDENCY_TYPES: DependencyType[] = ["FS", "SS", "FF"];
 
@@ -52,8 +51,6 @@ export function edgesOfType(type: DependencyType): { from: BarEdge; to: BarEdge 
       return { from: "finish", to: "finish" };
     case "SS":
       return { from: "start", to: "start" };
-    case "SF":
-      return { from: "start", to: "finish" };
   }
 }
 
@@ -156,7 +153,6 @@ const TYPE_KEYS: Record<DependencyType, TranslationKey> = {
   FS: "gantt.dep.FS",
   SS: "gantt.dep.SS",
   FF: "gantt.dep.FF",
-  SF: "gantt.dep.SF",
 };
 
 export function dependencyTypeKey(type: DependencyType): TranslationKey {

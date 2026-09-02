@@ -225,8 +225,6 @@ function requiredStart(
     case "FF":
       // Its finish is constrained, so its start follows from its own length.
       return predFinish + lag - ownDuration + 1;
-    case "SF":
-      return predStart + lag - ownDuration + 1;
   }
 }
 
@@ -246,8 +244,6 @@ function allowedFinish(
       return succLateStart - lag + span;
     case "FF":
       return succLateFinish - lag;
-    case "SF":
-      return succLateFinish - lag + span;
   }
 }
 
@@ -285,11 +281,6 @@ function findViolations(
         break;
       case "FF":
         required = source.end + edge.lag;
-        actual = target.end;
-        what = "finish no earlier than";
-        break;
-      case "SF":
-        required = source.start + edge.lag;
         actual = target.end;
         what = "finish no earlier than";
         break;

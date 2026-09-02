@@ -119,13 +119,13 @@ describe("dependency types and lag", () => {
     expect([s.get("B")!.earlyStart, s.get("B")!.earlyFinish]).toEqual([3, 4]);
   });
 
-  it("start-to-finish ties the successor's finish to the predecessor's start", () => {
+  it("start-to-start ties the successor's start to the predecessor's", () => {
     const { tasks: s } = computeSchedule(
       [task("A", 10, 3), task("B", 0, 4)],
-      [dep("A", "B", "SF")]
+      [dep("A", "B", "SS")]
     );
-    expect(s.get("B")!.earlyFinish).toBe(10);
-    expect(s.get("B")!.earlyStart).toBe(7);
+    expect(s.get("B")!.earlyStart).toBe(10);
+    expect(s.get("B")!.earlyFinish).toBe(13);
   });
 
   it("delays by a positive lag", () => {

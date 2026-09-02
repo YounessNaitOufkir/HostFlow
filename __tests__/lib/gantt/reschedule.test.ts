@@ -171,15 +171,15 @@ describe("link types and lag", () => {
     expect(moves.get("B")).toEqual(at(12, 3));
   });
 
-  it("handles start-to-finish", () => {
+  it("handles start-to-start", () => {
     const { moves } = run(
       { A: at(0, 5), B: at(0, 4) },
-      [dep("A", "B", "SF")],
+      [dep("A", "B", "SS")],
       "A",
       at(20, 5)
     );
-    expect(moves.get("B")!.end).toBe(20);
-    expect(moves.get("B")).toEqual(at(17, 4));
+    // B may not begin before A begins, and keeps its own four days.
+    expect(moves.get("B")).toEqual(at(20, 4));
   });
 
   it("allows an overlap with a negative lag", () => {

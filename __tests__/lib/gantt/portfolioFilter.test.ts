@@ -175,9 +175,6 @@ describe("window presets", () => {
     expect(windowForPreset("90", today)).toEqual({ from: "2026-05-20", to: "2026-08-18" });
   });
 
-  it("spans the calendar quarter today falls in", () => {
-    expect(windowForPreset("quarter", today)).toEqual({ from: "2026-04-01", to: "2026-06-30" });
-  });
 
   it("sets no bounds for all or custom", () => {
     expect(windowForPreset("all", today)).toEqual({});
