@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Column, Item } from "@/types";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface GroupFooterProps {
   columns: Column[];
@@ -15,6 +16,7 @@ interface GroupFooterProps {
  * For other column types, renders an empty cell.
  */
 export default function GroupFooter({ columns, items, groupColor }: GroupFooterProps) {
+  const { bcp47 } = useLanguage();
   // Only render if there are numbers columns
   const hasNumbersColumn = columns.some((col) => col.type === "numbers");
   if (!hasNumbersColumn) return null;
@@ -59,7 +61,7 @@ export default function GroupFooter({ columns, items, groupColor }: GroupFooterP
               style={inlineStyle}
             >
               <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-                {sum !== 0 ? `Σ ${sum.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : "—"}
+                {sum !== 0 ? `Σ ${sum.toLocaleString(bcp47, { maximumFractionDigits: 2 })}` : "—"}
               </span>
             </div>
           );

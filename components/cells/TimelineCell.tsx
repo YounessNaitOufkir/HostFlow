@@ -5,6 +5,7 @@ import { Item, Column } from "@/types";
 import { DayPicker, DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import "react-day-picker/dist/style.css"; // Default styles for the calendar
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface TimelineCellProps {
   item: Item;
@@ -15,6 +16,7 @@ interface TimelineCellProps {
 }
 
 export default function TimelineCell({ item, column, onUpdate, activeStatusId, setActiveStatusId }: TimelineCellProps) {
+  const { dateLocale } = useLanguage();
   const value = item.column_values?.[column.id] || null;
   const isEditing = activeStatusId === item.id + column.id;
   
@@ -92,8 +94,8 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
     const s = new Date(value.start);
     const e = new Date(value.end);
     
-    const formattedStart = format(s, "MMM d");
-    const formattedEnd = format(e, "MMM d");
+    const formattedStart = format(s, "MMM d", { locale: dateLocale });
+    const formattedEnd = format(e, "MMM d", { locale: dateLocale });
     // A range inside one month repeats the month for no reason: "Feb 20 - Feb 22"
     // is six characters longer than "Feb 20 – 22" and no clearer. Width matters —
     // in Cards view this pill sits in a narrow column.
@@ -103,7 +105,7 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
       formattedStart === formattedEnd
         ? formattedStart
         : sameMonth
-          ? `${formattedStart} – ${format(e, "d")}`
+          ? `${formattedStart} – ${format(e, "d", { locale: dateLocale })}`
           : `${formattedStart} – ${formattedEnd}`;
     
     // Status color logic based on end date
@@ -127,7 +129,7 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
       pillText = "text-white";
     }
   } else if (value?.start) {
-    displayText = format(new Date(value.start), "MMM d");
+    displayText = format(new Date(value.start), "MMM d", { locale: dateLocale });
     
     const now = new Date();
     now.setHours(0, 0, 0, 0);
