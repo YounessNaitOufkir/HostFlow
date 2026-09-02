@@ -25,6 +25,7 @@ import {
   type DependencyOrigin,
 } from "@/lib/dependencies/scope";
 import { CrossWorkspaceLinkDialog } from "@/components/gantt/CrossWorkspaceLinkDialog";
+import { useT } from "@/components/LanguageProvider";
 
 interface DependencyCellProps {
   item: Item;
@@ -37,6 +38,8 @@ interface DependencyCellProps {
 }
 
 export default function DependencyCell({ item, column, onUpdate, boardItems, columns = [], activeStatusId, setActiveStatusId }: DependencyCellProps) {
+  const t = useT();
+
   // Value is an array of dependent Item IDs
   const value: string[] = Array.isArray(item.column_values?.[column.id])
     ? item.column_values[column.id]
@@ -311,7 +314,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
                 key={dep.id}
                 tooltip={
                   dep.hasConflict
-                    ? `${dep.title} — Date conflict: this item ends after your start date.`
+                    ? `${dep.title} — ${t("dep.conflictTooltip")}`
                     : dep.title
                 }
                 className={`text-[13px] px-2.5 py-0.5 rounded-[4px] truncate max-w-[190px] shrink-0 ${
@@ -354,7 +357,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search items to depend on..."
+              placeholder={t("dep.search")}
               className="w-full px-2 py-1.5 text-sm border border-blue-400 rounded outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-800 text-gray-800 dark:text-white"
             />
             {/* Said once, under the box rather than under the results: at the
@@ -362,10 +365,12 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
                 nowhere. */}
             <p className="px-0.5 pt-1.5 text-[11px] leading-snug text-gray-400 dark:text-gray-500">
               {searchQuery.trim().length < MIN_SEARCH_LENGTH
-                ? "Type to search every board you can see. Private workspaces are never listed."
+                ? t("dep.hint")
                 : searching
-                  ? "Searching every board you can see…"
-                  : `${totalCandidates} match${totalCandidates === 1 ? "" : "es"} across every board you can see`}
+                  ? t("dep.searchingAll")
+                  : totalCandidates === 1
+                    ? t("dep.matchesOne")
+                    : t("dep.matches", { count: totalCandidates })}
             </p>
           </div>
           
@@ -377,12 +382,12 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
                     flat list of identical names is a coin toss. */}
                 <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">
-                    {group.boardId === item.board_id ? "This board" : group.heading}
+                    {group.boardId === item.board_id ? t("dep.thisBoard") : group.heading}
                   </span>
                   {group.origin === "other-workspace" && (
                     <span className="flex items-center gap-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/25 rounded-full px-2 py-0.5">
                       <AlertCircle size={10} />
-                      Other property
+                      {t("dep.otherProperty")}
                     </span>
                   )}
                 </div>
@@ -415,7 +420,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
 
             {totalCandidates === 0 && (
               <div className="px-3 py-4 text-center text-sm text-gray-400">
-                {searching ? "Searching…" : "No items found"}
+                {searching ? t("dep.searching") : t("dep.noneFound")}
               </div>
             )}
           </div>
@@ -464,12 +469,11 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
                   </div>
                   
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                    Timeline Conflict
+                    {t("dep.conflictTitle")}
                   </h3>
                   
                   <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-6">
-                    Whoops! It looks like <span className="font-semibold text-gray-900 dark:text-gray-100">"{conflictTarget.name}"</span> finishes after this task begins. 
-                    Tasks must be scheduled chronologically to create a dependency. Please adjust the dates before linking them!
+                    {t("dep.conflictBody", { task: conflictTarget.name })}
                   </p>
                   
                   <div className="flex justify-end gap-3">
@@ -477,13 +481,13 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
                       onClick={() => setConflictTarget(null)}
                       className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors shadow-sm"
                     >
-                      Cancel
+                      {t("dep.conflictCancel")}
                     </button>
                     <button
                       onClick={handleAdjustDates}
                       className="px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     >
-                      Adjust Dates
+                      {t("dep.conflictAdjust")}
                     </button>
                   </div>
                 </div>

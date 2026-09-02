@@ -12,6 +12,7 @@ import {
   X, ArrowRight, Folder, Clock, User, Link2, Tag, CheckCircle, AlignLeft, Type, Hash, CheckSquare, MoreHorizontal, LayoutList
 } from "lucide-react";
 import { statusHexOr } from "@/lib/statusColor";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface CalendarViewProps {
   board: Board | null;
@@ -22,6 +23,9 @@ interface CalendarViewProps {
 
 
 export default function CalendarView({ board, items, groups, profiles }: CalendarViewProps) {
+  // dateLocale as well as t: month names and weekday headings are half of what
+  // makes a calendar feel like it is in your language.
+  const { t, dateLocale } = useLanguage();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("month");
   const [colorBy, setColorBy] = useState<"group" | "status">("status");
@@ -221,7 +225,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
     } else {
       // Show all groups on the board in the legend
       return groups.map(g => ({
-        label: (g as any).title || "Group",
+        label: (g as any).title || t("cal.untitledGroup"),
         color: g.color || "#579bfc"
       }));
     }
@@ -243,32 +247,33 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
               >
-                {mode}
+                {t(mode === "day" ? "cal.day" : mode === "week" ? "cal.week" : "cal.month")}
               </button>
             ))}
           </div>
 
           <h2 className="text-xl font-semibold text-gray-800 dark:text-white min-w-[150px]">
-            {viewMode === "day" && format(currentDate, "MMMM d, yyyy")}
-            {viewMode === "week" && `${format(startOfWeek(currentDate), "MMM d")} - ${format(endOfWeek(currentDate), "MMM d, yyyy")}`}
-            {viewMode === "month" && format(currentDate, "MMMM yyyy")}
+            {viewMode === "day" && format(currentDate, "d MMMM yyyy", { locale: dateLocale })}
+            {viewMode === "week" &&
+              `${format(startOfWeek(currentDate), "d MMM", { locale: dateLocale })} - ${format(endOfWeek(currentDate), "d MMM yyyy", { locale: dateLocale })}`}
+            {viewMode === "month" && format(currentDate, "MMMM yyyy", { locale: dateLocale })}
           </h2>
         </div>
 
         <div className="flex items-center space-x-2">
           <div className="flex items-center mr-4 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-md p-1">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2 uppercase tracking-wide">Color by:</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2 uppercase tracking-wide">{t("cal.colorBy")}</span>
             <button 
               onClick={() => setColorBy("group")}
               className={`px-3 py-1 text-xs font-medium rounded transition-colors ${colorBy === "group" ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50"}`}
             >
-              Group
+              {t("cal.byGroup")}
             </button>
             <button 
               onClick={() => setColorBy("status")}
               className={`px-3 py-1 text-xs font-medium rounded transition-colors ${colorBy === "status" ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50"}`}
             >
-              Status
+              {t("cal.byStatus")}
             </button>
           </div>
 
@@ -276,7 +281,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
             <ChevronLeft size={20} />
           </button>
           <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 text-sm font-medium hover:bg-gray-200 dark:hover:bg-slate-800 rounded transition-colors text-gray-600 dark:text-gray-300">
-            Today
+            {t("cal.today")}
           </button>
           <button onClick={handleNext} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded transition-colors text-gray-600 dark:text-gray-300">
             <ChevronRight size={20} />
@@ -286,7 +291,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
 
       {dateColumns.length === 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 p-4 text-sm text-center">
-          You need to add a <strong>Date</strong> or <strong>Timeline</strong> column to your board to see items here!
+          {t("cal.needsDates")}
         </div>
       )}
 
@@ -297,9 +302,12 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
           {/* Day Names */}
           {viewMode !== "day" && (
             <div className="grid grid-cols-7 border-b border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900 shrink-0">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-                <div key={day} className="py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-r border-gray-200 dark:border-slate-800 last:border-r-0">
-                  {day}
+              {eachDayOfInterval({
+                start: startOfWeek(currentDate),
+                end: endOfWeek(currentDate),
+              }).map(day => (
+                <div key={day.toISOString()} className="py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-r border-gray-200 dark:border-slate-800 last:border-r-0">
+                  {format(day, "EEE", { locale: dateLocale })}
                 </div>
               ))}
             </div>

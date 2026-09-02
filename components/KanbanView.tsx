@@ -6,6 +6,8 @@ import { ChevronDown, Columns3, Link2 } from "lucide-react";
 
 import { Item, Column, Group, STATUS_OPTIONS, Profile } from "@/types";
 import { statusHexOr } from "@/lib/statusColor";
+import { useLanguage } from "@/components/LanguageProvider";
+import { parseDateOnly } from "@/lib/gantt/dates";
 import { useBoardStore } from "@/hooks/useBoardStore";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 
@@ -35,6 +37,23 @@ export default function KanbanView({
   onSelectItem,
   profiles,
 }: KanbanViewProps) {
+  // bcp47 as well as t: a card showing "Sep 25" in a French app is exactly
+  // the half-translated feeling this pass exists to remove.
+  const { t, bcp47 } = useLanguage();
+
+  /**
+   * A yyyy-MM-dd value as a short date in the reader's language.
+   *
+   * Through parseDateOnly rather than new Date(): the latter reads a bare
+   * date as UTC midnight and renders the day before anywhere west of
+   * Greenwich. Harmless in Morocco, wrong in London.
+   */
+  const shortDate = (value: unknown) => {
+    const date = parseDateOnly(value);
+    return date
+      ? date.toLocaleDateString(bcp47, { month: "short", day: "numeric" })
+      : "";
+  };
   const statusColumns = columns.filter((c) => c.type === "status" || c.type === "priority");
   const [kanbanColumnId, setKanbanColumnId] = useState<string>("");
   const [showPicker, setShowPicker] = useState(false);
@@ -78,10 +97,10 @@ export default function KanbanView({
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 bg-[#f5f6f8] dark:bg-slate-950">
         <Columns3 size={48} className="text-gray-300 mb-4" />
-        <h2 className="text-xl font-medium text-gray-700 dark:text-gray-200 mb-2">No status columns</h2>
-        <p className="text-gray-400 dark:text-gray-500 text-sm">
-          Add a Status column to your board to use the Kanban view.
-        </p>
+        <h2 className="text-xl font-medium text-gray-700 dark:text-gray-200 mb-2">
+          {t("kanban.noStatusTitle")}
+        </h2>
+        <p className="text-gray-400 dark:text-gray-500 text-sm">{t("kanban.noStatusBody")}</p>
       </div>
     );
   }
@@ -107,13 +126,13 @@ export default function KanbanView({
     <div className="flex-1 overflow-hidden flex flex-col bg-[#f5f6f8] dark:bg-slate-950">
       {/* ===== Column Picker ===== */}
       <div className="px-8 py-4 flex items-center gap-3 shrink-0" ref={pickerRef}>
-        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Group by</span>
+        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("kanban.groupBy")}</span>
         <div className="relative">
           <button
             onClick={() => setShowPicker(!showPicker)}
             className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-gray-300 dark:border-slate-500 transition-colors shadow-sm dark:shadow-none"
           >
-            {selectedColumn?.title || "Select column"}
+            {selectedColumn?.title || t("kanban.selectColumn")}
             <ChevronDown size={14} className="text-gray-400 dark:text-gray-500" />
           </button>
           {showPicker && statusColumns.length > 1 && (
@@ -276,10 +295,7 @@ export default function KanbanView({
                                               className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
                                             >
                                               📅{" "}
-                                              {new Date(val).toLocaleDateString("en-US", {
-                                                month: "short",
-                                                day: "numeric",
-                                              })}
+                                              {shortDate(val)}
                                             </span>
                                           );
                                         }
@@ -300,8 +316,8 @@ export default function KanbanView({
 
                                         // Timeline chip
                                         if (col.type === "timeline" && typeof val === "object") {
-                                          const start = val?.start ? new Date(val.start).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
-                                          const end = val?.end ? new Date(val.end).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+                                          const start = shortDate(val?.start);
+                                          const end = shortDate(val?.end);
                                           const text = start && end ? `${start} - ${end}` : start || end;
                                           if (!text) return null;
                                           return (
@@ -375,7 +391,7 @@ export default function KanbanView({
                         {/* Empty lane state */}
                         {laneItems.length === 0 && !snapshot.isDraggingOver && (
                           <div className="py-8 text-center text-xs text-gray-400 dark:text-gray-500">
-                            No items
+                            {t("kanban.noItems")}
                           </div>
                         )}
                       </div>
