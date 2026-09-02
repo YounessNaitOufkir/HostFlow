@@ -150,7 +150,10 @@ export function GanttLinks({
         const selected = selectedDependencyId === dependency.id;
 
         return (
-          <g key={dependency.id}>
+          // The id reaches the DOM as well as React's key: an arrow is
+          // otherwise anonymous once drawn, which makes one impossible to point
+          // at when checking where it lands or working out which link is wrong.
+          <g key={dependency.id} data-dependency-id={dependency.id} data-dependency-type={dependency.type}>
             {/* A 2px line is close to unclickable. This invisible one is wide
                 enough to hit and carries the pointer events for the pair. */}
             {onSelectDependency && (

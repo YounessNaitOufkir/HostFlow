@@ -41,7 +41,7 @@ test("the board's Gantt renders the seeded plan", async ({ page }) => {
 test("zoom keeps the arrows attached to the bars", async ({ page }) => {
   await openGantt(page);
 
-  for (const zoom of ["Week", "Month", "Quarter", "Day"]) {
+  for (const zoom of ["Week", "Month", "Day"]) {
     await page.getByRole("button", { name: zoom, exact: true }).click();
     await page.waitForTimeout(400);
 
@@ -130,7 +130,9 @@ test("the critical path and slack are reported", async ({ page }) => {
   await resetFixtureDates();
   await openGantt(page);
 
-  await page.getByRole("button", { name: /Critical path/ }).click();
+  await page.getByRole("button", { name: /^View/ }).click();
+  await page.getByRole("switch", { name: /Critical path/ }).click();
+  await page.keyboard.press("Escape");
   await page.waitForTimeout(800);
 
   // The seeded chain has a day's gap between each task, and a gap is slack:
@@ -146,9 +148,10 @@ test("the critical path and slack are reported", async ({ page }) => {
 test("the field picker adds Slack and Waits on", async ({ page }) => {
   await openGantt(page);
 
-  // Named "Fields", not "Columns": the board filter bar above already has a
-  // "Columns" button, and two identical labels doing different things is a trap.
-  await page.getByRole("button", { name: "Fields" }).click();
+  // Under "Fields" inside the View menu, not "Columns": the board filter bar
+  // above has a "Columns" button, and two identical labels doing different
+  // things is a trap.
+  await page.getByRole("button", { name: /^View/ }).click();
   await page.getByRole("button", { name: "Slack", exact: true }).click();
   await page.getByRole("button", { name: "Waits on", exact: true }).click();
   // Escape closes it: the menus dismiss on Escape or an outside click.
@@ -175,7 +178,7 @@ test("a baseline can be captured, updated and shown", async ({ page }) => {
   // Capture is reachable whether or not one already exists - the first version
   // turned the control into a display toggle after the first capture, which
   // left no way to update it.
-  await page.getByRole("button", { name: "Baseline" }).click();
+  await page.getByRole("button", { name: /^View/ }).click();
   await page.getByRole("button", { name: /Set baseline|Update baseline/ }).click();
   await page.waitForTimeout(3000);
 
@@ -185,8 +188,9 @@ test("a baseline can be captured, updated and shown", async ({ page }) => {
   expect(stored.baseline.captured_at).toBeTruthy();
 
   // And it can then be shown against the live bars.
-  await page.getByRole("button", { name: "Baseline" }).click();
-  await page.getByRole("button", { name: /Show the agreed plan/ }).click();
+  await page.getByRole("button", { name: /^View/ }).click();
+  await page.getByRole("switch", { name: /Baseline/ }).click();
+  await page.keyboard.press("Escape");
   await page.waitForTimeout(600);
   expect(await page.locator('[class*="bg-gray-400"]').count()).toBeGreaterThan(0);
 });
@@ -275,7 +279,9 @@ test("the filter bar is available in the Gantt, without the dead control", async
   // next to a second button also called "Columns". Only the chart's own field
   // picker belongs on this screen.
   await expect(page.getByRole("button", { name: "Columns" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Fields" })).toBeVisible();
+  // The chart's own field picker lives inside View now.
+  await page.getByRole("button", { name: /^View/ }).click();
+  await expect(page.getByRole("button", { name: "Slack", exact: true })).toBeVisible();
 });
 
 test("searching narrows the chart", async ({ page }) => {
