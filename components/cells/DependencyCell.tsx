@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
@@ -9,6 +9,22 @@ import { useBoardStore } from "@/hooks/useBoardStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
+import { useBoardsQuery, useWorkspacesQuery } from "@/hooks/queries/useGlobalQueries";
+import {
+  useDependencyItemSearch,
+  useItemsByIds,
+  MIN_SEARCH_LENGTH,
+  type DependencyCandidate,
+} from "@/hooks/queries/useDependencySearch";
+import {
+  pickableBoards,
+  originOf,
+  chipPrefix,
+  chipTitle,
+  groupCandidates,
+  type DependencyOrigin,
+} from "@/lib/dependencies/scope";
+import { CrossWorkspaceLinkDialog } from "@/components/gantt/CrossWorkspaceLinkDialog";
 
 interface DependencyCellProps {
   item: Item;
@@ -38,6 +54,8 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [conflictTarget, setConflictTarget] = useState<Item | null>(null);
+  /** Held back until confirmed: a link that reaches into another property. */
+  const [pendingCross, setPendingCross] = useState<DependencyCandidate | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -82,24 +100,9 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
 
   const myDates = getItemDates(item);
 
-  const toggleDependency = async (targetItemId: string) => {
-    const isRemoving = value.includes(targetItemId);
-    
-    if (!isRemoving) {
-      const targetItem = boardItems.find(i => i.id === targetItemId);
-      if (targetItem) {
-        const depDates = getItemDates(targetItem);
-        
-        // If I depend on dep, dep must finish BEFORE my start date.
-        // Even finishing on the same day is a conflict, because I can only start the next day.
-        if (myDates && depDates && depDates.end >= myDates.start) {
-          setConflictTarget(targetItem);
-          return; // Stop the user
-        }
-      }
-    }
-
+  const commitToggle = (targetItemId: string, isRemoving: boolean) => {
     setConflictTarget(null);
+    setPendingCross(null);
     const newDeps = isRemoving
       ? value.filter((id) => id !== targetItemId)
       : [...value, targetItemId];
@@ -126,6 +129,36 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
     if (!isRemoving) {
       setSearchQuery("");
     }
+  };
+
+  const toggleDependency = async (targetItemId: string) => {
+    const isRemoving = value.includes(targetItemId);
+
+    if (!isRemoving) {
+      const targetItem = boardItems.find((i) => i.id === targetItemId);
+      if (targetItem) {
+        const depDates = getItemDates(targetItem);
+
+        // If I depend on dep, dep must finish BEFORE my start date.
+        // Even finishing on the same day is a conflict, because I can only start the next day.
+        if (myDates && depDates && depDates.end >= myDates.start) {
+          setConflictTarget(targetItem);
+          return; // Stop the user
+        }
+      }
+
+      // Inside one property a cross-board link is unremarkable. Across two it
+      // is a different claim - it moves work someone else owns, possibly on a
+      // board this person cannot open - so it is confirmed, exactly as the
+      // Master Gantt confirms the same link made by dragging.
+      const candidate = lookup.get(targetItemId);
+      if (candidate && originFor(candidate) === "other-workspace") {
+        setPendingCross(candidate);
+        return;
+      }
+    }
+
+    commitToggle(targetItemId, isRemoving);
   };
 
   const handleAdjustDates = () => {
@@ -172,19 +205,95 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
   };
 
 
-  const dependentItems = boardItems
-    .filter((i) => value.includes(i.id))
-    .map(dep => {
-      const depDates = getItemDates(dep);
-      // If I depend on dep, dep must finish BEFORE my start date.
-      // So if dep's end date is >= my start date, it's a conflict!
-      const hasConflict = myDates && depDates && depDates.end >= myDates.start;
-      return { ...dep, hasConflict };
-    });
+  // Boards and workspaces are already cached globally, so reading them here
+  // costs nothing and saves threading two more props through CellRenderer and
+  // every table row above it.
+  const { data: allBoards = [] } = useBoardsQuery();
+  const { data: allWorkspaces = [] } = useWorkspacesQuery();
+  const boardRefs = useMemo(
+    () => pickableBoards(allBoards, allWorkspaces),
+    [allBoards, allWorkspaces]
+  );
 
-  const availableItems = boardItems
-    .filter((i) => i.id !== item.id) // Can't depend on itself
-    .filter((i) => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  // A dependency on another board is an id and nothing else: the task it points
+  // at was never loaded, so its name has to be fetched before a chip can say
+  // anything.
+  const foreignIds = useMemo(
+    () => value.filter((id) => !boardItems.some((i) => i.id === id)),
+    [value, boardItems]
+  );
+  const { data: foreignItems = [] } = useItemsByIds(foreignIds);
+
+  const { data: searchHits = [], isFetching: searching } = useDependencyItemSearch(
+    searchQuery,
+    isOpen
+  );
+
+  /**
+   * Every task this cell might need to name, whichever board it came from.
+   *
+   * Left to the React Compiler rather than wrapped in useMemo: the query hooks
+   * hand back a fresh array each render, so a manual memo here cannot be
+   * preserved and opts the whole component out of compilation.
+   */
+  const lookup = (() => {
+    const map = new Map<string, DependencyCandidate>();
+    for (const i of boardItems) map.set(i.id, { id: i.id, name: i.name, board_id: i.board_id });
+    for (const i of foreignItems) map.set(i.id, i);
+    for (const i of searchHits) map.set(i.id, i);
+    return map;
+  })();
+
+  const originFor = (candidate: DependencyCandidate): DependencyOrigin =>
+    originOf(item.board_id, candidate.board_id, boardRefs);
+
+  const dependentItems = useMemo(
+    () =>
+      value
+        .map((id) => lookup.get(id))
+        .filter((dep): dep is DependencyCandidate => Boolean(dep))
+        .map((dep) => {
+          const local = boardItems.find((i) => i.id === dep.id);
+          const depDates = local ? getItemDates(local) : null;
+          // If I depend on dep, dep must finish BEFORE my start date, so an end
+          // on or after my start is a conflict. Only checkable for tasks on this
+          // board: another board's dates are in its own columns, which are not
+          // loaded. The Gantt's broken-links count covers the rest.
+          const hasConflict = Boolean(myDates && depDates && depDates.end >= myDates.start);
+          const origin = originOf(item.board_id, dep.board_id, boardRefs);
+          return {
+            ...dep,
+            hasConflict,
+            origin,
+            prefix: chipPrefix(origin, boardRefs.get(dep.board_id)),
+            title: chipTitle(dep.name, origin, boardRefs.get(dep.board_id)),
+          };
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [value, lookup, boardItems, myDates, boardRefs, item.board_id]
+  );
+
+  /**
+   * What the picker offers: this board's tasks always, plus anything the search
+   * turned up elsewhere. Typing filters both; with the box empty only this board
+   * is listed, since offering the whole account unprompted is a wall.
+   */
+  const candidateGroups = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const local: DependencyCandidate[] = boardItems
+      .filter((i) => i.id !== item.id)
+      .filter((i) => !query || i.name.toLowerCase().includes(query))
+      .map((i) => ({ id: i.id, name: i.name, board_id: i.board_id }));
+
+    const seen = new Set(local.map((i) => i.id));
+    const remote = searchHits.filter(
+      (hit) => hit.id !== item.id && !seen.has(hit.id)
+    );
+
+    return groupCandidates(item.board_id, [...local, ...remote], boardRefs);
+  }, [boardItems, searchHits, searchQuery, item.id, item.board_id, boardRefs]);
+
+  const totalCandidates = candidateGroups.reduce((n, g) => n + g.items.length, 0);
 
   return (
     <div ref={anchorRef} className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative flex items-center p-1.5 cursor-pointer transition-colors ${isOpen ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
@@ -200,14 +309,28 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
             {dependentItems.map((dep) => (
               <TruncatedText
                 key={dep.id}
-                tooltip={dep.hasConflict ? `${dep.name} — Date conflict: this item ends after your start date.` : dep.name}
-                className={`text-[13px] px-2.5 py-0.5 rounded-[4px] truncate max-w-[140px] shrink-0 ${
-                  dep.hasConflict 
-                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 ring-1 ring-red-500" 
-                    : "bg-[#cce5ff] text-[#323338] dark:bg-[#cce5ff]/20 dark:text-[#cce5ff]"
+                tooltip={
+                  dep.hasConflict
+                    ? `${dep.title} — Date conflict: this item ends after your start date.`
+                    : dep.title
+                }
+                className={`text-[13px] px-2.5 py-0.5 rounded-[4px] truncate max-w-[190px] shrink-0 ${
+                  dep.hasConflict
+                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 ring-1 ring-red-500"
+                    : dep.origin === "other-workspace"
+                      ? "bg-[#fdf3e3] text-[#7a5310] ring-1 ring-[#f0d9ac] dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-800"
+                      : dep.origin === "same-workspace"
+                        ? "bg-[#eef2f7] text-[#384252] ring-1 ring-[#d3dbe6] dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-600"
+                        : "bg-[#cce5ff] text-[#323338] dark:bg-[#cce5ff]/20 dark:text-[#cce5ff]"
                 }`}
               >
-                {dep.hasConflict && "⚠️ "}{dep.name}
+                {dep.hasConflict && "⚠️ "}
+                {/* The board is always named for anything off-board, and the
+                    property joins it once the link crosses one - three boards
+                    are called "Lancement", so the board alone stops
+                    identifying anything. */}
+                {dep.prefix && <span className="opacity-60">{dep.prefix} · </span>}
+                {dep.name}
               </TruncatedText>
             ))}
           </div>
@@ -234,36 +357,65 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
               placeholder="Search items to depend on..."
               className="w-full px-2 py-1.5 text-sm border border-blue-400 rounded outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-800 text-gray-800 dark:text-white"
             />
+            {/* Said once, under the box rather than under the results: at the
+                bottom of a scrolling list it sat below eight rows, which is
+                nowhere. */}
+            <p className="px-0.5 pt-1.5 text-[11px] leading-snug text-gray-400 dark:text-gray-500">
+              {searchQuery.trim().length < MIN_SEARCH_LENGTH
+                ? "Type to search every board you can see. Private workspaces are never listed."
+                : searching
+                  ? "Searching every board you can see…"
+                  : `${totalCandidates} match${totalCandidates === 1 ? "" : "es"} across every board you can see`}
+            </p>
           </div>
           
-          <div className="max-h-60 overflow-y-auto px-1 py-1">
-            {availableItems.map((otherItem) => {
-              const isSelected = value.includes(otherItem.id);
-              return (
-                <div
-                  key={otherItem.id}
-                  onClick={() => toggleDependency(otherItem.id)}
-                  className={`px-3 py-2 text-sm cursor-pointer flex items-center transition-colors hover:bg-gray-100 dark:hover:bg-slate-800 rounded-md group`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-sm mr-3 border flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected
-                        ? "bg-blue-500 border-blue-500 text-white"
-                        : "bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600"
-                    }`}
-                  >
-                    {isSelected && <span className="text-[10px]">✓</span>}
-                  </div>
-                  <TruncatedText className="text-gray-700 dark:text-gray-200 truncate">
-                    {otherItem.name}
-                  </TruncatedText>
+          <div className="max-h-72 overflow-y-auto px-1 py-1">
+            {candidateGroups.map((group) => (
+              <div key={group.boardId}>
+                {/* Grouped rather than flat because the same task name recurs
+                    across properties - each "Lancement" has a "Permis" - and a
+                    flat list of identical names is a coin toss. */}
+                <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">
+                    {group.boardId === item.board_id ? "This board" : group.heading}
+                  </span>
+                  {group.origin === "other-workspace" && (
+                    <span className="flex items-center gap-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/25 rounded-full px-2 py-0.5">
+                      <AlertCircle size={10} />
+                      Other property
+                    </span>
+                  )}
                 </div>
-              );
-            })}
-            
-            {availableItems.length === 0 && (
+
+                {group.items.map((otherItem) => {
+                  const isSelected = value.includes(otherItem.id);
+                  return (
+                    <div
+                      key={otherItem.id}
+                      onClick={() => toggleDependency(otherItem.id)}
+                      className="px-3 py-2 text-sm cursor-pointer flex items-center transition-colors hover:bg-gray-100 dark:hover:bg-slate-800 rounded-md group"
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-sm mr-3 border flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected
+                            ? "bg-blue-500 border-blue-500 text-white"
+                            : "bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600"
+                        }`}
+                      >
+                        {isSelected && <span className="text-[10px]">✓</span>}
+                      </div>
+                      <TruncatedText className="text-gray-700 dark:text-gray-200 truncate">
+                        {otherItem.name}
+                      </TruncatedText>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+
+            {totalCandidates === 0 && (
               <div className="px-3 py-4 text-center text-sm text-gray-400">
-                No items found
+                {searching ? "Searching…" : "No items found"}
               </div>
             )}
           </div>
@@ -271,6 +423,27 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
       )}
       {isMounted && document.body && createPortal(
         <>
+          {/* The same confirmation the Master Gantt shows for the same link,
+              because it is the same claim wherever it is made. */}
+          {pendingCross && (
+            <CrossWorkspaceLinkDialog
+              request={{
+                type: "FS",
+                source: {
+                  taskName: pendingCross.name,
+                  boardName: boardRefs.get(pendingCross.board_id)?.name ?? "",
+                  workspaceName: boardRefs.get(pendingCross.board_id)?.workspaceName ?? "",
+                },
+                target: {
+                  taskName: item.name,
+                  boardName: boardRefs.get(item.board_id)?.name ?? "",
+                  workspaceName: boardRefs.get(item.board_id)?.workspaceName ?? "",
+                },
+              }}
+              onConfirm={() => commitToggle(pendingCross.id, false)}
+              onCancel={() => setPendingCross(null)}
+            />
+          )}
           {conflictTarget && (
             <div key="conflict-modal" className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-0">
               <motion.div
