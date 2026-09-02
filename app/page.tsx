@@ -777,7 +777,8 @@ export default function MondayClone() {
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <WorkspaceGanttView
             workspaces={state.workspaces}
-            allBoards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
+            allBoards={state.boards}
+            defaultWorkspaceId={state.activeWorkspace?.id ?? null}
             profiles={state.profiles}
             onUpdateCell={handleWorkspaceGanttUpdate}
             onCreateLink={({ sourceId, targetId, type }) =>

@@ -53,7 +53,15 @@ export interface WorkspaceGanttUpdate {
 }
 
 interface WorkspaceGanttViewProps {
+  /**
+   * Every board this user can see, across every workspace - not just the one
+   * they are standing in. A dependency that crosses two properties can only be
+   * drawn if both ends are on the chart, and passing one workspace's boards
+   * made the cross-workspace path unreachable however well it was built.
+   */
   allBoards: Board[];
+  /** Ticked by default, so opening the view still lands on where you were. */
+  defaultWorkspaceId?: string | null;
   /** Needed to say which workspace each board comes from. */
   workspaces: Workspace[];
   /** Names the owners in the filter menu. */
@@ -107,6 +115,7 @@ const PANEL_KEY = "hostflow_master_gantt_panel_collapsed";
  */
 export default function WorkspaceGanttView({
   allBoards,
+  defaultWorkspaceId,
   workspaces,
   profiles = [],
   onUpdateCell,
@@ -116,9 +125,15 @@ export default function WorkspaceGanttView({
   onDeleteLink,
 }: WorkspaceGanttViewProps) {
   const t = useT();
-  const [selectedBoardIds, setSelectedBoardIds] = useState<Set<string>>(
-    () => new Set(allBoards.map((b) => b.id))
-  );
+  const [selectedBoardIds, setSelectedBoardIds] = useState<Set<string>>(() => {
+    // Every board is reachable, but starting with all of them ticked across a
+    // whole account would open on a wall nobody asked for. The workspace in
+    // hand is the honest default; the rest are one tick away in the panel.
+    const scoped = defaultWorkspaceId
+      ? allBoards.filter((b) => b.workspace_id === defaultWorkspaceId)
+      : allBoards;
+    return new Set((scoped.length > 0 ? scoped : allBoards).map((b) => b.id));
+  });
   const [boardFilter, setBoardFilter] = useState("");
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
