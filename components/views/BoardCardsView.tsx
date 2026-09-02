@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/LanguageProvider";
 import React, { useState } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Plus, MoreVertical, Copy, Trash2, ChevronRight } from "lucide-react";
@@ -30,6 +31,7 @@ export default function BoardCardsView({
   onDeleteItem,
   onDuplicateItem,
 }: BoardCardsViewProps) {
+  const t = useT();
   const [newItemNames, setNewItemNames] = useState<Record<string, string>>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const { anchorRef: cardMenuAnchor, menuRef: cardMenuRef, menuStyle: cardMenuStyle } = useAnchoredMenu(openMenuId !== null, { align: 'right' });
@@ -46,7 +48,7 @@ export default function BoardCardsView({
     return (
       <div className="flex-1 overflow-y-auto w-full bg-[#F4F6F8] dark:bg-transparent">
         <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-          No groups found on this board.
+          {t("cards.noGroups")}
         </div>
       </div>
     );
@@ -74,7 +76,9 @@ export default function BoardCardsView({
                   {group.title}
                 </h3>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300">
-                  {groupItems.length} {groupItems.length === 1 ? "card" : "cards"}
+                  {groupItems.length === 1
+                    ? t("cards.countOne")
+                    : t("cards.count", { count: groupItems.length })}
                 </span>
               </div>
             </div>
@@ -178,7 +182,9 @@ export default function BoardCardsView({
               {/* Add New Card Input */}
               <div className="w-full bg-white dark:bg-[#1e2140] border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 flex flex-col justify-center min-h-[120px] transition-all self-start">
                 <div className="flex flex-col space-y-3 w-full">
-                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Add a new item to {group.title}</span>
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    {t("cards.addTo", { group: group.title })}
+                  </span>
                   <div className="flex items-center space-x-2 w-full">
                     <input
                       type="text"
@@ -192,12 +198,14 @@ export default function BoardCardsView({
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleCreateItem(group.id);
                       }}
-                      placeholder="e.g. New Task..."
+                      placeholder={t("cards.newItem")}
                       className="flex-1 min-w-0 w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     />
                     <button
                       onClick={() => handleCreateItem(group.id)}
                       disabled={!newItemNames[group.id]?.trim()}
+                      aria-label={t("cards.add")}
+                      title={t("cards.add")}
                       className="p-2.5 rounded-lg bg-blue-600 text-white disabled:opacity-40 hover:bg-blue-700 transition-all shadow-sm shrink-0"
                     >
                       <Plus size={16} />
