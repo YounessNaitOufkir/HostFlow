@@ -165,8 +165,8 @@ export const fr: Dictionary = {
   "gantt.zoom.month": "Mois",
   "gantt.zoom.quarter": "Trimestre",
   "gantt.colorBy": "Couleur par",
-  "gantt.colorBy.group": "groupe",
-  "gantt.colorBy.status": "statut",
+  "gantt.colorBy.group": "Groupe",
+  "gantt.colorBy.status": "Statut",
   "gantt.fields": "Colonnes",
   "gantt.fieldsHint": "Choisir les colonnes du tableau à côté du diagramme",
   "gantt.readOnly": "Lecture seule",
@@ -178,6 +178,9 @@ export const fr: Dictionary = {
   "gantt.inLoopHint": "Ces tâches dépendent les unes des autres en boucle : le planning n'a ni ordre ni chemin critique.",
 
   // -- Gantt : référence -----------------------------
+  "gantt.view": "Affichage",
+  "gantt.viewHint": "Chemin critique, référence, colonnes et couleurs",
+  "gantt.viewShowOnChart": "Afficher sur le diagramme",
   "gantt.baseline": "Référence",
   "gantt.baselineHint": "Le planning tel qu'il a été convenu, et l'écart avec les dates actuelles",
   "gantt.baselineShow": "Afficher le planning convenu",

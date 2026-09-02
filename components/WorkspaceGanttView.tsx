@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { GanttSkeleton } from "@/components/skeletons/GanttSkeleton";
+import { ganttToolbarButton } from "@/components/gantt/GanttToolbar";
 import { useT } from "@/components/LanguageProvider";
 import type { GanttBoardContext } from "@/lib/gantt/rows";
 import { projectRowId } from "@/lib/gantt/rows";
@@ -587,11 +588,7 @@ export default function WorkspaceGanttView({
                   type="button"
                   onClick={toggleProjectsOnly}
                   aria-pressed={projectsOnly}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-md shadow-sm transition-colors text-sm font-medium ${
-                    projectsOnly
-                      ? "bg-blue-50 dark:bg-blue-900/25 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
-                      : "bg-white dark:bg-[#1e2333] border-gray-200 dark:border-[#2d3555] hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-200"
-                  }`}
+                  className={ganttToolbarButton(projectsOnly)}
                   title={t("master.projectsOnlyHint")}
                 >
                   <Rows3

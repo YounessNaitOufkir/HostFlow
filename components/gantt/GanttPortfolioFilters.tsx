@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Check, Filter, X } from "lucide-react";
 import type { Profile } from "@/types";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
+import { ganttToolbarButton } from "./GanttToolbar";
 import { useT } from "@/components/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n";
 import {
@@ -80,11 +81,7 @@ export function GanttPortfolioFilters({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-md shadow-sm transition-colors text-sm font-medium ${
-          active
-            ? "bg-blue-50 dark:bg-blue-900/25 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
-            : "bg-white dark:bg-[#1e2333] border-gray-200 dark:border-[#2d3555] hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-200"
-        }`}
+        className={ganttToolbarButton(active)}
         title={t("master.filtersHint")}
       >
         <Filter size={14} className={active ? "" : "text-gray-500 dark:text-gray-400"} />

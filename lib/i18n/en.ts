@@ -163,8 +163,8 @@ export const en = {
   "gantt.zoom.month": "Month",
   "gantt.zoom.quarter": "Quarter",
   "gantt.colorBy": "Color by",
-  "gantt.colorBy.group": "group",
-  "gantt.colorBy.status": "status",
+  "gantt.colorBy.group": "Group",
+  "gantt.colorBy.status": "Status",
   "gantt.fields": "Fields",
   "gantt.fieldsHint": "Choose the fields shown in the task table beside the chart",
   "gantt.readOnly": "Read-only",
@@ -176,6 +176,9 @@ export const en = {
   "gantt.inLoopHint": "These tasks depend on each other in a loop, so the plan has no order and no critical path.",
 
   // -- Gantt: baseline -----------------------------------------
+  "gantt.view": "View",
+  "gantt.viewHint": "Critical path, baseline, fields and colours",
+  "gantt.viewShowOnChart": "Show on the chart",
   "gantt.baseline": "Baseline",
   "gantt.baselineHint": "The plan as it was agreed, and how far today's dates have drifted from it",
   "gantt.baselineShow": "Show the agreed plan",

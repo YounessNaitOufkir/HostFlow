@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Download, FileImage, FileSpreadsheet, FileText, Printer, Loader2 } from "lucide-react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { useT } from "@/components/LanguageProvider";
+import { ganttToolbarButton } from "./GanttToolbar";
 import type { TranslationKey } from "@/lib/i18n";
 
 export type GanttExportKind = "png" | "pdf" | "print" | "csv" | "xlsx";
@@ -58,15 +59,15 @@ export function GanttExportMenu({ onExport, disabled }: GanttExportMenuProps) {
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
         aria-expanded={open}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-[#252a3f] transition-colors text-sm font-medium text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+        className={`${ganttToolbarButton()} px-2 disabled:opacity-40 disabled:cursor-not-allowed`}
         title={t("gantt.exportHint")}
+        aria-label={t("gantt.export")}
       >
         {busy ? (
-          <Loader2 size={14} className="animate-spin text-gray-500 dark:text-gray-400" />
+          <Loader2 size={16} className="animate-spin text-gray-500 dark:text-gray-400" />
         ) : (
-          <Download size={14} className="text-gray-500 dark:text-gray-400" />
+          <Download size={16} className="text-gray-500 dark:text-gray-400" />
         )}
-        {t("gantt.export")}
       </button>
 
       {open && (
