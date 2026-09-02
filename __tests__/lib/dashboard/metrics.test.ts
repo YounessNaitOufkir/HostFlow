@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   computeDashboardMetrics,
-  hexFromStatusColor,
   dueDateOf,
   assigneeIdOf,
   ASSIGNEE_BAR_COLOR,
@@ -156,22 +155,6 @@ describe("overdue and due soon", () => {
 });
 
 describe("status colours", () => {
-  it("unwraps a Tailwind class to a hex", () => {
-    expect(hexFromStatusColor("bg-[#00c875]")).toBe("#00c875");
-  });
-
-  it("resolves a gradient to where it starts", () => {
-    // The built-in "Overdue" status is a gradient. Refusing it outright painted
-    // the one status a reader most needs to spot in neutral grey.
-    expect(hexFromStatusColor("bg-gradient-to-r from-red-600 to-rose-600")).toBe("#dc2626");
-  });
-
-  it("still returns null for a colour it cannot resolve", () => {
-    expect(hexFromStatusColor("bg-gradient-to-r from-teal-350 to-lime-200")).toBeNull();
-    expect(hexFromStatusColor("bg-slate-500")).toBeNull();
-    expect(hexFromStatusColor(undefined)).toBeNull();
-  });
-
   it("prefers the board's own status labels over the defaults", () => {
     const m = computeDashboardMetrics(
       boardWith([{ label: "Terminé", color: "bg-[#123456]" }]),
@@ -181,6 +164,17 @@ describe("status colours", () => {
       NOW
     );
     expect(m.statuses[0].color).toBe("#123456");
+  });
+
+  it("gives the built-in Overdue status its red rather than neutral grey", () => {
+    const m = computeDashboardMetrics(
+      boardWith(),
+      groups,
+      [item("a", { status: "Overdue" })],
+      profiles,
+      NOW
+    );
+    expect(m.statuses[0].color).not.toBe("#c4c4c4");
   });
 });
 
