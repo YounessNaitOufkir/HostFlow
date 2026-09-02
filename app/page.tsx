@@ -890,6 +890,9 @@ export default function MondayClone() {
                   groups={state.groups}
                   items={state.items}
                   profiles={state.profiles}
+                  onOpenTask={(itemId) =>
+                    navigateToItem(state.activeBoard?.id, itemId)
+                  }
                 />
               )}
 

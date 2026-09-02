@@ -11,11 +11,12 @@ import type { LucideIcon } from "lucide-react";
  * icon carries the state, so meaning never rests on colour alone.
  */
 
-export type StatTone = "neutral" | "good" | "warning" | "critical";
+export type StatTone = "neutral" | "info" | "good" | "warning" | "critical";
 
 /** Status steps, reserved for state and deliberately distinct from the series hue. */
 const TONES: Record<StatTone, { icon: string; tint: string }> = {
   neutral: { icon: "#5b7fa8", tint: "bg-slate-100 dark:bg-slate-800" },
+  info: { icon: "#3b82f6", tint: "bg-blue-50 dark:bg-blue-900/30" },
   good: { icon: "#0ca30c", tint: "bg-emerald-50 dark:bg-emerald-950/40" },
   warning: { icon: "#b47c05", tint: "bg-amber-50 dark:bg-amber-950/40" },
   critical: { icon: "#d03b3b", tint: "bg-red-50 dark:bg-red-950/40" },
@@ -34,7 +35,7 @@ export function StatTile({ label, value, detail, icon: Icon, tone = "neutral" }:
   const { icon, tint } = TONES[tone];
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-gray-100 dark:border-slate-800">
+    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</h3>
         <span className={`p-1.5 rounded-lg shrink-0 ${tint}`}>

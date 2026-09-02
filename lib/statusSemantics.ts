@@ -12,6 +12,24 @@
  */
 export const DONE_STATUS_PATTERN = /done|terminé|termine|achevée|achevee|completed|fait/i;
 
+/**
+ * Blocked, and in progress. Same reasoning as DONE_STATUS_PATTERN: a board says
+ * "Bloqué" or "En cours" and a tile counting the English word finds nothing.
+ * Deliberately narrow - "en attente" (waiting) is not the same as stuck.
+ */
+export const STUCK_STATUS_PATTERN = /stuck|blocked|bloqu/i;
+export const WORKING_STATUS_PATTERN = /working|in progress|en cours|démarr|demarr/i;
+
+/** True when this status value means the work is blocked. */
+export function isStuckStatusValue(value: unknown): boolean {
+  return typeof value === "string" && STUCK_STATUS_PATTERN.test(value);
+}
+
+/** True when this status value means the work is under way. */
+export function isWorkingStatusValue(value: unknown): boolean {
+  return typeof value === "string" && WORKING_STATUS_PATTERN.test(value);
+}
+
 /** True when this status value means the work is finished. */
 export function isDoneStatusValue(value: unknown): boolean {
   return typeof value === "string" && DONE_STATUS_PATTERN.test(value);
