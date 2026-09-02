@@ -2,6 +2,7 @@
 
 import React, { memo, useMemo, useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
+import { useT } from "@/components/LanguageProvider";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -123,6 +124,7 @@ const GroupSection = memo(function GroupSection({
   isFirstGroup = false,
   isLastGroup = false,
 }: GroupSectionProps) {
+  const t = useT();
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isCustomColorModalOpen, setIsCustomColorModalOpen] = useState(false);
   const [customColorValue, setCustomColorValue] = useState(group.color);
@@ -390,7 +392,9 @@ const GroupSection = memo(function GroupSection({
           )}
         </div>
         <span className="text-gray-400 dark:text-gray-500 text-sm ml-4 font-normal tracking-wide">
-          {groupItems.length} {groupItems.length === 1 ? "item" : "items"}
+          {groupItems.length === 1
+                      ? t("table.itemCountOne")
+                      : t("table.itemCount", { count: groupItems.length })}
         </span>
         <div className="flex items-center ml-auto opacity-0 group-hover/grouptitle:opacity-100 transition-opacity">
           <button
@@ -632,7 +636,7 @@ const GroupSection = memo(function GroupSection({
             >
               <input
                 autoFocus
-                placeholder="Item name..."
+                placeholder={t("table.itemNamePlaceholder")}
                 value={newItemName}
                 onChange={(e) => onSetNewItemName(e.target.value)}
                 onKeyDown={(e) => {
@@ -657,7 +661,7 @@ const GroupSection = memo(function GroupSection({
               style={{ width: `${activeItemNameWidth}px` }}
               onClick={() => onSetAddingToGroup(group.id)}
             >
-              <Plus size={14} className="mr-1.5" /> Add Item
+              <Plus size={14} className="mr-1.5" /> {t("table.addItem")}
             </div>
           </div>
         )}
@@ -705,7 +709,9 @@ const GroupSection = memo(function GroupSection({
                     {group.title}
                   </span>
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium ml-auto bg-gray-200/70 dark:bg-slate-800 text-gray-600 dark:text-gray-300">
-                    {groupItems.length} {groupItems.length === 1 ? "item" : "items"}
+                    {groupItems.length === 1
+                      ? t("table.itemCountOne")
+                      : t("table.itemCount", { count: groupItems.length })}
                   </span>
                 </div>
               </div>

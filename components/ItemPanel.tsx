@@ -39,6 +39,7 @@ import { useUpdateEditor } from "@/hooks/useUpdateEditor";
 import { usePromptModal } from "@/hooks/usePromptModal";
 
 import { supabase } from "@/lib/supabase";
+import { useT, useLanguage } from "@/components/LanguageProvider";
 import { Item, Column, Update, Profile, STATUS_OPTIONS, ActivityLog } from "@/types";
 import { Clock, Reply, Trash2 } from "lucide-react";
 import { reportError, reportFetchError, reportMutationError } from "@/lib/errorReporting";
@@ -52,29 +53,12 @@ const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify
 // ============================================================
 // Relative time formatter (no dependency needed)
 // ============================================================
-function formatRelativeTime(dateString: string): string {
-  const now = new Date();
-  const date = new Date(dateString);
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 60) return "Just now";
-  if (diffMin === 1) return "1 min ago";
-  if (diffMin < 60) return `${diffMin} min ago`;
-  if (diffHour === 1) return "1 hour ago";
-  if (diffHour < 24) return `${diffHour} hours ago`;
-  if (diffDay === 1) return "Yesterday";
-  if (diffDay < 7) return `${diffDay} days ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 // ============================================================
 // Bottom Toolbar
 // ============================================================
 function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: (title: string) => Promise<string | null> }) {
+  const t = useT();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
@@ -145,7 +129,7 @@ function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: 
         type="button"
         onClick={handleMention}
         className={btnClass}
-        title="Mention someone"
+        title={t("panel.mentionSomeone")}
       >
         <AtSign size={18} strokeWidth={2} />
       </button>
@@ -154,7 +138,7 @@ function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: 
         onClick={handleAddAttachment}
         disabled={isUploading}
         className={`${btnClass} ${isUploading ? 'opacity-50 cursor-not-allowed animate-pulse' : ''}`}
-        title="Add files"
+        title={t("panel.addFiles")}
       >
         <Paperclip size={18} strokeWidth={2} />
       </button>
@@ -169,7 +153,7 @@ function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: 
           type="button"
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           className={`${btnClass} ${showEmojiPicker ? 'bg-gray-200 dark:bg-slate-600 text-gray-800 dark:text-gray-200' : ''}`}
-          title="Add emoji"
+          title={t("panel.addEmoji")}
         >
           <Smile size={18} strokeWidth={2} />
         </button>
@@ -218,6 +202,7 @@ function ReplyComposer({
   onCancel: () => void;
   onPostReply: (tempUpdate: Update, htmlBody: string, editorJson: any) => Promise<void>;
 }) {
+  const t = useT();
   const { editor, isEditorEmpty, setIsEditorEmpty } = useUpdateEditor(profiles, "Write a reply...");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -250,14 +235,14 @@ function ReplyComposer({
             onClick={onCancel}
             className="px-3 py-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-sm font-medium transition-colors"
           >
-            Cancel
+            {t("panel.cancel")}
           </button>
           <button
             onClick={handlePost}
             disabled={isSubmitting || !editor || isEditorEmpty}
             className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-none"
           >
-            Reply
+            {t("panel.reply")}
           </button>
         </div>
       </div>
@@ -287,6 +272,7 @@ interface ItemPanelProps {
 }
 
 export default function ItemPanel({ item, columns, currentUser, onClose, onUpdateCell, profiles, boardItems = [] }: ItemPanelProps) {
+  const { t, bcp47 } = useLanguage();
   const queryClient = useQueryClient();
 
   const {
@@ -582,8 +568,8 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
       }
 
       if (col.type === "timeline" && value?.start && value?.end) {
-        const startDate = new Date(value.start).toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
-        const endDate = new Date(value.end).toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+        const startDate = new Date(value.start).toLocaleDateString(bcp47, {month: 'short', day: 'numeric'});
+        const endDate = new Date(value.end).toLocaleDateString(bcp47, {month: 'short', day: 'numeric'});
         const displayDate = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
         
         return (
@@ -736,7 +722,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                     disabled={isSubmitting || !editor || isEditorEmpty}
                     className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-none"
                   >
-                    Update
+                    {t("panel.update")}
                   </button>
                 </div>
               </div>
@@ -796,7 +782,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                                 <button
                                   onClick={() => handleDeleteUpdate(update.id)}
                                   className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded opacity-0 group-hover:opacity-100 transition-all"
-                                  title="Delete Update"
+                                  title={t("panel.deleteUpdate")}
                                 >
                                   <Trash2 size={14} />
                                 </button>
@@ -851,7 +837,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                                           <button
                                             onClick={() => handleDeleteUpdate(reply.id)}
                                             className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded opacity-0 group-hover/reply:opacity-100 transition-all"
-                                            title="Delete Reply"
+                                            title={t("panel.deleteReply")}
                                           >
                                             <Trash2 size={12} />
                                           </button>
