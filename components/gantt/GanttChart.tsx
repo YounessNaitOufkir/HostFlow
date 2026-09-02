@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { CellValue, DependencyType, Item, ItemLink, Profile } from "@/types";
-import { TruncatedText } from "@/components/ui/TruncatedText";
+import { TruncatedText, useTruncationTooltip } from "@/components/ui/TruncatedText";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { TranslateVars, TranslationKey } from "@/lib/i18n";
 import {
@@ -1554,6 +1554,43 @@ function TimelineRow({
   const x = scale.xOf(row.start);
   const width = scale.widthOf(row.start, row.end);
 
+  // Float is the one number that says how much room a task has, and it is only
+  // knowable from the whole network - so it is worth saying out loud.
+  const floatLabel = taskSchedule?.inCycle
+    ? t("gantt.inLoopShort")
+    : taskSchedule && taskSchedule.totalFloat > 0
+      ? t("gantt.slack", { days: taskSchedule.totalFloat })
+      : taskSchedule
+        ? t("gantt.noSlack")
+        : "";
+
+  /**
+   * A bar carries no text of its own, so the hover is the only place its name
+   * appears once you have scrolled away from the table. It uses the app's own
+   * tooltip surface rather than the browser's, which arrives after a delay and
+   * in the operating system's styling.
+   *
+   * Computed here, above the summary rows' early return, because a hook cannot
+   * run after one. The owner is left out: it is already printed beside the bar.
+   */
+  const {
+    ref: barTipRef,
+    tooltip: barTipNode,
+    handlers: barTipHandlers,
+  } = useTruncationTooltip<HTMLDivElement>(
+    row.kind === "item" ? (
+      <>
+        <div className="font-semibold">{row.label}</div>
+        <div className="opacity-75">
+          {formatSpan(row.start, row.end, dateLocale)} · {daysBetween(row.start, row.end) + 1}d
+        </div>
+        {floatLabel ? <div className="opacity-75">{floatLabel}</div> : null}
+      </>
+    ) : null,
+    "top",
+    true
+  );
+
   if (row.kind !== "item") {
     // A summary bar is drawn whether or not the group is collapsed. Hiding it
     // when expanded, as the old chart did, threw away the one thing the row is
@@ -1597,16 +1634,6 @@ function TimelineRow({
       : row.groupColor;
   const centerY = row.height / 2;
 
-  // Float is the one number that says how much room a task has, and it is only
-  // knowable from the whole network - so it is worth saying out loud.
-  const floatLabel = taskSchedule?.inCycle
-    ? t("gantt.inLoopShort")
-    : taskSchedule && taskSchedule.totalFloat > 0
-      ? t("gantt.slack", { days: taskSchedule.totalFloat })
-      : taskSchedule
-        ? t("gantt.noSlack")
-        : "";
-
   return (
     <div
       className="absolute left-0 border-b border-gray-200 dark:border-[#1e2333] hover:bg-white/60 dark:hover:bg-[#131722]/60 transition-colors group/row"
@@ -1640,17 +1667,11 @@ function TimelineRow({
           role="button"
           tabIndex={0}
           onKeyDown={(e) => onBarKeyDown(e, row)}
+          ref={barTipRef}
           aria-label={`${row.label}, ${formatSpan(row.start, row.end, dateLocale)}${
             floatLabel ? `, ${floatLabel}` : ""
           }`}
-          title={`${row.label}
-${formatSpan(row.start, row.end, dateLocale)} · ${
-            daysBetween(row.start, row.end) + 1
-          }d${floatLabel ? `
-${floatLabel}` : ""}${
-            row.assigneeNames ? `
-${row.assigneeNames}` : ""
-          }`}
+          {...barTipHandlers}
           onPointerDown={(e) => onStartDrag(e, row.item.id)}
           className={`absolute rounded-[3px] group/bar overflow-hidden flex items-center border border-white/20 hover:border-white/60 ${
             editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
@@ -1733,6 +1754,8 @@ ${row.assigneeNames}` : ""
           {row.assigneeNames}
         </span>
       )}
+
+      {barTipNode}
     </div>
   );
 }
