@@ -1563,7 +1563,13 @@ function TimelineRow({
         className="absolute left-0 border-b border-gray-200 dark:border-[#1e2333] bg-gray-100/50 dark:bg-[#1a1e2d]/50"
         style={{ top: row.y, height: row.height, width: scale.width }}
       >
-        <SummaryBar x={x} width={width} color={row.color} centerY={row.height / 2} />
+        <SummaryBar
+          x={x}
+          width={width}
+          color={row.color}
+          centerY={row.height / 2}
+          level={row.kind === "project" ? "project" : "group"}
+        />
       </div>
     );
   }
@@ -1674,12 +1680,10 @@ ${row.assigneeNames}` : ""
 
           <div className="absolute inset-0 bg-white/15 opacity-0 group-hover/bar:opacity-100 transition-opacity duration-150 pointer-events-none" />
 
-          <TruncatedText
-            className="flex-1 min-w-0 truncate text-[10px] font-bold text-white px-2 drop-shadow-md relative z-10"
-            tooltip={row.label}
-          >
-            {row.label}
-          </TruncatedText>
+          {/* No name inside the bar. On anything short it truncated to two
+              characters and an ellipsis, which is noise rather than a label -
+              and the name is already in the table to the left and on hover,
+              where it arrives in full. */}
 
           {editable && row.colType === "timeline" && (
             <div
@@ -1869,28 +1873,61 @@ function BaselineBar({
   );
 }
 
-/** The bracket a summary row draws over its children's span. */
+/**
+ * The bracket a summary row draws over its children's span.
+ *
+ * A board and a group both summarise, but they are not the same rank, and drawn
+ * identically the portfolio lost its hierarchy: on the Master Gantt a property's
+ * bar and one of its phases' bars were the same object in two colours. The
+ * heavier bracket is the higher level, so depth reads from weight the way an
+ * outline reads from indentation.
+ */
 function SummaryBar({
   x,
   width,
   color,
   centerY,
+  level = "group",
 }: {
   x: number;
   width: number;
   color: string;
   centerY: number;
+  level?: "project" | "group";
 }) {
+  const project = level === "project";
+  const height = project ? 13 : 9;
+  const spine = project ? 6 : 4;
+  const cap = project ? 4 : 3;
+
   return (
     <div
       data-testid="gantt-summary-bar"
+      data-summary-level={level}
       className="absolute pointer-events-none"
-      style={{ left: x, width, top: centerY - 5, height: 10 }}
+      style={{ left: x, width, top: centerY - height / 2, height }}
     >
-      <div className="absolute inset-x-0 top-0 h-[5px] rounded-sm" style={{ backgroundColor: color }} />
+      <div
+        className="absolute inset-x-0 top-0 rounded-sm"
+        style={{ height: spine, backgroundColor: color }}
+      />
       {/* The downturned ends are what distinguish a summary from a task bar. */}
-      <div className="absolute left-0 top-0 w-[3px] h-[10px]" style={{ backgroundColor: color }} />
-      <div className="absolute right-0 top-0 w-[3px] h-[10px]" style={{ backgroundColor: color }} />
+      <div
+        className="absolute left-0 top-0"
+        style={{ width: cap, height, backgroundColor: color }}
+      />
+      <div
+        className="absolute right-0 top-0"
+        style={{ width: cap, height, backgroundColor: color }}
+      />
+      {/* A project's span is also washed underneath, so a lane reads as one
+          thing at a glance even when its phases are open. */}
+      {project && (
+        <div
+          className="absolute inset-x-0 rounded-b-sm"
+          style={{ top: spine, height: height - spine, backgroundColor: color, opacity: 0.18 }}
+        />
+      )}
     </div>
   );
 }
