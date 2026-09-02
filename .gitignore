@@ -53,3 +53,6 @@ next-env.d.ts
 # Seeded by e2e-gantt/seed.js
 e2e-gantt/.fixture.json
 e2e-gantt/.auth.json
+
+# Playwright run output (screenshots, traces)
+test-results/

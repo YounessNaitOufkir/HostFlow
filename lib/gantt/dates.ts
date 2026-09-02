@@ -131,6 +131,23 @@ export function startDateOf(value: unknown): Date | null {
 }
 
 /**
+ * The date a task is judged by: the end of a timeline, or the date itself.
+ *
+ * Mirrors the automation engine, which also reads `end` before `start` - a task
+ * running Monday to Friday is not late until Friday has passed. The dashboard and
+ * the overdue rule must agree, or the tile contradicts the email.
+ */
+export function endDateOf(value: unknown): Date | null {
+  if (!value) return null;
+  if (typeof value === "string") return parseDateOnly(value);
+  if (typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    return parseDateOnly(o.end ?? o.date ?? o.start);
+  }
+  return null;
+}
+
+/**
  * A fixed origin for scheduling arithmetic.
  *
  * The critical path is computed in whole-day integers. Measuring those from the

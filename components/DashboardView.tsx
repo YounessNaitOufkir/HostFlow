@@ -1,246 +1,217 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { Board, Group, Item, STATUS_OPTIONS } from "@/types";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from "recharts";
-import { CheckCircle, AlertTriangle, ListTodo, CalendarClock } from "lucide-react";
-import { RingChart, Ring, RingCenter } from "@/components/ui/RingChart";
-import { motion } from "framer-motion";
+import React, { useMemo, useState } from "react";
+import { Board, Group, Item, Profile } from "@/types";
+import { AlertTriangle, CalendarClock, CheckCircle, ListTodo } from "lucide-react";
+import { useT } from "@/components/LanguageProvider";
+import { StatTile } from "@/components/dashboard/StatTile";
+import { BarList } from "@/components/dashboard/BarList";
+import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
+import {
+  computeDashboardMetrics,
+  assigneeIdOf,
+  hexFromStatusColor,
+} from "@/lib/dashboard/metrics";
+import {
+  applyDashboardFilter,
+  EMPTY_DASHBOARD_FILTER,
+  type DashboardFilter,
+} from "@/lib/dashboard/filter";
+import { STATUS_OPTIONS } from "@/types";
 
 interface DashboardViewProps {
   board: Board | null;
   groups: Group[];
   items: Item[];
+  profiles: Profile[];
 }
 
-export default function DashboardView({ board, groups, items }: DashboardViewProps) {
-  
-  // Calculate Analytics Data
-  const analytics = useMemo(() => {
-    let totalItems = items.length;
-    let completed = 0;
-    let stuck = 0;
-    let empty = 0;
-    let working = 0;
+/** The series hue, matching BarList. Used where a chart needs it inline. */
+const SERIES = "#2a78d6";
 
-    const statusCounts: Record<string, number> = {};
+export default function DashboardView({ board, groups, items, profiles }: DashboardViewProps) {
+  const t = useT();
+  const [filter, setFilter] = useState<DashboardFilter>(EMPTY_DASHBOARD_FILTER);
 
-    items.forEach(item => {
-      // Find status columns
-      const statusCols = board?.columns.filter(c => c.type === "status") || [];
-      if (statusCols.length > 0) {
-        // Just look at the first status column for primary metrics
-        const mainStatusCol = statusCols[0];
-        const val = item.column_values[mainStatusCol.id] || "Empty";
-        
-        statusCounts[val] = (statusCounts[val] || 0) + 1;
+  const filtered = useMemo(
+    () => applyDashboardFilter(board, items, filter),
+    [board, items, filter]
+  );
 
-        if (val === "Done") completed++;
-        else if (val === "Stuck") stuck++;
-        else if (val === "Empty") empty++;
-        else if (val === "Working on it") working++;
-      }
-    });
+  const metrics = useMemo(
+    () => computeDashboardMetrics(board, groups, filtered, profiles),
+    [board, groups, filtered, profiles]
+  );
 
-    // Format for Recharts and RingChart
-    const statusData = Object.keys(statusCounts).map(key => ({
-      name: key, // For Recharts
-      label: key, // For RingChart
-      value: statusCounts[key],
-      maxValue: totalItems, // For RingChart percentage
-      color: STATUS_OPTIONS.find(opt => opt.label === key)?.color?.replace("bg-[", "").replace("]", "") || "#c4c4c4"
-    }));
+  // Offered in the filter menu: only people who actually carry work here, so the
+  // list is not every profile in the account.
+  const assigneeIds = useMemo(() => {
+    if (!board) return [];
+    const seen = new Set<string>();
+    for (const item of items) {
+      const id = assigneeIdOf(board, item);
+      if (id) seen.add(id);
+    }
+    return [...seen];
+  }, [board, items]);
 
-    return { totalItems, completed, stuck, working, empty, statusData };
-  }, [items, board]);
+  // The completion meter wears the board's own "done" colour, because it plots
+  // exactly the quantity the Done row below it reports. A different hue for the
+  // same number would read as a different measure.
+  const doneColor = useMemo(() => {
+    const done = metrics.statuses.find((s) => s.label.toLowerCase().includes("done"));
+    return (
+      done?.color ??
+      hexFromStatusColor(STATUS_OPTIONS.find((o) => o.label === "Done")?.color) ??
+      SERIES
+    );
+  }, [metrics.statuses]);
 
   if (!board) return null;
 
-  const CustomXAxisTick = ({ x, y, payload }: any) => {
-    const isTruncated = payload.value.length > 14;
-    const displayText = isTruncated ? payload.value.substring(0, 14) + "..." : payload.value;
-    
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <text
-          x={0}
-          y={0}
-          dy={10}
-          textAnchor="end"
-          fill="#666"
-          fontSize={11}
-          fontWeight="bold"
-          transform="rotate(-90)"
-        >
-          <title>{payload.value}</title>
-          {displayText}
-        </text>
-      </g>
-    );
-  };
-
   return (
     <div className="flex-1 overflow-auto bg-[#F4F6F8] dark:bg-[#181b34] p-8">
-      <div className="max-w-[1200px] mx-auto space-y-8">
-        
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
-            {board.name} Analytics
+      <div className="max-w-[1200px] mx-auto space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            {t("dash.title", { board: board.name })}
           </h1>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Last updated: Just now
-          </div>
+          {/* One filter row above everything it scopes, never inside a card. */}
+          <DashboardFilters
+            filter={filter}
+            onChange={setFilter}
+            assigneeIds={assigneeIds}
+            profiles={profiles}
+            groups={groups}
+            showing={{ shown: filtered.length, total: items.length }}
+          />
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-500 dark:text-gray-400 font-medium text-sm">Total Tasks</h3>
-              <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                <ListTodo size={20} className="text-blue-500" />
-              </div>
+        {items.length === 0 ? (
+          <EmptyState title={t("dash.emptyTitle")} body={t("dash.emptyBody")} />
+        ) : filtered.length === 0 ? (
+          <EmptyState title={t("dash.noMatchTitle")} body={t("dash.noMatchBody")} />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatTile label={t("dash.totalTasks")} value={metrics.total} icon={ListTodo} />
+              <StatTile
+                label={t("dash.done")}
+                value={metrics.done}
+                detail={t("dash.doneDetail", { pct: metrics.donePct })}
+                icon={CheckCircle}
+                tone="good"
+              />
+              <StatTile
+                label={t("dash.overdue")}
+                value={metrics.overdue}
+                detail={t("dash.overdueDetail")}
+                icon={AlertTriangle}
+                tone={metrics.overdue > 0 ? "critical" : "neutral"}
+              />
+              <StatTile
+                label={t("dash.dueSoon")}
+                value={metrics.dueSoon}
+                detail={t("dash.dueSoonDetail")}
+                icon={CalendarClock}
+                tone={metrics.dueSoon > 0 ? "warning" : "neutral"}
+              />
             </div>
-            <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{analytics.totalItems}</div>
-          </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-500 dark:text-gray-400 font-medium text-sm">Completed</h3>
-              <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
-                <CheckCircle size={20} className="text-[#00c875]" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{analytics.completed}</div>
-            <div className="text-xs text-green-500 font-medium mt-2">
-              {analytics.totalItems ? Math.round((analytics.completed / analytics.totalItems) * 100) : 0}% of total
-            </div>
-          </div>
+            {metrics.undated > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("dash.undated", { count: metrics.undated })}
+              </p>
+            )}
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-500 dark:text-gray-400 font-medium text-sm">Working On It</h3>
-              <div className="p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg">
-                <CalendarClock size={20} className="text-[#fdab3d]" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{analytics.working}</div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-500 dark:text-gray-400 font-medium text-sm">Stuck</h3>
-              <div className="p-2 bg-red-50 dark:bg-red-900/30 rounded-lg">
-                <AlertTriangle size={20} className="text-[#e2445c]" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{analytics.stuck}</div>
-          </div>
-        </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-6">Status Breakdown</h3>
-            
-            <div className="flex flex-col 2xl:flex-row items-center gap-8 flex-1">
-              {/* Chart Side */}
-              <div className="h-64 w-64 md:h-72 md:w-72 flex-shrink-0">
-                {analytics.statusData.length > 0 ? (
-                  <RingChart data={analytics.statusData} strokeWidth={14} ringGap={6} baseInnerRadius={55}>
-                    {analytics.statusData.map((item, index) => (
-                      <Ring key={item.label} index={index} />
-                    ))}
-                    <RingCenter defaultLabel="Tasks" />
-                  </RingChart>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card title={t("dash.progress")}>
+                {metrics.statuses.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-6">
+                    {t("dash.noStatuses")}
+                  </p>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">No status data available</div>
-                )}
-              </div>
-              
-              {/* Legend Side */}
-              <div className="flex flex-col justify-center gap-5 w-full flex-1">
-                {analytics.statusData.map((s, i) => {
-                  const pct = analytics.totalItems > 0 ? Math.round((s.value / analytics.totalItems) * 100) : 0;
-                  return (
-                    <div key={i} className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center text-gray-700 dark:text-gray-200 font-medium">
-                          <div className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: s.color }}></div>
-                          {s.name}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold text-gray-900 dark:text-white">{s.value}</span>
-                          <span className="text-gray-500 dark:text-gray-400 w-9 text-right">{pct}%</span>
-                        </div>
-                      </div>
-                      {/* Mini progress bar */}
-                      <div className="w-full h-1.5 bg-gray-100 dark:bg-slate-800/80 rounded-full overflow-hidden">
-                        <motion.div 
-                          className="h-full rounded-full" 
-                          style={{ backgroundColor: s.color }}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pct}%` }}
-                          transition={{ duration: 1, type: "spring", bounce: 0, delay: i * 0.1 }}
-                        />
-                      </div>
+                  <>
+                    {/* The one hero figure on this view. Same sans as everything
+                        else, proportional digits. */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-5xl font-semibold text-gray-900 dark:text-gray-50">
+                        {metrics.donePct}%
+                      </span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {t("dash.complete")}
+                      </span>
                     </div>
-                  );
-                })}
+
+                    {/* Meter: the unfilled track is the same hue, lightened, so
+                        the state reads across the whole bar. */}
+                    <div
+                      className="mt-4 h-2.5 rounded-full overflow-hidden"
+                      style={{ background: `${doneColor}26` }}
+                      role="img"
+                      aria-label={t("dash.doneDetail", { pct: metrics.donePct })}
+                    >
+                      <div
+                        className="h-full rounded-r"
+                        style={{ width: `${metrics.donePct}%`, background: doneColor }}
+                      />
+                    </div>
+
+                    <ul className="mt-6 space-y-3">
+                      {metrics.statuses.map((s) => (
+                        <li key={s.label} className="flex items-center gap-3 text-sm">
+                          {/* Identity comes from the mark beside the text, never
+                              from colouring the text itself. */}
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ background: s.color }}
+                          />
+                          <span className="flex-1 truncate text-gray-700 dark:text-gray-200">
+                            {s.label}
+                          </span>
+                          <span className="font-medium tabular-nums text-gray-900 dark:text-gray-100">
+                            {s.value}
+                          </span>
+                          <span className="w-10 text-right tabular-nums text-gray-500 dark:text-gray-400">
+                            {s.pct}%
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </Card>
+
+              <div className="space-y-6">
+                <Card title={t("dash.byAssignee")}>
+                  <BarList data={metrics.byAssignee} emptyMessage={t("dash.noAssignees")} />
+                </Card>
+                <Card title={t("dash.byGroup")}>
+                  <BarList data={metrics.byGroup} emptyMessage={t("dash.noGroupData")} />
+                </Card>
               </div>
             </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-6">Group Distribution</h3>
-            <div className="flex-1 w-full min-h-[18rem]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={groups.map(g => ({
-                    name: g.title,
-                    tasks: items.filter(i => i.group_id === g.id).length,
-                    color: g.color
-                  }))}
-                  margin={{ top: 5, right: 30, left: 0, bottom: 90 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                  <XAxis 
-                    dataKey="name" 
-                    interval={0} 
-                    tick={<CustomXAxisTick />} 
-                    axisLine={false} 
-                    tickLine={false} 
-                  />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip 
-                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Bar dataKey="tasks" radius={[4, 4, 0, 0]}>
-                    {groups.map((g, idx) => (
-                      <Cell key={`cell-${idx}`} fill={g.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-        </div>
-
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-gray-100 dark:border-slate-800">
+      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-5">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 p-12 text-center">
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{title}</h2>
+      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{body}</p>
     </div>
   );
 }
