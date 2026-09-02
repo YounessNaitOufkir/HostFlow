@@ -708,11 +708,16 @@ export default function GanttChart({
         return;
       }
 
-      onCreateLink({
-        sourceId: drag.sourceId,
-        targetId,
-        type: inferDependencyType(drag.fromEdge, edge),
-      });
+      const type = inferDependencyType(drag.fromEdge, edge);
+      if (!type) {
+        // Start-to-finish: the one pair of edges that no longer names a type.
+        // Said out loud, because a drag that lands correctly and does nothing
+        // reads as a bug.
+        toast.error(t("gantt.linkNoStartToFinish"));
+        return;
+      }
+
+      onCreateLink({ sourceId: drag.sourceId, targetId, type });
     };
 
     window.addEventListener("pointermove", onMove);

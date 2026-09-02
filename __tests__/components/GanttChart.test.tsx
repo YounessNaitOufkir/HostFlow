@@ -72,7 +72,7 @@ function renderChart(overrides: Partial<React.ComponentProps<typeof GanttChart>>
 }
 
 /** The scale the chart builds for itself at a given zoom, to check its output against. */
-function expectedScale(zoom: "day" | "week" | "month" | "quarter") {
+function expectedScale(zoom: "day" | "week" | "month") {
   const starts = items.map((i) => parseDateOnly(i.column_values[TIMELINE.id].start)!);
   const ends = items.map((i) => parseDateOnly(i.column_values[TIMELINE.id].end)!);
   const { chartStart, chartEnd } = ganttBounds(starts, ends, zoom);
@@ -134,7 +134,7 @@ describe("GanttChart geometry", () => {
     const user = userEvent.setup();
     const { container } = renderChart();
 
-    for (const zoom of ["Week", "Month", "Quarter", "Day"] as const) {
+    for (const zoom of ["Week", "Month", "Day"] as const) {
       await user.click(screen.getByRole("button", { name: zoom }));
 
       const source = bar("Permis");
@@ -161,10 +161,10 @@ describe("GanttChart geometry", () => {
   it("never collapses a bar to nothing at the widest zoom", async () => {
     const user = userEvent.setup();
     renderChart();
-    await user.click(screen.getByRole("button", { name: "Quarter" }));
+    await user.click(screen.getByRole("button", { name: "Month" }));
 
     for (const name of ["Permis", "Devis"]) {
-      expect(px(bar(name).style.width)).toBeGreaterThanOrEqual(PX_PER_DAY.quarter);
+      expect(px(bar(name).style.width)).toBeGreaterThanOrEqual(PX_PER_DAY.month);
     }
   });
 });

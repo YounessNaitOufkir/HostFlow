@@ -19,9 +19,28 @@ import type { GanttDependency } from "./dependencies";
 /** Which end of a bar a drag started from or landed on. */
 export type BarEdge = "start" | "finish";
 
-export function inferDependencyType(from: BarEdge, to: BarEdge): DependencyType {
+/**
+ * The types a link may be given.
+ *
+ * Start-to-finish is gone from the list: it says "this cannot finish until that
+ * starts", which describes a shift handover rather than anything on a building
+ * site, and in practice it was only ever produced by a mis-drag. It stays in
+ * DependencyType because links already carrying it must keep meaning what they
+ * meant - they render, and the editor still shows the type so it can be
+ * changed. Only creating a new one is refused.
+ */
+export const SELECTABLE_DEPENDENCY_TYPES: DependencyType[] = ["FS", "SS", "FF"];
+
+/**
+ * The type a drag implies, or null when the pair of edges no longer names one.
+ *
+ * Null rather than a nearest guess: dragging start-to-finish is a deliberate
+ * gesture, and quietly turning it into a different rule would be worse than
+ * saying it is not available.
+ */
+export function inferDependencyType(from: BarEdge, to: BarEdge): DependencyType | null {
   if (from === "finish") return to === "start" ? "FS" : "FF";
-  return to === "start" ? "SS" : "SF";
+  return to === "start" ? "SS" : null;
 }
 
 /** The edges a link type joins - used to draw an existing arrow back to its handles. */
