@@ -4,10 +4,20 @@ import React, { useEffect, useRef, useState } from "react";
 import { Trash2, X } from "lucide-react";
 import type { DependencyType } from "@/types";
 import type { GanttDependency } from "@/lib/gantt/dependencies";
-import { clampLag, describeDependency } from "@/lib/gantt/linking";
+import {
+  clampLag,
+  describeDependency,
+  SELECTABLE_DEPENDENCY_TYPES,
+} from "@/lib/gantt/linking";
 import { useT } from "@/components/LanguageProvider";
 
-const TYPES: DependencyType[] = ["FS", "SS", "FF", "SF"];
+// The current type is always shown even when it is no longer offered, so a
+// link made before start-to-finish was withdrawn can still be read and changed
+// rather than sitting there unexplained.
+const offeredTypes = (current: DependencyType): DependencyType[] =>
+  SELECTABLE_DEPENDENCY_TYPES.includes(current)
+    ? SELECTABLE_DEPENDENCY_TYPES
+    : [...SELECTABLE_DEPENDENCY_TYPES, current];
 
 interface GanttLinkEditorProps {
   dependency: GanttDependency;
@@ -58,6 +68,7 @@ export function GanttLinkEditor({
       window.addEventListener("mousedown", onPointerDown);
     }, 0);
     window.addEventListener("keydown", onKey);
+
     return () => {
       clearTimeout(timer);
       window.removeEventListener("mousedown", onPointerDown);
@@ -70,6 +81,8 @@ export function GanttLinkEditor({
     setLagText(String(next));
     if (next !== dependency.lag) onChange({ lag: next });
   };
+
+  const types = offeredTypes(dependency.type);
 
   return (
     <div
@@ -111,24 +124,26 @@ export function GanttLinkEditor({
       ) : (
         <>
           <div
-            className="grid grid-cols-4 gap-1 mb-3"
+            className={`grid gap-1 mb-3 ${
+              types.length > 3 ? "grid-cols-4" : "grid-cols-3"
+            }`}
             role="group"
             aria-label={t("gantt.dependencyType")}
           >
-            {TYPES.map((type) => (
+            {types.map((option) => (
               <button
-                key={type}
+                key={option}
                 type="button"
-                onClick={() => onChange({ type })}
-                aria-pressed={dependency.type === type}
-                title={describeDependency(t, type, 0)}
+                onClick={() => onChange({ type: option })}
+                aria-pressed={dependency.type === option}
+                title={describeDependency(t, option, 0)}
                 className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                  dependency.type === type
+                  dependency.type === option
                     ? "bg-blue-500 text-white"
                     : "bg-gray-100 dark:bg-[#252a3f] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#2d3555]"
                 }`}
               >
-                {type}
+                {option}
               </button>
             ))}
           </div>

@@ -116,7 +116,7 @@ export interface Profile {
 }
 
 /** Timeline granularity of a Gantt chart. */
-export type GanttZoom = "day" | "week" | "month" | "quarter";
+export type GanttZoom = "day" | "week" | "month";
 
 /**
  * Per-board Gantt settings.

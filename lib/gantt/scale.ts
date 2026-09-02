@@ -18,11 +18,9 @@
 import {
   startOfWeek,
   startOfMonth,
-  startOfQuarter,
   startOfYear,
   addWeeks,
   addMonths,
-  addQuarters,
   addYears,
   format,
 } from "date-fns";
@@ -33,18 +31,17 @@ import { addDaysOnly, daysBetween, today, isSameDateOnly } from "./dates";
 
 export type { GanttZoom };
 
-export const GANTT_ZOOMS: GanttZoom[] = ["day", "week", "month", "quarter"];
+export const GANTT_ZOOMS: GanttZoom[] = ["day", "week", "month"];
 
 /**
  * Pixels per day at each zoom, chosen so one cell of the minor band is wide
  * enough for its own label: a day cell stays at the 50px the chart has always
- * used, a week lands near 126px, a month near 150px, a quarter near 165px.
+ * used, a week lands near 126px and a month near 150px.
  */
 export const PX_PER_DAY: Record<GanttZoom, number> = {
   day: 50,
   week: 18,
   month: 5,
-  quarter: 1.8,
 };
 
 /** Keys rather than words: this module has no locale. */
@@ -52,7 +49,6 @@ export const ZOOM_LABEL_KEYS: Record<GanttZoom, TranslationKey> = {
   day: "gantt.zoom.day",
   week: "gantt.zoom.week",
   month: "gantt.zoom.month",
-  quarter: "gantt.zoom.quarter",
 };
 
 /** A cell in one of the two header bands. */
@@ -90,9 +86,9 @@ export interface GanttScale {
   dateAt(x: number): Date;
   /** Whole days a pixel delta represents - what a drag of `dx` should shift a bar by. */
   daysFromPx(dx: number): number;
-  /** Coarse band: month at day/week zoom, year at month/quarter zoom. */
+  /** Coarse band: month at day/week zoom, year at month zoom. */
   majorTicks(window?: PxWindow): GanttTick[];
-  /** Fine band: day, week, month or quarter. */
+  /** Fine band: day, week or month. */
   minorTicks(window?: PxWindow): GanttTick[];
 }
 
@@ -135,7 +131,7 @@ export function createGanttScale({
   /**
    * Walk period boundaries from the one containing the window's left edge,
    * emitting a cell per period. Widths come from the real boundaries, so
-   * February and a 92-day quarter size themselves correctly.
+   * February and a 31-day month size themselves correctly.
    */
   const band = (
     startOfPeriod: (d: Date) => Date,
@@ -213,16 +209,6 @@ export function createGanttScale({
           window,
           false
         );
-      case "quarter":
-        return band(
-          startOfQuarter,
-          (d) => addQuarters(startOfQuarter(d), 1),
-          (d) => "Q" + (Math.floor(d.getMonth() / 3) + 1),
-          null,
-          "q",
-          window,
-          false
-        );
     }
   };
 
@@ -269,7 +255,7 @@ export function createGanttScale({
  * Pad the data's own extents into a chart range.
  *
  * The lead-in and run-out scale with the zoom - three days of margin is
- * generous at day zoom and invisible at quarter zoom - and the range is held
+ * generous at day zoom and invisible at month zoom - and the range is held
  * to a floor so a single one-day task still gets a readable chart instead of
  * one column stretched across the viewport.
  */
@@ -282,13 +268,11 @@ export function ganttBounds(
     day: [3, 7],
     week: [7, 21],
     month: [30, 60],
-    quarter: [60, 120],
   };
   const minSpan: Record<GanttZoom, number> = {
     day: 14,
     week: 60,
     month: 180,
-    quarter: 540,
   };
 
   const [before, after] = pad[zoom];

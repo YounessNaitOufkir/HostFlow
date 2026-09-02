@@ -104,9 +104,9 @@ describe("header bands", () => {
     expect(ticks[2].width).toBe(31 * PX_PER_DAY.month);
   });
 
-  it("emits four quarters and labels the year band above them", () => {
-    const scale = scaleFor("quarter", "2026-01-01", "2026-12-31");
-    expect(scale.minorTicks().map((t) => t.label)).toEqual(["Q1", "Q2", "Q3", "Q4"]);
+  it("labels the year band above the months across a full year", () => {
+    const scale = scaleFor("month", "2026-01-01", "2026-12-31");
+    expect(scale.minorTicks()).toHaveLength(12);
     expect(scale.majorTicks().map((t) => t.label)).toEqual(["2026"]);
   });
 
@@ -179,12 +179,12 @@ describe("ganttBounds", () => {
     expect(toDateOnly(day.chartStart)).toBe("2026-02-26");
     expect(toDateOnly(day.chartEnd)).toBe("2026-10-07");
 
-    const quarter = ganttBounds(starts, ends, "quarter");
-    expect(toDateOnly(quarter.chartStart)).toBe("2025-12-31");
-    // Sep 30 + 120 days of run-out is Jan 28 2027, but that is only 394 days of
-    // chart - too narrow to be worth a quarter view - so the floor takes over.
-    expect(toDateOnly(quarter.chartEnd)).toBe("2027-06-23");
-    expect(daysBetween(quarter.chartStart, quarter.chartEnd) + 1).toBe(540);
+    const month = ganttBounds(starts, ends, "month");
+    expect(toDateOnly(month.chartStart)).toBe("2026-01-30");
+    expect(toDateOnly(month.chartEnd)).toBe("2026-11-29");
+    // Month view has a 180-day floor, so a short project still gets a chart
+    // wide enough to be worth looking at rather than three fat bars.
+    expect(daysBetween(month.chartStart, month.chartEnd) + 1).toBeGreaterThanOrEqual(180);
   });
 
   it("widens a single one-day task to a readable span", () => {

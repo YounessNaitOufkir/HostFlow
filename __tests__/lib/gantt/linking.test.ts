@@ -6,6 +6,7 @@ import {
   wouldCreateCycle,
   clampLag,
   describeDependency,
+  SELECTABLE_DEPENDENCY_TYPES,
 } from "@/lib/gantt/linking";
 import type { GanttDependency } from "@/lib/gantt/dependencies";
 import type { DependencyType } from "@/types";
@@ -20,14 +21,26 @@ describe("inferDependencyType", () => {
     expect(inferDependencyType("finish", "start")).toBe("FS");
     expect(inferDependencyType("start", "start")).toBe("SS");
     expect(inferDependencyType("finish", "finish")).toBe("FF");
-    expect(inferDependencyType("start", "finish")).toBe("SF");
   });
 
-  it("round-trips through edgesOfType", () => {
-    for (const type of ["FS", "SS", "FF", "SF"] as DependencyType[]) {
+  it("names no type for a start-to-finish drag", () => {
+    // Start-to-finish is no longer offered. Null rather than a nearest guess:
+    // quietly turning a deliberate gesture into a different rule is worse than
+    // saying the rule is unavailable.
+    expect(inferDependencyType("start", "finish")).toBeNull();
+  });
+
+  it("round-trips every type that can still be drawn", () => {
+    for (const type of SELECTABLE_DEPENDENCY_TYPES) {
       const { from, to } = edgesOfType(type);
       expect(inferDependencyType(from, to)).toBe(type);
     }
+  });
+
+  it("still knows which edges an existing SF link joins", () => {
+    // Links made before it was withdrawn have to keep drawing correctly.
+    expect(edgesOfType("SF")).toEqual({ from: "start", to: "finish" });
+    expect(SELECTABLE_DEPENDENCY_TYPES).not.toContain("SF");
   });
 });
 
