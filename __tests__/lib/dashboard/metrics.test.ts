@@ -4,6 +4,8 @@ import {
   hexFromStatusColor,
   dueDateOf,
   assigneeIdOf,
+  ASSIGNEE_BAR_COLOR,
+  ATTENTION_LIMIT,
 } from "@/lib/dashboard/metrics";
 import type { Board, Group, Item, Profile } from "@/types";
 
@@ -158,8 +160,16 @@ describe("status colours", () => {
     expect(hexFromStatusColor("bg-[#00c875]")).toBe("#00c875");
   });
 
-  it("refuses a gradient, which cannot be a chart fill", () => {
-    expect(hexFromStatusColor("bg-gradient-to-r from-red-600 to-rose-600")).toBeNull();
+  it("resolves a gradient to where it starts", () => {
+    // The built-in "Overdue" status is a gradient. Refusing it outright painted
+    // the one status a reader most needs to spot in neutral grey.
+    expect(hexFromStatusColor("bg-gradient-to-r from-red-600 to-rose-600")).toBe("#dc2626");
+  });
+
+  it("still returns null for a colour it cannot resolve", () => {
+    expect(hexFromStatusColor("bg-gradient-to-r from-teal-350 to-lime-200")).toBeNull();
+    expect(hexFromStatusColor("bg-slate-500")).toBeNull();
+    expect(hexFromStatusColor(undefined)).toBeNull();
   });
 
   it("prefers the board's own status labels over the defaults", () => {
@@ -222,6 +232,127 @@ describe("dueDateOf", () => {
     const d = dueDateOf(board, item("a", { d: "2026-03-01" }))!;
     expect(d.getMonth()).toBe(2);
     expect(d.getDate()).toBe(1);
+  });
+});
+
+describe("working and stuck, in either language", () => {
+  it("counts the French words too", () => {
+    const m = computeDashboardMetrics(
+      boardWith(),
+      groups,
+      [
+        item("a", { status: "En cours" }),
+        item("b", { status: "Working on it" }),
+        item("c", { status: "Bloqué" }),
+        item("d", { status: "Stuck" }),
+      ],
+      profiles,
+      NOW
+    );
+    expect(m.working).toBe(2);
+    expect(m.stuck).toBe(2);
+  });
+
+  it("does not let a finished task also count as working", () => {
+    const m = computeDashboardMetrics(
+      boardWith(),
+      groups,
+      [item("a", { status: "Terminé" })],
+      profiles,
+      NOW
+    );
+    expect(m.done).toBe(1);
+    expect(m.working).toBe(0);
+    expect(m.stuck).toBe(0);
+  });
+});
+
+describe("bar colours", () => {
+  it("gives each group the colour the board gives it", () => {
+    const coloured = [
+      { id: "g1", title: "Phase 1", color: "#579bfc" },
+      { id: "g2", title: "Phase 2", color: "#00c875" },
+    ] as unknown as Group[];
+    const m = computeDashboardMetrics(
+      boardWith(),
+      coloured,
+      [item("a", {}, "g1"), item("b", {}, "g2")],
+      profiles,
+      NOW
+    );
+    expect(m.byGroup.map((g) => g.color).sort()).toEqual(["#00c875", "#579bfc"]);
+  });
+
+  it("gives every assignee the same restrained hue", () => {
+    // Their name is already on the row, so a colour per person would be
+    // decoration - and a muted palette that far apart fails the separation floor.
+    const m = computeDashboardMetrics(
+      boardWith(),
+      groups,
+      [item("a", { who: ["u1"] }), item("b", { who: ["u2"] })],
+      profiles,
+      NOW
+    );
+    expect(new Set(m.byAssignee.map((a) => a.color))).toEqual(new Set([ASSIGNEE_BAR_COLOR]));
+  });
+});
+
+describe("the attention list", () => {
+  const dated = (id: string, end: string, extra: Record<string, unknown> = {}) =>
+    item(id, { tl: { start: "2026-01-01", end }, ...extra });
+
+  it("puts the latest task first and the furthest out last", () => {
+    const m = computeDashboardMetrics(
+      boardWith(),
+      groups,
+      [dated("soon", "2026-09-18"), dated("late", "2026-09-10"), dated("today", "2026-09-15")],
+      profiles,
+      NOW
+    );
+    expect(m.attention.map((a) => a.id)).toEqual(["late", "today", "soon"]);
+    expect(m.attention[0].offsetDays).toBe(-5);
+    expect(m.attention[1].offsetDays).toBe(0);
+  });
+
+  it("leaves out anything finished or further out than the window", () => {
+    const m = computeDashboardMetrics(
+      boardWith(),
+      groups,
+      [
+        dated("done", "2026-09-01", { status: "Terminé" }),
+        dated("far", "2026-12-01"),
+        dated("in", "2026-09-16"),
+      ],
+      profiles,
+      NOW
+    );
+    expect(m.attention.map((a) => a.id)).toEqual(["in"]);
+  });
+
+  it("caps the rows but still reports the true total", () => {
+    const many = Array.from({ length: 12 }, (_, i) => dated("t" + i, "2026-09-16"));
+    const m = computeDashboardMetrics(boardWith(), groups, many, profiles, NOW);
+    expect(m.attention).toHaveLength(ATTENTION_LIMIT);
+    expect(m.attentionTotal).toBe(12);
+  });
+
+  it("carries the group colour and the owner so the row can be read alone", () => {
+    const coloured = [{ id: "g1", title: "Travaux", color: "#579bfc" }] as unknown as Group[];
+    const m = computeDashboardMetrics(
+      boardWith(),
+      coloured,
+      [dated("a", "2026-09-16", { who: ["u1"] })],
+      profiles,
+      NOW
+    );
+    expect(m.attention[0].groupTitle).toBe("Travaux");
+    expect(m.attention[0].groupColor).toBe("#579bfc");
+    expect(m.attention[0].ownerName).toBe("Amina");
+  });
+
+  it("reports no owner rather than inventing one", () => {
+    const m = computeDashboardMetrics(boardWith(), groups, [dated("a", "2026-09-16")], profiles, NOW);
+    expect(m.attention[0].ownerName).toBeNull();
   });
 });
 

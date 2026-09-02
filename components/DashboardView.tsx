@@ -4,32 +4,34 @@ import React, { useMemo, useState } from "react";
 import { Board, Group, Item, Profile } from "@/types";
 import { AlertTriangle, CalendarClock, CheckCircle, ListTodo } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
+import { RingChart, Ring, RingCenter } from "@/components/ui/RingChart";
 import { StatTile } from "@/components/dashboard/StatTile";
-import { BarList } from "@/components/dashboard/BarList";
+import { DistributionCard } from "@/components/dashboard/DistributionCard";
+import { AttentionList } from "@/components/dashboard/AttentionList";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
-import {
-  computeDashboardMetrics,
-  assigneeIdOf,
-  hexFromStatusColor,
-} from "@/lib/dashboard/metrics";
+import { computeDashboardMetrics, assigneeIdOf } from "@/lib/dashboard/metrics";
 import {
   applyDashboardFilter,
   EMPTY_DASHBOARD_FILTER,
   type DashboardFilter,
 } from "@/lib/dashboard/filter";
-import { STATUS_OPTIONS } from "@/types";
 
 interface DashboardViewProps {
   board: Board | null;
   groups: Group[];
   items: Item[];
   profiles: Profile[];
+  /** Opens a task from the attention list, so the list is a way in, not a report. */
+  onOpenTask?: (itemId: string) => void;
 }
 
-/** The series hue, matching BarList. Used where a chart needs it inline. */
-const SERIES = "#2a78d6";
-
-export default function DashboardView({ board, groups, items, profiles }: DashboardViewProps) {
+export default function DashboardView({
+  board,
+  groups,
+  items,
+  profiles,
+  onOpenTask,
+}: DashboardViewProps) {
   const t = useT();
   const [filter, setFilter] = useState<DashboardFilter>(EMPTY_DASHBOARD_FILTER);
 
@@ -55,25 +57,26 @@ export default function DashboardView({ board, groups, items, profiles }: Dashbo
     return [...seen];
   }, [board, items]);
 
-  // The completion meter wears the board's own "done" colour, because it plots
-  // exactly the quantity the Done row below it reports. A different hue for the
-  // same number would read as a different measure.
-  const doneColor = useMemo(() => {
-    const done = metrics.statuses.find((s) => s.label.toLowerCase().includes("done"));
-    return (
-      done?.color ??
-      hexFromStatusColor(STATUS_OPTIONS.find((o) => o.label === "Done")?.color) ??
-      SERIES
-    );
-  }, [metrics.statuses]);
+  // The ring reads each slice against the whole board, which is what makes the
+  // rings comparable to one another rather than each filling its own track.
+  const ringData = useMemo(
+    () =>
+      metrics.statuses.map((s) => ({
+        label: s.label,
+        value: s.value,
+        maxValue: metrics.total,
+        color: s.color,
+      })),
+    [metrics.statuses, metrics.total]
+  );
 
   if (!board) return null;
 
   return (
     <div className="flex-1 overflow-auto bg-[#F4F6F8] dark:bg-[#181b34] p-8">
-      <div className="max-w-[1200px] mx-auto space-y-6">
+      <div className="max-w-[1200px] mx-auto space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
             {t("dash.title", { board: board.name })}
           </h1>
           {/* One filter row above everything it scopes, never inside a card. */}
@@ -94,7 +97,7 @@ export default function DashboardView({ board, groups, items, profiles }: Dashbo
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatTile label={t("dash.totalTasks")} value={metrics.total} icon={ListTodo} />
+              <StatTile label={t("dash.totalTasks")} value={metrics.total} icon={ListTodo} tone="info" />
               <StatTile
                 label={t("dash.done")}
                 value={metrics.done}
@@ -103,106 +106,97 @@ export default function DashboardView({ board, groups, items, profiles }: Dashbo
                 tone="good"
               />
               <StatTile
-                label={t("dash.overdue")}
-                value={metrics.overdue}
-                detail={t("dash.overdueDetail")}
-                icon={AlertTriangle}
-                tone={metrics.overdue > 0 ? "critical" : "neutral"}
+                label={t("dash.working")}
+                value={metrics.working}
+                icon={CalendarClock}
+                tone="warning"
               />
               <StatTile
-                label={t("dash.dueSoon")}
-                value={metrics.dueSoon}
-                detail={t("dash.dueSoonDetail")}
-                icon={CalendarClock}
-                tone={metrics.dueSoon > 0 ? "warning" : "neutral"}
+                label={t("dash.stuck")}
+                value={metrics.stuck}
+                icon={AlertTriangle}
+                tone="critical"
               />
             </div>
 
             {metrics.undated > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 -mt-4">
                 {t("dash.undated", { count: metrics.undated })}
               </p>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card title={t("dash.progress")}>
-                {metrics.statuses.length === 0 ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 py-6">
-                    {t("dash.noStatuses")}
-                  </p>
-                ) : (
-                  <>
-                    {/* The one hero figure on this view. Same sans as everything
-                        else, proportional digits. */}
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-5xl font-semibold text-gray-900 dark:text-gray-50">
-                        {metrics.donePct}%
-                      </span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {t("dash.complete")}
-                      </span>
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-6">
+                  {t("dash.statusBreakdown")}
+                </h3>
 
-                    {/* Meter: the unfilled track is the same hue, lightened, so
-                        the state reads across the whole bar. */}
-                    <div
-                      className="mt-4 h-2.5 rounded-full overflow-hidden"
-                      style={{ background: `${doneColor}26` }}
-                      role="img"
-                      aria-label={t("dash.doneDetail", { pct: metrics.donePct })}
-                    >
-                      <div
-                        className="h-full rounded-r"
-                        style={{ width: `${metrics.donePct}%`, background: doneColor }}
-                      />
-                    </div>
+                <div className="flex flex-col 2xl:flex-row items-center gap-8 flex-1">
+                  <div className="h-64 w-64 md:h-72 md:w-72 flex-shrink-0">
+                    {ringData.length > 0 ? (
+                      <RingChart data={ringData} strokeWidth={14} ringGap={6} baseInnerRadius={55}>
+                        {ringData.map((slice, index) => (
+                          <Ring key={slice.label} index={index} />
+                        ))}
+                        <RingCenter defaultLabel={t("dash.tasks")} />
+                      </RingChart>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-400">
+                        {t("dash.noStatuses")}
+                      </div>
+                    )}
+                  </div>
 
-                    <ul className="mt-6 space-y-3">
-                      {metrics.statuses.map((s) => (
-                        <li key={s.label} className="flex items-center gap-3 text-sm">
-                          {/* Identity comes from the mark beside the text, never
-                              from colouring the text itself. */}
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ background: s.color }}
+                  <ul className="flex flex-col justify-center gap-5 w-full flex-1">
+                    {metrics.statuses.map((s) => (
+                      <li key={s.label} className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center text-gray-700 dark:text-gray-200 font-medium min-w-0">
+                            {/* Identity comes from the mark beside the text,
+                                never from colouring the text itself. */}
+                            <span
+                              className="w-3 h-3 rounded-full mr-3 shrink-0"
+                              style={{ backgroundColor: s.color }}
+                            />
+                            <span className="truncate">{s.label}</span>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="font-semibold tabular-nums text-gray-900 dark:text-white">
+                              {s.value}
+                            </span>
+                            <span className="text-gray-500 dark:text-gray-400 w-9 text-right tabular-nums">
+                              {s.pct}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-100 dark:bg-slate-800/80 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${s.pct}%`, backgroundColor: s.color }}
                           />
-                          <span className="flex-1 truncate text-gray-700 dark:text-gray-200">
-                            {s.label}
-                          </span>
-                          <span className="font-medium tabular-nums text-gray-900 dark:text-gray-100">
-                            {s.value}
-                          </span>
-                          <span className="w-10 text-right tabular-nums text-gray-500 dark:text-gray-400">
-                            {s.pct}%
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </Card>
-
-              <div className="space-y-6">
-                <Card title={t("dash.byAssignee")}>
-                  <BarList data={metrics.byAssignee} emptyMessage={t("dash.noAssignees")} />
-                </Card>
-                <Card title={t("dash.byGroup")}>
-                  <BarList data={metrics.byGroup} emptyMessage={t("dash.noGroupData")} />
-                </Card>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
+
+              <DistributionCard
+                byAssignee={metrics.byAssignee}
+                byGroup={metrics.byGroup}
+                emptyPeople={t("dash.noAssignees")}
+                emptyGroups={t("dash.noGroupData")}
+              />
             </div>
+
+            <AttentionList
+              tasks={metrics.attention}
+              total={metrics.attentionTotal}
+              onOpenTask={onOpenTask}
+            />
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-gray-100 dark:border-slate-800">
-      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-5">{title}</h3>
-      {children}
     </div>
   );
 }

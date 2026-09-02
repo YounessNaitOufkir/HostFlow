@@ -56,3 +56,6 @@ e2e-gantt/.auth.json
 
 # Playwright run output (screenshots, traces)
 test-results/
+
+# Design canvas working files (the canvas itself lives as a published artifact)
+design/
