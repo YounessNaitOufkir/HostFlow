@@ -5,6 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { ChevronDown, Columns3, Link2 } from "lucide-react";
 
 import { Item, Column, Group, STATUS_OPTIONS, Profile } from "@/types";
+import { statusHexOr } from "@/lib/statusColor";
 import { useBoardStore } from "@/hooks/useBoardStore";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 
@@ -13,11 +14,6 @@ import { TruncatedText } from "@/components/ui/TruncatedText";
 // ============================================================
 
 /** Extract raw hex from Tailwind bg class like "bg-[#fdab3d]" */
-function getHexColor(bgClass: string): string {
-  const match = bgClass.match(/#[0-9a-fA-F]{6}/);
-  return match ? match[0] : "#c4c4c4";
-}
-
 // ============================================================
 // KanbanView Component
 // ============================================================
@@ -148,7 +144,7 @@ export default function KanbanView({
         <div className="flex-1 overflow-x-auto overflow-y-hidden px-8 pb-8">
           <div className="flex gap-4 h-full min-w-max">
             {laneOptions.map((status) => {
-              const hexColor = getHexColor(status.color);
+              const hexColor = statusHexOr(status.color);
 
               // Items in this lane
               const laneItems = items.filter((i) => {
@@ -220,8 +216,12 @@ export default function KanbanView({
 
                                         // Status chip
                                         if (col.type === "status") {
-                                          const opt = STATUS_OPTIONS.find((o) => o.label === val);
-                                          const bg = opt ? getHexColor(opt.color) : "#c4c4c4";
+                                          // The column's own labels first: a board
+                                          // that renamed its statuses is not in
+                                          // the built-in list.
+                                          const opts = col.settings?.statusLabels || STATUS_OPTIONS;
+                                          const opt = opts.find((o) => o.label === val);
+                                          const bg = statusHexOr(opt?.color);
                                           return (
                                             <span
                                               key={col.id}

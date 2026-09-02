@@ -18,15 +18,13 @@ import {
   isWorkingStatusValue,
 } from "@/lib/statusSemantics";
 import { endDateOf, toDateOnly, addDaysOnly, daysBetween } from "@/lib/gantt/dates";
+import { statusHex, NEUTRAL_STATUS_COLOR } from "@/lib/statusColor";
 
 /** Days ahead that "due soon" covers, counting today. */
 export const DUE_SOON_DAYS = 7;
 
 /** How many rows the attention list shows before it starts hiding them. */
 export const ATTENTION_LIMIT = 7;
-
-/** Shown when a status or group has no colour of its own. */
-const NEUTRAL = "#c4c4c4";
 
 /**
  * One restrained hue for every assignee bar.
@@ -88,33 +86,6 @@ export interface DashboardMetrics {
   undated: number;
 }
 
-/**
- * Tailwind's `bg-[#rrggbb]` unwrapped to a plain hex.
- *
- * Status colours are stored as class names because that is what the board cells
- * render. Flat colours come back as-is; a gradient resolves to its first stop;
- * anything unrecognised returns null so the caller can fall back.
- */
-export function hexFromStatusColor(color: string | undefined): string | null {
-  if (!color) return null;
-
-  const flat = color.match(/^bg-\[(#[0-9a-fA-F]{3,8})\]$/);
-  if (flat) return flat[1];
-
-  // A gradient cannot be a chart fill, but refusing it outright painted the
-  // built-in "Overdue" status grey - the one status a reader most needs to
-  // pick out. Resolve it to where the gradient starts instead. Only the stops
-  // the app actually ships are listed; anything else still falls back.
-  const from = color.match(/from-([a-z]+-\d{3})/);
-  return from ? GRADIENT_STOPS[from[1]] ?? null : null;
-}
-
-/** Tailwind stops used by STATUS_OPTIONS gradients. */
-const GRADIENT_STOPS: Record<string, string> = {
-  "red-600": "#dc2626",
-  "rose-600": "#e11d48",
-};
-
 /** The status palette this board actually uses, custom labels included. */
 function statusOptionsFor(board: Board): StatusOption[] {
   const col = board.columns?.find((c) => c.type === "status");
@@ -163,9 +134,9 @@ export function computeDashboardMetrics(
 
   const options = statusOptionsFor(board);
   const colorOf = (label: string) =>
-    hexFromStatusColor(options.find((o) => o.label === label)?.color) ??
-    hexFromStatusColor(STATUS_OPTIONS.find((o) => o.label === label)?.color) ??
-    NEUTRAL;
+    statusHex(options.find((o) => o.label === label)?.color) ??
+    statusHex(STATUS_OPTIONS.find((o) => o.label === label)?.color) ??
+    NEUTRAL_STATUS_COLOR;
 
   const groupById = new Map(groups.map((g) => [g.id, g]));
   const todayStr = toDateOnly(now);
@@ -212,7 +183,7 @@ export function computeDashboardMetrics(
         id: item.id,
         name: item.name,
         groupTitle: group?.title ?? "",
-        groupColor: group?.color || NEUTRAL,
+        groupColor: group?.color || NEUTRAL_STATUS_COLOR,
         ownerName: assignee
           ? profiles.find((p) => p.id === assignee)?.full_name ?? null
           : null,
@@ -244,7 +215,7 @@ export function computeDashboardMetrics(
       key: g.id,
       label: g.title,
       value: items.filter((i) => i.group_id === g.id).length,
-      color: g.color || NEUTRAL,
+      color: g.color || NEUTRAL_STATUS_COLOR,
     }))
     .filter((g) => g.value > 0)
     .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));

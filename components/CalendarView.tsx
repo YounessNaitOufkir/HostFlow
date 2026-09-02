@@ -11,6 +11,7 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter,
   X, ArrowRight, Folder, Clock, User, Link2, Tag, CheckCircle, AlignLeft, Type, Hash, CheckSquare, MoreHorizontal, LayoutList
 } from "lucide-react";
+import { statusHexOr } from "@/lib/statusColor";
 
 interface CalendarViewProps {
   board: Board | null;
@@ -19,18 +20,6 @@ interface CalendarViewProps {
   profiles?: Profile[];
 }
 
-function getHexColor(bgClass: string): string {
-  if (!bgClass) return '#c4c4c4';
-  const match = bgClass.match(/\[(.*?)\]/);
-  if (match && match[1]) return match[1];
-  if (bgClass.includes('gray-900') || bgClass.includes('black')) return '#111827';
-  if (bgClass.includes('green')) return '#00c875';
-  if (bgClass.includes('yellow')) return '#fdab3d';
-  if (bgClass.includes('red')) return '#e2445c';
-  if (bgClass.includes('gray')) return '#c4c4c4';
-  if (bgClass.includes('blue')) return '#579bfc';
-  return '#c4c4c4';
-}
 
 export default function CalendarView({ board, items, groups, profiles }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -83,7 +72,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
             statusLabel = val;
             const opt = STATUS_OPTIONS.find(o => o.label === val);
             if (opt) {
-              statusColor = getHexColor(opt.color);
+              statusColor = statusHexOr(opt.color);
             }
           }
         }
@@ -474,7 +463,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                         if (col.type === "status" || col.type === "priority") {
                           const options = col.settings?.statusLabels || (col.type === "status" ? STATUS_OPTIONS : PRIORITY_OPTIONS);
                           const opt = options.find(o => o.label === val);
-                          const bg = opt ? getHexColor(opt.color) : "#c4c4c4";
+                          const bg = statusHexOr(opt?.color);
                           return (
                             <div className="w-full text-center py-1.5 text-white text-[13px] font-medium flex items-center justify-center gap-1.5" style={{ backgroundColor: bg }}>
                               <span>{val}</span>
