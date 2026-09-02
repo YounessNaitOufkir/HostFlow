@@ -889,6 +889,7 @@ export default function MondayClone() {
                   board={state.activeBoard}
                   groups={state.groups}
                   items={state.items}
+                  profiles={state.profiles}
                 />
               )}
 
