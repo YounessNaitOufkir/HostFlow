@@ -106,6 +106,62 @@ describe("WorkspaceGanttView — which workspace each board comes from", () => {
   });
 });
 
+describe("WorkspaceGanttView — reaching another workspace", () => {
+  /** Ticked boards, by the checkbox state the panel renders. */
+  const tickedBoardNames = () =>
+    picker()
+      .getAllByRole("button", { pressed: true })
+      .map((el) => el.textContent?.trim() ?? "");
+
+  it("defaults to the workspace you are standing in", () => {
+    render(
+      <WorkspaceGanttView allBoards={boards} workspaces={workspaces} defaultWorkspaceId="ws-b" />
+    );
+    // App C owns b2 "Lancement" and b3 "Communication", and nothing else.
+    const ticked = tickedBoardNames();
+    expect(ticked).toContain("Lancement");
+    expect(ticked).toContain("Communication");
+    expect(ticked).toHaveLength(2);
+  });
+
+  it("still lists every other workspace's boards, so one can be added", () => {
+    // The whole point. The view used to be handed one workspace's boards, so a
+    // dependency across two properties could not be drawn however well the
+    // confirmation behind it was built - both ends have to be on the chart.
+    render(
+      <WorkspaceGanttView allBoards={boards} workspaces={workspaces} defaultWorkspaceId="ws-b" />
+    );
+    expect(picker().getByText("Studio A")).toBeInTheDocument();
+    expect(picker().getByText("General tasks")).toBeInTheDocument();
+    expect(picker().getAllByRole("button", { name: /^Lancement$/ })).toHaveLength(3);
+  });
+
+  it("adds a board from another workspace when it is ticked", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceGanttView allBoards={boards} workspaces={workspaces} defaultWorkspaceId="ws-b" />
+    );
+
+    const studioA = picker().getByText("Studio A").closest("div")?.parentElement as HTMLElement;
+    await user.click(within(studioA).getByRole("button", { name: /^Lancement$/ }));
+
+    expect(tickedBoardNames()).toHaveLength(3);
+  });
+
+  it("falls back to everything when no workspace is named", () => {
+    render(<WorkspaceGanttView allBoards={boards} workspaces={workspaces} />);
+    expect(tickedBoardNames()).toHaveLength(boards.length);
+  });
+
+  it("falls back to everything when the named workspace holds no boards", () => {
+    render(
+      <WorkspaceGanttView allBoards={boards} workspaces={workspaces} defaultWorkspaceId="ws-empty" />
+    );
+    // Opening on a blank chart would read as a broken view rather than a choice.
+    expect(tickedBoardNames()).toHaveLength(boards.length);
+  });
+});
+
 describe("WorkspaceGanttView — portfolio swimlanes", () => {
   it("labels every lane with its workspace, so identical board names are told apart", () => {
     // The flaw this replaced: groups from every board were flattened into one
