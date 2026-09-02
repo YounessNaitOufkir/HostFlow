@@ -37,10 +37,8 @@ describe("inferDependencyType", () => {
     }
   });
 
-  it("still knows which edges an existing SF link joins", () => {
-    // Links made before it was withdrawn have to keep drawing correctly.
-    expect(edgesOfType("SF")).toEqual({ from: "start", to: "finish" });
-    expect(SELECTABLE_DEPENDENCY_TYPES).not.toContain("SF");
+  it("offers exactly the three types a drag can name", () => {
+    expect(SELECTABLE_DEPENDENCY_TYPES).toEqual(["FS", "SS", "FF"]);
   });
 });
 

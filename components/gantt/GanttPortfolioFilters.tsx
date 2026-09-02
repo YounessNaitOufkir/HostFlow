@@ -32,7 +32,6 @@ const PRESETS: { key: PortfolioWindowPreset; labelKey: TranslationKey }[] = [
   { key: "all", labelKey: "master.windowAll" },
   { key: "30", labelKey: "master.window30" },
   { key: "90", labelKey: "master.window90" },
-  { key: "quarter", labelKey: "master.windowQuarter" },
 ];
 
 /**

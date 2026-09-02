@@ -121,7 +121,7 @@ export function statusesInPortfolio(
 }
 
 /** Ready-made windows, since a date pair is fiddly for the common cases. */
-export type PortfolioWindowPreset = "all" | "30" | "90" | "quarter" | "custom";
+export type PortfolioWindowPreset = "all" | "30" | "90" | "custom";
 
 export function windowForPreset(
   preset: PortfolioWindowPreset,
@@ -135,11 +135,6 @@ export function windowForPreset(
       return { from: toDateOnly(today), to: toDateOnly(shift(30)) };
     case "90":
       return { from: toDateOnly(today), to: toDateOnly(shift(90)) };
-    case "quarter": {
-      const first = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
-      const last = new Date(first.getFullYear(), first.getMonth() + 3, 0);
-      return { from: toDateOnly(first), to: toDateOnly(last) };
-    }
     default:
       return {};
   }

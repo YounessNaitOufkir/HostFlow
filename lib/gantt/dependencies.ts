@@ -26,10 +26,9 @@ export const DEPENDENCY_TYPE_LABELS: Record<DependencyType, string> = {
   FS: "Finish → Start",
   SS: "Start → Start",
   FF: "Finish → Finish",
-  SF: "Start → Finish",
 };
 
-const VALID_TYPES: DependencyType[] = ["FS", "SS", "FF", "SF"];
+const VALID_TYPES: DependencyType[] = ["FS", "SS", "FF"];
 
 /**
  * Every dependency among `items`, de-duplicated by (source, target).
