@@ -44,3 +44,23 @@ Newly added rows are counted and allowed.
   from the seeded dates rather than the last run's result.
 - The link test creates its own pair each run and narrows the board to them with
   the search box: re-linking the same two tasks would be refused as a duplicate.
+
+## The audit fixture
+
+`audit-seed.js` builds a second, richer fixture whose answer is worked out in
+advance, so the chart can be checked against arithmetic rather than impressions:
+
+```
+node e2e-gantt/audit-seed.js e2e-gantt/.audit.json
+npx playwright test --config playwright.gantt.config.ts audit.spec.ts audit-master.spec.ts
+```
+
+It creates its own workspace and three boards, so it can exercise a link that
+leaves its board and one that leaves its property. The network is a chain
+A-B-C-D-E of 25 days, five tasks that must carry float, one deliberately
+impossible link, one milestone, a positive lag, an SS and an FF — so the
+critical set, the broken-link count and every arrow anchor are known before the
+chart draws them.
+
+Re-seed rather than re-run: the audit captures a baseline and the reschedule
+tests move dates, so a second run would start from the first run's result.
