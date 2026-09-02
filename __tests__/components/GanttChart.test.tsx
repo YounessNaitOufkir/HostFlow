@@ -383,6 +383,11 @@ describe("GanttChart linking", () => {
   });
 });
 
+/** Critical path, baseline, fields and colours live behind the View button. */
+async function openViewMenu(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /^View/ }));
+}
+
 describe("GanttChart baselines", () => {
   const withBaseline = items.map((item, i) =>
     i === 0
@@ -393,7 +398,7 @@ describe("GanttChart baselines", () => {
   it("offers to capture a baseline when there is none", async () => {
     const user = userEvent.setup();
     renderChart({ onCaptureBaseline: () => {} });
-    await user.click(screen.getByRole("button", { name: "Baseline" }));
+    await openViewMenu(user);
     expect(screen.getByRole("button", { name: /Set baseline/ })).toBeInTheDocument();
   });
 
@@ -405,12 +410,17 @@ describe("GanttChart baselines", () => {
       contexts: [{ board, groups: [group], items: withBaseline }],
       onCaptureBaseline: () => {},
     });
-    await user.click(screen.getByRole("button", { name: "Baseline" }));
+    await openViewMenu(user);
     expect(screen.getByRole("button", { name: /Update baseline/ })).toBeInTheDocument();
   });
 
-  it("says nothing about baselines when it cannot capture one", () => {
+  it("says nothing about baselines when it cannot capture one", async () => {
+    const user = userEvent.setup();
     renderChart();
+    await openViewMenu(user);
+    // Nothing captured and no way to capture: a permanently dead switch is
+    // worse than an absent one.
+    expect(screen.queryByRole("switch", { name: /baseline/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /baseline/i })).not.toBeInTheDocument();
   });
 
@@ -419,7 +429,7 @@ describe("GanttChart baselines", () => {
     const captured: { itemId: string; start: string; end: string }[][] = [];
     renderChart({ onCaptureBaseline: (b) => captured.push(b) });
 
-    await user.click(screen.getByRole("button", { name: "Baseline" }));
+    await openViewMenu(user);
     await user.click(screen.getByRole("button", { name: /Set baseline/ }));
     expect(captured[0]).toHaveLength(3);
     expect(captured[0].find((b) => b.itemId === "i1")).toEqual({
@@ -436,8 +446,8 @@ describe("GanttChart baselines", () => {
       contexts: [{ board, groups: [group], items: withBaseline }],
     });
 
-    await user.click(screen.getByRole("button", { name: "Baseline" }));
-    await user.click(screen.getByRole("button", { name: /Show the agreed plan/ }));
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Baseline/ }));
 
     const scale = expectedScale("day");
     const ghost = container.querySelector(
@@ -494,7 +504,8 @@ describe("GanttChart critical path", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: /Critical path/ }));
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
     for (const name of ["Permis", "Devis", "Travaux"]) {
       expect(bar(name).getAttribute("aria-label")).toContain("critical path");
     }
@@ -505,7 +516,8 @@ describe("GanttChart critical path", () => {
     renderChart();
 
     const before = bar("Permis").style.backgroundColor;
-    await user.click(screen.getByRole("button", { name: /Critical path/ }));
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
     // Permis has slack here, so it stays its group colour either way.
     expect(bar("Permis").style.backgroundColor).toBe(before);
   });
