@@ -4,6 +4,8 @@ import React, { useRef, useState, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column, STATUS_OPTIONS } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { useT } from "@/components/LanguageProvider";
+import { displayStatus } from "@/lib/i18n/labels";
 import { Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -22,6 +24,7 @@ export default function StatusCell({
   setActiveStatusId,
   onUpdate,
 }: StatusCellProps) {
+  const t = useT();
   const value = item.column_values[column.id];
   const cellKey = `${item.id}-${column.id}`;
   const isOverdue = value === "Overdue" || value === "En retard";
@@ -58,7 +61,7 @@ export default function StatusCell({
         {isOverdue && (
           <Clock size={11} className="absolute top-1 right-3 animate-pulse stroke-[2.5] drop-shadow-sm" />
         )}
-        <TruncatedText className="truncate px-2">{value === "Empty" ? "" : (value || "")}</TruncatedText>
+        <TruncatedText className="truncate px-2">{value === "Empty" ? "" : displayStatus(t, value as string)}</TruncatedText>
 
         {/* Fold indicator */}
         <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
@@ -85,7 +88,7 @@ export default function StatusCell({
                 }}
                 className={`w-full text-left px-3 py-2 text-[13px] text-white transition-colors ${opt.color} hover:opacity-90 flex items-center justify-between`}
               >
-                <TruncatedText className="truncate">{opt.label === "Empty" ? "" : (opt.label || "\u00A0")}</TruncatedText>
+                <TruncatedText className="truncate">{opt.label === "Empty" ? "" : (displayStatus(t, opt.label) || "\u00A0")}</TruncatedText>
               </button>
             ))}
           </motion.div>

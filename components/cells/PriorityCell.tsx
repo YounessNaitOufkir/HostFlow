@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { useT } from "@/components/LanguageProvider";
+import { displayPriority } from "@/lib/i18n/labels";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface PriorityCellProps {
@@ -23,6 +25,7 @@ const PRIORITY_OPTIONS = [
 ];
 
 export default function PriorityCell({ item, column, activeStatusId, setActiveStatusId, onUpdate }: PriorityCellProps) {
+  const t = useT();
   const value = item.column_values?.[column.id] || "Empty";
   const cellKey = `${item.id}-${column.id}`;
   const isOpen = activeStatusId === cellKey;
@@ -71,7 +74,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
         }}
       >
         <span className="flex items-center">
-          {value === "Empty" ? "" : value}
+          {value === "Empty" ? "" : displayPriority(t, value as string)}
           {(value === "Critical" || value === "Critique") && <span className="ml-1.5 text-[11px] leading-none">⚠️</span>}
         </span>
         
@@ -99,7 +102,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
                 }}
                 className={`w-full text-left px-3 py-2 text-[13px] text-white transition-colors ${opt.color} hover:opacity-90 flex items-center justify-between`}
               >
-                <TruncatedText className="truncate">{opt.label === "Empty" ? "" : (opt.label || "\u00A0")}</TruncatedText>
+                <TruncatedText className="truncate">{opt.label === "Empty" ? "" : (displayPriority(t, opt.label) || "\u00A0")}</TruncatedText>
                 {(opt.label === "Critical" || opt.label === "Critique") && <span className="text-[11px] ml-1 shrink-0">⚠️</span>}
               </button>
             ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { displayStatus } from "@/lib/i18n/labels";
 import { Check, Filter, X } from "lucide-react";
 import type { Profile } from "@/types";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
@@ -142,7 +143,7 @@ export function GanttPortfolioFilters({
               statuses.map((status) => (
                 <Option
                   key={status}
-                  label={status}
+                  label={displayStatus(t, status)}
                   checked={filter.statuses.includes(status)}
                   onClick={() => toggle("statuses", status)}
                 />

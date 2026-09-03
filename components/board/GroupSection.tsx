@@ -1,6 +1,7 @@
 "use client";
 
 import React, { memo, useMemo, useState, useRef, useEffect } from "react";
+import { displayColumnTitle } from "@/lib/i18n/labels";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { useT } from "@/components/LanguageProvider";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
@@ -144,7 +145,10 @@ const GroupSection = memo(function GroupSection({
   }, [isColorPickerOpen]);
 
   const [isEditingItemName, setIsEditingItemName] = useState(false);
-  const [editingItemNameValue, setEditingItemNameValue] = useState(itemNameColumn);
+  // Same rule as every other header: a stored default reads translated, a
+  // name someone chose reads as they wrote it.
+  const shownItemName = displayColumnTitle(t, itemNameColumn);
+  const [editingItemNameValue, setEditingItemNameValue] = useState(shownItemName);
   const itemNameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -154,10 +158,13 @@ const GroupSection = memo(function GroupSection({
   }, [isEditingItemName]);
 
   const commitItemNameColumn = () => {
-    if (editingItemNameValue.trim() && editingItemNameValue !== itemNameColumn && onRenameItemNameColumn) {
-      onRenameItemNameColumn(editingItemNameValue.trim());
+    const trimmed = editingItemNameValue.trim();
+    // Saving the shown value back unchanged must not freeze the French
+    // rendering into the board as a literal title.
+    if (trimmed && trimmed !== itemNameColumn && trimmed !== shownItemName && onRenameItemNameColumn) {
+      onRenameItemNameColumn(trimmed);
     } else {
-      setEditingItemNameValue(itemNameColumn);
+      setEditingItemNameValue(shownItemName);
     }
     setIsEditingItemName(false);
   };
@@ -443,18 +450,18 @@ const GroupSection = memo(function GroupSection({
                 className="w-full bg-white dark:bg-slate-900 border border-blue-500 rounded px-2 py-1 text-xs text-gray-900 dark:text-white outline-none font-normal"
               />
             ) : (
-              <span>{itemNameColumn}</span>
+              <span>{shownItemName}</span>
             )}
             
             {!isEditingItemName && onRenameItemNameColumn && (
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
-                  setEditingItemNameValue(itemNameColumn);
+                  setEditingItemNameValue(shownItemName);
                   setIsEditingItemName(true);
                 }}
                 className="opacity-0 group-hover/itemname:opacity-100 p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 transition-all text-gray-500"
-                title="Rename Column"
+                title={t("col.renameColumn")}
               >
                 <Pencil size={12} />
               </button>

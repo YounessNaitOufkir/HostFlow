@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useT } from "@/components/LanguageProvider";
+import { displayColumnTitle } from "@/lib/i18n/labels";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Column } from "@/types";
@@ -25,7 +27,11 @@ export default function ColumnHeader({
 }: ColumnHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { anchorRef, menuRef: popupRef, menuStyle } = useAnchoredMenu(menuOpen, { align: 'center' });
-  const [renameValue, setRenameValue] = useState(column.title);
+  const t = useT();
+  // What the header actually reads on screen: a default title such as "Status"
+  // renders translated, a title someone chose themselves renders as they wrote it.
+  const shownTitle = displayColumnTitle(t, column.title);
+  const [renameValue, setRenameValue] = useState(shownTitle);
   const [isRenaming, setIsRenaming] = useState(false);
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -33,8 +39,8 @@ export default function ColumnHeader({
 
   // Sync rename value if column title changes externally
   useEffect(() => {
-    setRenameValue(column.title);
-  }, [column.title]);
+    setRenameValue(shownTitle);
+  }, [shownTitle]);
 
   // Focus the input when entering rename mode
   useEffect(() => {
@@ -59,7 +65,7 @@ export default function ColumnHeader({
 
   const handleRename = () => {
     const trimmed = renameValue.trim();
-    if (trimmed && trimmed !== column.title) {
+    if (trimmed && trimmed !== column.title && trimmed !== shownTitle) {
       onRename(column.id, trimmed);
     }
     setIsRenaming(false);
@@ -139,7 +145,7 @@ export default function ColumnHeader({
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
           className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors px-3 min-w-0"
         >
-          <TruncatedText className="truncate block">{column.title}</TruncatedText>
+          <TruncatedText className="truncate block">{shownTitle}</TruncatedText>
         </button>
 
         {/* Resize Handle */}
@@ -171,7 +177,7 @@ export default function ColumnHeader({
                   onChange={(e) => setRenameValue(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleRename();
-                    if (e.key === "Escape") { setIsRenaming(false); setRenameValue(column.title); }
+                    if (e.key === "Escape") { setIsRenaming(false); setRenameValue(shownTitle); }
                   }}
                   className="flex-1 text-sm border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200 rounded px-2 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
@@ -182,7 +188,7 @@ export default function ColumnHeader({
                   <Check size={14} />
                 </button>
                 <button
-                  onClick={() => { setIsRenaming(false); setRenameValue(column.title); }}
+                  onClick={() => { setIsRenaming(false); setRenameValue(shownTitle); }}
                   className="p-1.5 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
                 >
                   <X size={14} />

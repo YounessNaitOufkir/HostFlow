@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { displayColumnTitle } from "@/lib/i18n/labels";
 import { useT } from "@/components/LanguageProvider";
 import { fill } from "@/lib/i18n/fill";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -624,7 +625,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                               onChange={(e) => setTriggerColId(e.target.value)}
                             >
                               {statusCols.map((c) => (
-                                <option key={c.id} value={c.id}>{c.title}</option>
+                                <option key={c.id} value={c.id}>{displayColumnTitle(t, c.title)}</option>
                               ))}
                             </select>
                           </>

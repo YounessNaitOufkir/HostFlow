@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { displayStatus } from "@/lib/i18n/labels";
 import { Board, Group, Item, Profile } from "@/types";
 import { AlertTriangle, CalendarClock, CheckCircle, ListTodo } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
@@ -62,12 +63,12 @@ export default function DashboardView({
   const ringData = useMemo(
     () =>
       metrics.statuses.map((s) => ({
-        label: s.label,
+        label: displayStatus(t, s.label),
         value: s.value,
         maxValue: metrics.total,
         color: s.color,
       })),
-    [metrics.statuses, metrics.total]
+    [metrics.statuses, metrics.total, t]
   );
 
   if (!board) return null;
@@ -158,7 +159,7 @@ export default function DashboardView({
                               className="w-3 h-3 rounded-full mr-3 shrink-0"
                               style={{ backgroundColor: s.color }}
                             />
-                            <span className="truncate">{s.label}</span>
+                            <span className="truncate">{displayStatus(t, s.label)}</span>
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
                             <span className="font-semibold tabular-nums text-gray-900 dark:text-white">
