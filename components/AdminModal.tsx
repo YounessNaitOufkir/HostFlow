@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { useT } from "@/components/LanguageProvider";
+import { fill } from "@/lib/i18n/fill";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { X, Shield, Users, Lock, ChevronDown, ChevronRight, Check } from "lucide-react";
@@ -15,6 +17,7 @@ interface AdminModalProps {
 }
 
 export default function AdminModal({ onClose }: AdminModalProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"users" | "permissions">("users");
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -85,7 +88,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles() });
     } catch (err) {
-      reportMutationError(err, "Failed to update role. Are you a global admin?", { table: "profiles", operation: "rpc" });
+      reportMutationError(err, t("adm.errRole"), { table: "profiles", operation: "rpc" });
     }
     setSavingId(null);
   };
@@ -121,7 +124,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.adminData() });
     } catch (err) {
-      reportMutationError(err, "Failed to change workspace access", { table: "workspace_members" });
+      reportMutationError(err, t("adm.errWs"), { table: "workspace_members" });
     }
     
     setSavingId(null);
@@ -158,7 +161,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.adminData() });
     } catch (err) {
-      reportMutationError(err, "Failed to change board access", { table: "board_members" });
+      reportMutationError(err, t("adm.errBoard"), { table: "board_members" });
     }
     
     setSavingId(null);
@@ -195,9 +198,9 @@ export default function AdminModal({ onClose }: AdminModalProps) {
             </div>
             <div>
               <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300">
-                Admin Center
+                {t("adm.centerTitle")}
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Manage access & security</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{t("adm.centerSub")}</p>
             </div>
           </div>
           <button 
@@ -216,7 +219,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
               activeTab === "users" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             }`}
           >
-            <span className="flex items-center gap-2"><Users size={16} /> User Roles</span>
+            <span className="flex items-center gap-2"><Users size={16} /> {t("adm.tabUsers")}</span>
             {activeTab === "users" && (
               <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-t-full" />
             )}
@@ -227,7 +230,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
               activeTab === "permissions" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             }`}
           >
-            <span className="flex items-center gap-2"><Lock size={16} /> Data Access</span>
+            <span className="flex items-center gap-2"><Lock size={16} /> {t("adm.tabPermissions")}</span>
             {activeTab === "permissions" && (
               <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-t-full" />
             )}
@@ -265,7 +268,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                               <TruncatedText as="h3" className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</TruncatedText>
                               {profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && (
                                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-md border border-amber-300 dark:border-amber-500/30">
-                                  Owner
+                                  {t("adm.owner")}
                                 </span>
                               )}
                             </div>
@@ -278,20 +281,20 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                             value={profile.role || "member"}
                             onChange={(e) => handleRoleChange(profile.id, e.target.value)}
                             disabled={profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com"}
-                            title={profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" ? "Platform Owner role cannot be changed" : undefined}
+                            title={profile.email?.toLowerCase() === "younessnaitoufkir@gmail.com" ? t("adm.ownerRoleFixed") : undefined}
                             className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
                           >
-                            <option value="admin">Administrator</option>
-                            <option value="manager">Manager</option>
-                            <option value="member">Member</option>
-                            <option value="viewer">Viewer</option>
+                            <option value="admin">{t("adm.roleAdmin")}</option>
+                            <option value="manager">{t("adm.roleManager")}</option>
+                            <option value="member">{t("adm.roleMember")}</option>
+                            <option value="viewer">{t("adm.roleViewer")}</option>
                           </select>
 
                           <button 
                             onClick={() => handleManagePermissions(profile.id)}
                             className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            Manage Access &rarr;
+                            {t("adm.manageAccess")}
                           </button>
                         </div>
                       </div>
@@ -309,7 +312,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                   {/* Left sidebar: User selection */}
                   <div className="w-1/3 border-r border-gray-200/50 dark:border-slate-700/50 bg-white/30 dark:bg-slate-800/20 overflow-y-auto custom-scrollbar">
                     <div className="p-4">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Select User</h3>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">{t("adm.selectUser")}</h3>
                       <div className="space-y-1">
                         {profiles.map(profile => (
                           <button
@@ -336,14 +339,14 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                     {!selectedProfileId ? (
                       <div className="h-full flex flex-col items-center justify-center text-gray-400">
                         <Lock size={48} className="mb-4 opacity-20" />
-                        <p>Select a user to manage their data access</p>
+                        <p>{t("adm.selectUserHint")}</p>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="mb-6 flex items-center justify-between">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Workspace & Board Access</h3>
-                            <p className="text-sm text-gray-500">Toggle access for the whole workspace, or expand to grant granular board access.</p>
+                            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t("adm.wsBoardAccess")}</h3>
+                            <p className="text-sm text-gray-500">{t("adm.wsBoardAccessSub")}</p>
                           </div>
                         </div>
 
@@ -368,12 +371,16 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                                       {ws.name}
                                       {ws.is_private && <Lock size={12} className="text-gray-400" />}
                                     </h4>
-                                    <p className="text-xs text-gray-500">{wsBoards.length} boards</p>
+                                    <p className="text-xs text-gray-500">
+                                      {wsBoards.length === 1
+                                        ? t("ws.boardCountOne")
+                                        : t("ws.boardCount", { count: wsBoards.length })}
+                                    </p>
                                   </div>
                                 </button>
                                 
                                 <div className="flex items-center gap-4">
-                                  {isSavingWs && <span className="text-xs text-indigo-500 animate-pulse">Saving...</span>}
+                                  {isSavingWs && <span className="text-xs text-indigo-500 animate-pulse">{t("adm.saving")}</span>}
                                   <label className="relative inline-flex items-center cursor-pointer">
                                     <input 
                                       type="checkbox" 
@@ -382,7 +389,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                                       onChange={() => handleToggleWorkspace(selectedProfileId, ws.id)}
                                     />
                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
-                                    <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">Workspace Access</span>
+                                    <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">{t("adm.wsAccess")}</span>
                                   </label>
                                 </div>
                               </div>
@@ -399,12 +406,12 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                                       {isWsMember && (
                                         <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-sm text-indigo-800 dark:text-indigo-200 flex items-start gap-2">
                                           <Check size={16} className="mt-0.5 shrink-0" />
-                                          <p>This user has full access to <b>all boards</b> in this workspace. Individual board toggles are overridden.</p>
+                                          <p>{fill(t("adm.wsFullAccess"), { all: <b>{t("adm.allBoards")}</b> })}</p>
                                         </div>
                                       )}
                                       
                                       {wsBoards.length === 0 ? (
-                                        <p className="text-sm text-gray-500 italic py-2 px-4">No boards in this workspace.</p>
+                                        <p className="text-sm text-gray-500 italic py-2 px-4">{t("adm.noBoards")}</p>
                                       ) : (
                                         wsBoards.map(board => {
                                           const isBoardMember = boardMembers.some(m => m.user_id === selectedProfileId && m.board_id === board.id);
@@ -414,7 +421,7 @@ export default function AdminModal({ onClose }: AdminModalProps) {
                                             <div key={board.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
                                               <span className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-8">{board.name}</span>
                                               <div className="flex items-center gap-3">
-                                                {isSavingBoard && <span className="text-xs text-indigo-500 animate-pulse">Saving...</span>}
+                                                {isSavingBoard && <span className="text-xs text-indigo-500 animate-pulse">{t("adm.saving")}</span>}
                                                 <label className="relative inline-flex items-center cursor-pointer">
                                                   <input 
                                                     type="checkbox" 

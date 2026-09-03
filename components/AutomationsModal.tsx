@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useT } from "@/components/LanguageProvider";
+import { fill } from "@/lib/i18n/fill";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { X, Trash2, Loader2, Calendar, Play } from "lucide-react";
@@ -52,22 +53,6 @@ const timingLabel = (t: Translate, actionType: string, timeZone?: string | null)
     ? t("auto.timingDaily", { time: cronTimeInTimezone(timeZone) })
     : t("auto.timingInstant");
 
-/**
- * One translated sentence, with each {placeholder} swapped for a node.
- *
- * t() leaves a placeholder it was given no value for exactly as it is, so the
- * sentence arrives here intact and the chips drop into wherever the French
- * word order actually puts them.
- */
-const fill = (text: string, nodes: Record<string, React.ReactNode>): React.ReactNode[] =>
-  text.split(/(\{\w+\})/g).map((part, i) => {
-    const name = /^\{(\w+)\}$/.exec(part)?.[1];
-    return name && name in nodes ? (
-      <React.Fragment key={i}>{nodes[name]}</React.Fragment>
-    ) : (
-      part
-    );
-  });
 
 /** The stripe colour: amber for scheduled, green for immediate. */
 const timingStripe = (actionType: string) =>
