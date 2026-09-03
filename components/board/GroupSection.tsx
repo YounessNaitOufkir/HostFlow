@@ -534,7 +534,7 @@ const GroupSection = memo(function GroupSection({
                 >
                   {/* Essential columns */}
                   <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                    Essential
+                    {t("coltype.essential")}
                   </div>
                   {essentialCols.map((def) => {
                     const Icon = def.icon;
@@ -545,14 +545,14 @@ const GroupSection = memo(function GroupSection({
                         className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
                       >
                         <Icon size={14} className="mr-2.5 text-gray-400" />
-                        {def.label}
+                        {t(def.labelKey)}
                       </button>
                     );
                   })}
 
                   <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
                   <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                    Advanced
+                    {t("coltype.advanced")}
                   </div>
                   {advancedCols.map((def) => {
                     const Icon = def.icon;
@@ -563,7 +563,7 @@ const GroupSection = memo(function GroupSection({
                         className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
                       >
                         <Icon size={14} className="mr-2.5 text-gray-400" />
-                        {def.label}
+                        {t(def.labelKey)}
                       </button>
                     );
                   })}
@@ -572,7 +572,7 @@ const GroupSection = memo(function GroupSection({
                     <>
                       <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
                       <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        Computed
+                    {t("coltype.computed")}
                       </div>
                     </>
                   )}
@@ -585,7 +585,7 @@ const GroupSection = memo(function GroupSection({
                         className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
                       >
                         <Icon size={14} className="mr-2.5 text-gray-400" />
-                        {def.label}
+                        {t(def.labelKey)}
                       </button>
                     );
                   })}
