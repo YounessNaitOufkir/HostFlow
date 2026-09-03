@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useT } from "@/components/LanguageProvider";
+import { fill } from "@/lib/i18n/fill";
 import { X, Building2, Users, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown } from "lucide-react";
 import { OrganizationSettings, Team, Profile, Workspace, Board, UserRole } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -26,6 +28,7 @@ export default function AdminSettingsModal({
   profiles: propProfiles,
   onGlobalSettingsChanged,
 }: AdminSettingsModalProps) {
+  const t = useT();
   const [activeTab, setActiveTab] = useState<"organization" | "users" | "permissions">("organization");
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
@@ -97,7 +100,7 @@ export default function AdminSettingsModal({
     // (profiles_admin_implies_staff). Catch it here for a readable message.
     if (!staff && targetProfile?.role === "admin") {
       alert(
-        "Action Blocked: An Administrator cannot be marked External. Change their role to Member first."
+        t("adm.blockAdminExternal")
       );
       return;
     }
@@ -120,7 +123,7 @@ export default function AdminSettingsModal({
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles() });
     } catch (err) {
-      reportMutationError(err, "Failed to change team membership. Are you a global admin?", {
+      reportMutationError(err, t("adm.errTeam"), {
         table: "profiles",
         operation: "rpc",
       });
@@ -133,21 +136,21 @@ export default function AdminSettingsModal({
     // is_owner, not the email: this list comes from user_directory, which has no
     // email column, so an email comparison here is always false.
     if (targetProfile?.is_owner && newRole !== "admin") {
-      alert("Action Blocked: The platform owner can never be demoted from Administrator.");
+      alert(t("adm.blockDemoteOwner"));
       return;
     }
     // An External must never reach Host'lik work, and Administrator would do
     // exactly that. Mirrors profiles_admin_implies_staff.
     if (newRole === "admin" && !targetProfile?.is_staff) {
       alert(
-        "Action Blocked: An External account cannot be an Administrator. Make them a Team member first."
+        t("adm.blockExternalAdmin")
       );
       return;
     }
     if (targetProfile?.role === "admin" && newRole !== "admin") {
       const adminCount = profiles.filter((p) => p.role === "admin").length;
       if (adminCount <= 1) {
-        alert("Action Blocked: You cannot remove Administrator privileges from the only remaining Administrator on this account.");
+        alert(t("adm.blockLastAdmin"));
         return;
       }
       const confirmed = window.confirm(
@@ -169,7 +172,7 @@ export default function AdminSettingsModal({
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles() });
     } catch (err) {
-      reportMutationError(err, "Failed to update role. Are you a global admin?", { table: "profiles", operation: "rpc" });
+      reportMutationError(err, t("adm.errRole"), { table: "profiles", operation: "rpc" });
     }
     setSavingId(null);
   };
@@ -191,7 +194,7 @@ export default function AdminSettingsModal({
         if (error) throw error;
         if (!data || data.length === 0) {
           throw new Error(
-            "Workspace access was not revoked: the database rejected the change. You may not be allowed to manage this workspace."
+            t("adm.errWsRevoke")
           );
         }
         queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
@@ -215,7 +218,7 @@ export default function AdminSettingsModal({
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.adminData() });
     } catch (err) {
-      reportMutationError(err, "Failed to change workspace access", { table: "workspace_members" });
+      reportMutationError(err, t("adm.errWs"), { table: "workspace_members" });
     }
     
     setSavingId(null);
@@ -235,7 +238,7 @@ export default function AdminSettingsModal({
         if (error) throw error;
         if (!data || data.length === 0) {
           throw new Error(
-            "Board access was not revoked: the database rejected the change. You may not be allowed to manage this board."
+            t("adm.errBoardRevoke")
           );
         }
         queryClient.setQueryData(queryKeys.adminData(), (old: any) => {
@@ -259,7 +262,7 @@ export default function AdminSettingsModal({
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.adminData() });
     } catch (err) {
-      reportMutationError(err, "Failed to change board access", { table: "board_members" });
+      reportMutationError(err, t("adm.errBoard"), { table: "board_members" });
     }
     
     setSavingId(null);
@@ -315,7 +318,7 @@ export default function AdminSettingsModal({
         if (error) throw error;
         if (!data || data.length === 0) {
           throw new Error(
-            "Nothing was saved: the database rejected the change. Only administrators can edit organization settings."
+            t("adm.errOrgSave")
           );
         }
       } else {
@@ -326,9 +329,9 @@ export default function AdminSettingsModal({
         if (error) throw error;
       }
       onGlobalSettingsChanged();
-      reportSuccess("Organization settings saved");
+      reportSuccess(t("adm.okOrgSave"));
     } catch (err) {
-      reportMutationError(err, "Failed to save settings", { table: "organization_settings" });
+      reportMutationError(err, t("adm.errSettings"), { table: "organization_settings" });
     } finally {
       setLoading(false);
     }
@@ -361,14 +364,14 @@ export default function AdminSettingsModal({
         .select("id");
       if (error) throw error;
       if (!data || data.length === 0) {
-        throw new Error("The logo uploaded but could not be saved to your organization settings.");
+        throw new Error(t("adm.errLogoSave"));
       }
 
       setLogoUrl(versioned);
       onGlobalSettingsChanged();
-      reportSuccess("Company logo updated");
+      reportSuccess(t("adm.okLogo"));
     } catch (err) {
-      reportMutationError(err, "Failed to upload the logo", { table: "organization_settings" });
+      reportMutationError(err, t("adm.errLogo"), { table: "organization_settings" });
     } finally {
       setUploadingLogo(false);
       e.target.value = "";
@@ -385,22 +388,22 @@ export default function AdminSettingsModal({
         .select("id");
       if (error) throw error;
       if (!data || data.length === 0) {
-        throw new Error("The logo could not be removed.");
+        throw new Error(t("adm.errLogoRemove"));
       }
       setLogoUrl(null);
       onGlobalSettingsChanged();
-      reportSuccess("Company logo removed");
+      reportSuccess(t("adm.okLogoRemoved"));
     } catch (err) {
-      reportMutationError(err, "Failed to remove the logo", { table: "organization_settings" });
+      reportMutationError(err, t("adm.errLogoRemoveFail"), { table: "organization_settings" });
     } finally {
       setUploadingLogo(false);
     }
   };
 
   const tabs = [
-    { id: "organization", label: "Organization", icon: Building2 },
-    { id: "users", label: "User Roles", icon: Users },
-    { id: "permissions", label: "Data Access", icon: Lock },
+    { id: "organization", label: t("adm.tabOrganization"), icon: Building2 },
+    { id: "users", label: t("adm.tabUsers"), icon: Users },
+    { id: "permissions", label: t("adm.tabPermissions"), icon: Lock },
   ] as const;
 
   return (
@@ -408,8 +411,8 @@ export default function AdminSettingsModal({
       {/* Sidebar */}
       <div className="w-64 border-r border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex flex-col h-full">
         <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Settings</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 md:hidden">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t("adm.settings")}</h2>
+          <button onClick={onClose} aria-label={t("adm.close")} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 md:hidden">
             <X size={20} />
           </button>
         </div>
@@ -438,7 +441,7 @@ export default function AdminSettingsModal({
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         <div className="absolute top-4 right-4 hidden md:block">
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800">
+          <button onClick={onClose} aria-label={t("adm.close")} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800">
             <X size={24} />
           </button>
         </div>
@@ -449,21 +452,21 @@ export default function AdminSettingsModal({
             {activeTab === "organization" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Organization</h3>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{t("adm.orgTitle")}</h3>
                   <p className="text-gray-500 mt-1">
-                    Your company&apos;s identity, and how HostFlow behaves on its schedule.
+                    {t("adm.orgSub")}
                   </p>
                 </div>
 
                 {/* -- Identity ------------------------------------------ */}
                 <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
                   <div className="px-6 py-3 bg-gray-50/70 dark:bg-slate-800/70 border-b border-gray-200 dark:border-slate-700 flex items-baseline gap-3">
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Identity</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">{t("adm.identity")}</h4>
                   </div>
                   <div className="p-6 space-y-6">
                     <div>
                       <label htmlFor="org-company-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Company name
+                        {t("adm.companyName")}
                       </label>
                       <input
                         id="org-company-name"
@@ -473,26 +476,26 @@ export default function AdminSettingsModal({
                         className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
                       />
                       <p className="mt-1.5 text-xs text-gray-500">
-                        Shown in the browser tab and when the app is installed to a home screen.
+                        {t("adm.companyNameHint")}
                       </p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Company logo
+                        {t("adm.companyLogo")}
                       </label>
                       <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 flex items-center justify-center overflow-hidden shrink-0">
                           {logoUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt="Company logo" className="w-full h-full object-contain p-1.5" />
+                            <img src={logoUrl} alt={t("adm.companyLogo")} className="w-full h-full object-contain p-1.5" />
                           ) : (
                             <Building2 size={22} className="text-gray-300 dark:text-slate-600" />
                           )}
                         </div>
                         <div className="flex items-center gap-2">
                           <label className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors">
-                            {uploadingLogo ? "Uploading..." : logoUrl ? "Replace" : "Upload"}
+                            {uploadingLogo ? t("adm.uploading") : logoUrl ? t("adm.replace") : t("adm.upload")}
                             <input
                               type="file"
                               accept="image/png,image/jpeg,image/svg+xml,image/webp"
@@ -508,16 +511,13 @@ export default function AdminSettingsModal({
                               disabled={uploadingLogo}
                               className="px-3 py-2 text-sm font-medium rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                             >
-                              Remove
+                              {t("adm.remove")}
                             </button>
                           )}
                         </div>
                       </div>
                       <p className="mt-2 text-xs text-gray-500">
-                        Appears beside the workspace name in company workspaces only. It is never
-                        shown in a private workspace, and external accounts cannot reach company
-                        workspaces at all &mdash; so they never see it. HostFlow&apos;s own mark keeps
-                        the icon rail and the login page.
+                        {t("adm.logoHint")}
                       </p>
                     </div>
                   </div>
@@ -526,12 +526,12 @@ export default function AdminSettingsModal({
                 {/* -- Operations ---------------------------------------- */}
                 <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
                   <div className="px-6 py-3 bg-gray-50/70 dark:bg-slate-800/70 border-b border-gray-200 dark:border-slate-700 flex items-baseline gap-3">
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Operations</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">{t("adm.operations")}</h4>
                   </div>
                   <div className="p-6 space-y-6">
                     <div>
                       <label htmlFor="org-timezone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Timezone
+                        {t("adm.timezone")}
                       </label>
                       <select
                         id="org-timezone"
@@ -547,11 +547,14 @@ export default function AdminSettingsModal({
 
                     <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50/60 dark:bg-slate-900/40 px-4 py-3">
                       <div className="text-sm text-gray-700 dark:text-gray-300">
-                        Automations run daily at{" "}
-                        <b className="font-semibold text-gray-900 dark:text-white">
-                          {cronTimeInTimezone(defaultTimezone)}
-                        </b>{" "}
-                        {defaultTimezone}.
+                        {fill(t("adm.cronNote"), {
+                          time: (
+                            <b className="font-semibold text-gray-900 dark:text-white">
+                              {cronTimeInTimezone(defaultTimezone)}
+                            </b>
+                          ),
+                          zone: defaultTimezone,
+                        })}
                       </div>
                       
                     </div>
@@ -564,10 +567,10 @@ export default function AdminSettingsModal({
                     disabled={loading || !organizationDirty}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? "Saving..." : "Save changes"}
+                    {loading ? t("adm.saving") : t("adm.saveChanges")}
                   </button>
                   <span className="text-xs text-gray-500">
-                    {organizationDirty ? "You have unsaved changes." : "Everything is saved."}
+                    {organizationDirty ? t("adm.dirty") : t("adm.clean")}
                   </span>
                 </div>
               </div>
@@ -576,8 +579,8 @@ export default function AdminSettingsModal({
             {activeTab === "users" && (
               <div className="h-full animate-in fade-in slide-in-from-bottom-4 flex flex-col">
                 <div className="mb-6 shrink-0">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">User Roles</h3>
-                  <p className="text-gray-500 mt-1">Manage platform members and assign administrative privileges.</p>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{t("adm.usersTitle")}</h3>
+                  <p className="text-gray-500 mt-1">{t("adm.usersSub")}</p>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 pb-10">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -595,7 +598,7 @@ export default function AdminSettingsModal({
                               <TruncatedText as="h3" className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</TruncatedText>
                               {profile.is_owner && (
                                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-md border border-amber-300 dark:border-amber-500/30">
-                                  Owner
+                                  {t("adm.owner")}
                                 </span>
                               )}
                             </div>
@@ -603,8 +606,8 @@ export default function AdminSettingsModal({
                                 comes from user_directory, which never exposes it. */}
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                               {profile.is_staff
-                                ? "Team member"
-                                : "External — sees only what they are given"}
+                                ? t("adm.teamMember")
+                                : t("adm.externalDesc")}
                             </p>
                           </div>
                         </div>
@@ -615,11 +618,11 @@ export default function AdminSettingsModal({
                               value={profile.role || "member"}
                               onChange={(e) => handleRoleChange(profile.id, e.target.value)}
                               disabled={!!profile.is_owner}
-                              title={profile.is_owner ? "Platform Owner role cannot be changed" : undefined}
+                              title={profile.is_owner ? t("adm.ownerRoleFixed") : undefined}
                               className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              <option value="admin">Administrator</option>
-                              <option value="member">Member</option>
+                              <option value="admin">{t("adm.roleAdmin")}</option>
+                              <option value="member">{t("adm.roleMember")}</option>
                             </select>
 
                             <button
@@ -627,8 +630,8 @@ export default function AdminSettingsModal({
                               disabled={!!profile.is_owner || savingId === profile.id}
                               title={
                                 profile.is_owner
-                                  ? "The platform owner is always a team member"
-                                  : "Team is required for company access, but grants none by itself — set it per workspace and board under Data Access"
+                                  ? t("adm.ownerAlwaysTeam")
+                                  : t("adm.teamHint")
                               }
                               className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                                 profile.is_staff
@@ -636,7 +639,7 @@ export default function AdminSettingsModal({
                                   : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-slate-900 dark:text-gray-400 dark:border-slate-700"
                               }`}
                             >
-                              {profile.is_staff ? "Team" : "External"}
+                              {profile.is_staff ? t("adm.team") : t("adm.external")}
                             </button>
                           </div>
 
@@ -644,7 +647,7 @@ export default function AdminSettingsModal({
                             onClick={() => handleManagePermissions(profile.id)}
                             className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            Manage Access &rarr;
+                            {t("adm.manageAccess")}
                           </button>
                         </div>
                       </div>
@@ -657,14 +660,14 @@ export default function AdminSettingsModal({
             {activeTab === "permissions" && (
               <div className="h-full animate-in fade-in slide-in-from-bottom-4 flex flex-col">
                 <div className="mb-6 shrink-0">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Data Access & Permissions</h3>
-                  <p className="text-gray-500 mt-1">Control which workspaces and boards users can access.</p>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{t("adm.permTitle")}</h3>
+                  <p className="text-gray-500 mt-1">{t("adm.permSub")}</p>
                 </div>
                 <div className="flex-1 overflow-hidden bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl flex shadow-sm">
                   {/* Left sidebar: User selection */}
                   <div className="w-1/3 border-r border-gray-200/50 dark:border-slate-700/50 bg-white/30 dark:bg-slate-800/20 overflow-y-auto custom-scrollbar">
                     <div className="p-4">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Select User</h3>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">{t("adm.selectUser")}</h3>
                       <div className="space-y-1">
                         {profiles.map(profile => (
                           <button
@@ -691,7 +694,7 @@ export default function AdminSettingsModal({
                     {!selectedProfileId ? (
                       <div className="h-full flex flex-col items-center justify-center text-gray-400">
                         <Lock size={48} className="mb-4 opacity-20" />
-                        <p>Select a user to manage their data access</p>
+                        <p>{t("adm.selectUserHint")}</p>
                       </div>
                     ) : selectedTier === "admin" ? (
                       <div className="h-full flex flex-col items-center justify-center text-center px-8">
@@ -699,15 +702,13 @@ export default function AdminSettingsModal({
                           <Shield size={26} />
                         </div>
                         <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                          {selectedProfile?.full_name} is an Administrator
+                          {t("adm.isAdmin", { name: selectedProfile?.full_name ?? "" })}
                         </h4>
                         <p className="text-sm text-gray-500 max-w-sm">
-                          Administrators reach every company workspace and board by role, so there is
-                          nothing to grant here. To limit what this person can see, change their role
-                          to Member in the Users tab first.
+                          {t("adm.isAdminBody")}
                         </p>
                         <p className="text-xs text-gray-400 max-w-sm mt-3">
-                          Private personal workspaces stay private even from administrators.
+                          {t("adm.isAdminNote")}
                         </p>
                       </div>
                     ) : selectedTier === "external" ? (
@@ -716,23 +717,21 @@ export default function AdminSettingsModal({
                           <Lock size={26} />
                         </div>
                         <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                          {selectedProfile?.full_name} is an External user
+                          {t("adm.isExternal", { name: selectedProfile?.full_name ?? "" })}
                         </h4>
                         <p className="text-sm text-gray-500 max-w-sm">
-                          External accounts have no access to company workspaces, and it cannot be
-                          granted here. To work with them, the owner of a private workspace invites
-                          them from that workspace&apos;s own members dialog.
+                          {t("adm.isExternalBody")}
                         </p>
                         <p className="text-xs text-gray-400 max-w-sm mt-3">
-                          If they have joined the company, mark them Team in the Users tab first.
+                          {t("adm.isExternalNote")}
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="mb-6 flex items-center justify-between">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Workspace & Board Access</h3>
-                            <p className="text-sm text-gray-500">Toggle access for the whole workspace, or expand to grant granular board access.</p>
+                            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t("adm.wsBoardAccess")}</h3>
+                            <p className="text-sm text-gray-500">{t("adm.wsBoardAccessSub")}</p>
                           </div>
                         </div>
 
@@ -757,12 +756,16 @@ export default function AdminSettingsModal({
                                       {ws.name}
                                       {ws.is_private && <Lock size={12} className="text-gray-400" />}
                                     </h4>
-                                    <p className="text-xs text-gray-500">{wsBoards.length} boards</p>
+                                    <p className="text-xs text-gray-500">
+                                      {wsBoards.length === 1
+                                        ? t("ws.boardCountOne")
+                                        : t("ws.boardCount", { count: wsBoards.length })}
+                                    </p>
                                   </div>
                                 </button>
                                 
                                 <div className="flex items-center gap-4">
-                                  {isSavingWs && <span className="text-xs text-indigo-500 animate-pulse">Saving...</span>}
+                                  {isSavingWs && <span className="text-xs text-indigo-500 animate-pulse">{t("adm.saving")}</span>}
                                   <label className="relative inline-flex items-center cursor-pointer">
                                     <input 
                                       type="checkbox" 
@@ -771,7 +774,7 @@ export default function AdminSettingsModal({
                                       onChange={() => handleToggleWorkspace(selectedProfileId, ws.id)}
                                     />
                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
-                                    <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">Workspace Access</span>
+                                    <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">{t("adm.wsAccess")}</span>
                                   </label>
                                 </div>
                               </div>
@@ -788,12 +791,12 @@ export default function AdminSettingsModal({
                                       {isWsMember && (
                                         <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-sm text-indigo-800 dark:text-indigo-200 flex items-start gap-2">
                                           <Check size={16} className="mt-0.5 shrink-0" />
-                                          <p>This user has full access to <b>all boards</b> in this workspace. Individual board toggles are overridden.</p>
+                                          <p>{fill(t("adm.wsFullAccess"), { all: <b>{t("adm.allBoards")}</b> })}</p>
                                         </div>
                                       )}
                                       
                                       {wsBoards.length === 0 ? (
-                                        <p className="text-sm text-gray-500 italic py-2 px-4">No boards in this workspace.</p>
+                                        <p className="text-sm text-gray-500 italic py-2 px-4">{t("adm.noBoards")}</p>
                                       ) : (
                                         wsBoards.map(board => {
                                           const isBoardMember = boardMembers.some(m => m.user_id === selectedProfileId && m.board_id === board.id);
@@ -803,7 +806,7 @@ export default function AdminSettingsModal({
                                             <div key={board.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
                                               <span className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-8">{board.name}</span>
                                               <div className="flex items-center gap-3">
-                                                {isSavingBoard && <span className="text-xs text-indigo-500 animate-pulse">Saving...</span>}
+                                                {isSavingBoard && <span className="text-xs text-indigo-500 animate-pulse">{t("adm.saving")}</span>}
                                                 <label className="relative inline-flex items-center cursor-pointer">
                                                   <input 
                                                     type="checkbox" 
