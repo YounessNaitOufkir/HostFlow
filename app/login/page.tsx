@@ -6,7 +6,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { validateNewPassword } from "@/lib/passwordSecurity";
 import { useRouter } from "next/navigation";
 import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
-import DotField from './DotField';
 import { Logo } from "@/components/ui/Logo";
 
 export default function LoginPage() {
@@ -130,71 +129,105 @@ export default function LoginPage() {
     <div className="min-h-screen flex bg-[#111318] font-sans overflow-hidden">
 
       {/* ===== LEFT SIDE ===== */}
-      <div className="hidden lg:flex w-[48%] h-screen sticky top-0 relative flex-col justify-between overflow-hidden bg-[#080c1a]">
+      <div className="hidden lg:flex w-[48%] h-screen sticky top-0 relative flex-col justify-between overflow-hidden bg-[#0c1226]">
 
-        {/* Interactive DotField Background */}
-        <div className="absolute inset-0 z-0">
-          <DotField
-            dotRadius={1.5}
-            dotSpacing={14}
-            bulgeStrength={67}
-            glowRadius={160}
-            sparkle={false}
-            waveAmplitude={0}
-            gradientFrom="#f98b16"
-            glowColor="transparent"
-          />
-        </div>
-
-        {/* === Large card (top-right, tilted clockwise) === */}
-        <div
-          className="absolute flex items-center justify-center pointer-events-none"
-          style={{
-            top: "5%",
-            right: "5%",
-            width: "260px",
-            height: "260px",
-            background: "linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(245,166,35,0.03) 100%)",
-            border: "1px solid rgba(255,255,255,0.10)",
-            borderRadius: "28px",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            transform: "rotate(16deg)",
-            boxShadow: "0 8px 60px rgba(245,166,35,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
-          }}
+        {/* The mark unfolds, on the flow.
+            
+            Row centres sit at 113 / 161 / 209 / 257 / 305 on a 48px pitch, all
+            of it above y=320 so the headline at the foot of the panel keeps a
+            clear field. The three coloured bars are the logo's own three: they
+            are drawn at their schedule positions and transformed back into the
+            mark, so the two readings are the same objects rather than a
+            cross-fade. Animation lives in app/globals.css under "Sign-in
+            panel"; the transforms there are derived from these coordinates and
+            have to be recomputed if any bar moves. */}
+        <svg
+          className="absolute inset-0 w-full h-full z-0"
+          viewBox="0 0 658 613"
+          preserveAspectRatio="xMidYMid slice"
+          aria-hidden="true"
         >
-          {/* User's uploaded SVG H logo */}
-          <img
-            src="/left-bg.svg"
-            alt="H Logo"
-            className="w-4/4 h-4/4 object-contain opacity-60"
-          />
-        </div>
+          {/* Ghost lanes: what holds the composition together for anyone who
+              has asked their system to stop animations. */}
+          <g stroke="#8fa0c4" strokeOpacity=".12" strokeWidth="1.5" fill="none">
+            <path d="M-40 56 C 10 56, 40 113, 70 113 L 570 113 C 640 113, 660 70, 760 70" />
+            <path d="M-40 228 C 10 228, 40 161, 70 161 L 570 161 C 640 161, 660 128, 760 128" />
+            <path d="M-40 136 C 10 136, 40 209, 70 209 L 570 209 C 640 209, 660 260, 760 260" />
+            <path d="M-40 332 C 10 332, 40 257, 70 257 L 570 257 C 640 257, 660 312, 760 312" />
+            <path d="M-40 252 C 10 252, 40 305, 70 305 L 570 305 C 640 305, 660 368, 760 368" />
+          </g>
 
-        {/* === Smaller card (bottom-left, tilted counter-clockwise) === */}
-        <div
-          className="absolute flex items-center justify-center pointer-events-none"
-          style={{
-            bottom: "5%",
-            left: "50%",
-            width: "220px",
-            height: "220px",
-            background: "linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(245,166,35,0.04) 100%)",
-            border: "1px solid rgba(245,166,35,0.15)",
-            borderRadius: "24px",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            transform: "rotate(-12deg)",
-            boxShadow: "0 8px 50px rgba(245,166,35,0.05), inset 0 1px 0 rgba(255,255,255,0.04)",
-          }}
-        >
-          {/* User's uploaded SVG H logo */}
-          <img
-            src="/left-bg.svg"
-            alt="H Logo"
-            className="w-4/4 h-4/4 object-contain opacity-60"
+          {/* Five durations with negative delays, so the streams are already
+              mid-flow on load and never fall into step with one another. */}
+          <g>
+            <path
+              className="hf-stream"
+              stroke="#f5a623"
+              strokeOpacity=".5"
+              style={{ animationDuration: "12s" }}
+              d="M-40 56 C 10 56, 40 113, 70 113 L 570 113 C 640 113, 660 70, 760 70"
+            />
+            <path
+              className="hf-stream"
+              stroke="#5b7fd4"
+              strokeOpacity=".46"
+              style={{ animationDuration: "15s", animationDelay: "-4s" }}
+              d="M-40 228 C 10 228, 40 161, 70 161 L 570 161 C 640 161, 660 128, 760 128"
+            />
+            <path
+              className="hf-stream"
+              stroke="#f5a623"
+              strokeOpacity=".42"
+              style={{ animationDuration: "17s", animationDelay: "-9s" }}
+              d="M-40 136 C 10 136, 40 209, 70 209 L 570 209 C 640 209, 660 260, 760 260"
+            />
+            <path
+              className="hf-stream"
+              stroke="#5b7fd4"
+              strokeOpacity=".44"
+              style={{ animationDuration: "13s", animationDelay: "-2s" }}
+              d="M-40 332 C 10 332, 40 257, 70 257 L 570 257 C 640 257, 660 312, 760 312"
+            />
+            <path
+              className="hf-stream"
+              stroke="#f5a623"
+              strokeOpacity=".34"
+              style={{ animationDuration: "19s", animationDelay: "-6s" }}
+              d="M-40 252 C 10 252, 40 305, 70 305 L 570 305 C 640 305, 660 368, 760 368"
+            />
+          </g>
+
+          {/* Work the mark does not contain, arriving once it is a schedule. */}
+          <rect
+            className="hf-extra"
+            x="150" y="100" width="95" height="26" rx="13"
+            fill="#ffffff" fillOpacity=".14"
+            style={{ transformOrigin: "150px 113px" }}
           />
-        </div>
+          <rect
+            className="hf-extra"
+            x="420" y="292" width="105" height="26" rx="13"
+            fill="#ffffff" fillOpacity=".14"
+            style={{ transformOrigin: "420px 305px", animationDelay: ".4s" }}
+          />
+
+          {/* The mark's own three. Third one blue rather than the logo's white:
+              on white it disappeared into the headline behind it. */}
+          <rect className="hf-bar1" x="90" y="148" width="110" height="26" rx="13" fill="#ffffff" fillOpacity=".93" />
+          <rect className="hf-bar2" x="216" y="196" width="150" height="26" rx="13" fill="#f5a623" />
+          <rect className="hf-bar3" x="382" y="244" width="120" height="26" rx="13" fill="#3e6bd1" />
+
+          {/* The chain, and only across the mark's own bars. Each link is the
+              same shape: out 8 from the predecessor's right edge, down exactly
+              one row, in 8 onto the successor's left edge. */}
+          <g className="hf-ctx">
+            <path className="hf-link" d="M200 161 H208 V209 H210" />
+            <path className="hf-link" d="M366 209 H374 V257 H376" />
+            <polygon className="hf-head" points="216,209 207,204.5 207,213.5" />
+            <polygon className="hf-head" points="382,257 373,252.5 373,261.5" />
+          </g>
+        </svg>
+
 
         {/* Top: HostFlow app brand. No accessible name on the mark — the
             wordmark beside it already names the product. */}
@@ -203,24 +236,21 @@ export default function LoginPage() {
           <span className="text-xl font-bold text-white tracking-tight">HostFlow</span>
         </div>
 
-        {/* Center: Headline */}
-        <div className="relative z-10 px-10">
-          <h1 className="text-5xl xl:text-[3.5rem] font-extrabold text-white leading-[1.15] tracking-tight">
-            Manage your <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-blue-500">
-              projects
-            </span>
+        {/* Foot: headline. Deliberately the LAST of exactly two flow children,
+            so justify-between pins it to the bottom and leaves the whole middle
+            band to the graphic. It used to sit centred, where the schedule bars
+            ran straight through the type. */}
+        <div className="relative z-10 px-10 pb-10">
+          <h1 className="text-5xl xl:text-[3.5rem] font-extrabold text-white leading-[1.13] tracking-tight">
+            Keep the work
             <br />
-            flawlessly.
+            flowing.
           </h1>
+          <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-[#93a1bd]">
+            From the first task to the last handover, on one timeline your whole
+            team can see.
+          </p>
         </div>
-
-        {/* Bottom spacer. This panel is flex-col justify-between over exactly
-            three children, and the Host'lik wordmark used to be the third.
-            Deleting it outright would let justify-between push the headline
-            down to the foot of the panel, so this holds its place: 80px, the
-            wordmark's old height (h-10) plus its old pb-10. */}
-        <div className="relative z-10 h-20" aria-hidden="true" />
       </div>
 
       {/* ===== RIGHT SIDE – Form ===== */}
@@ -319,7 +349,7 @@ export default function LoginPage() {
                         required={isSignUp}
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#1a1e2b] border border-amber-400/30 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 transition-all text-sm"
+                        className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
                         placeholder="John"
                       />
                     </div>
@@ -331,7 +361,7 @@ export default function LoginPage() {
                         required={isSignUp}
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#1a1e2b] border border-amber-400/30 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 transition-all text-sm"
+                        className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
                         placeholder="Doe"
                       />
                     </div>
@@ -346,7 +376,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#1a1e2b] border border-amber-400/30 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 transition-all text-sm"
+                    className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
                     placeholder="name@hostlik.com"
                   />
                 </div>
@@ -371,7 +401,7 @@ export default function LoginPage() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 bg-[#1a1e2b] border border-amber-400/30 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 transition-all text-sm"
+                      className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
                       placeholder="••••••••"
                     />
                   </div>

@@ -877,3 +877,103 @@ body {
 .animate-fade-up-delay-1 { animation-delay: 0.06s; opacity: 0; }
 .animate-fade-up-delay-2 { animation-delay: 0.12s; opacity: 0; }
 .animate-fade-up-delay-3 { animation-delay: 0.18s; opacity: 0; }
+
+/* ============================================================
+   Sign-in panel: the mark unfolds, on the flow
+   ============================================================
+
+   Two independent motion systems on one canvas:
+
+   · the streams, which never stop and never sync with each other,
+   · the unfold, a 13s cycle taking the logo to a schedule and back.
+
+   Nothing is cross-faded. The three bars in the schedule ARE the three
+   bars in the mark - the same rects, transformed - which only works
+   because the HostFlow mark is already three staggered bars, i.e. a
+   three-row Gantt. Geometry lives in app/login/page.tsx; the numbers
+   here are tied to the row pitch of 48px and must move with it.        */
+
+@keyframes hfStream {
+  from { stroke-dashoffset: 420; }
+  to   { stroke-dashoffset: 0; }
+}
+.hf-stream {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 120 300;
+  animation: hfStream 12s linear infinite;
+}
+
+/* Each bar is authored at its SCHEDULE position and transformed back into
+   its place in the logo, so transform-origin is the bar's own left edge:
+   scaleX then grows it rightward out of the mark rather than from centre. */
+@keyframes hfBar1 {
+  0%, 9%    { transform: translate(156.5px, 12.85px) scaleX(.639); }
+  33%, 72%  { transform: translate(0, 0) scaleX(1); }
+  96%, 100% { transform: translate(156.5px, 12.85px) scaleX(.639); }
+}
+@keyframes hfBar2 {
+  0%, 9%    { transform: translate(51.9px, 0) scaleX(.652); }
+  33%, 72%  { transform: translate(0, 0) scaleX(1); }
+  96%, 100% { transform: translate(51.9px, 0) scaleX(.652); }
+}
+@keyframes hfBar3 {
+  0%, 9%    { transform: translate(-89.6px, -12.85px) scaleX(.509); }
+  33%, 72%  { transform: translate(0, 0) scaleX(1); }
+  96%, 100% { transform: translate(-89.6px, -12.85px) scaleX(.509); }
+}
+.hf-bar1 { animation: hfBar1 13s cubic-bezier(.65, 0, .25, 1) infinite; transform-origin: 90px 161px; }
+.hf-bar2 { animation: hfBar2 13s cubic-bezier(.65, 0, .25, 1) infinite; transform-origin: 216px 209px; }
+.hf-bar3 { animation: hfBar3 13s cubic-bezier(.65, 0, .25, 1) infinite; transform-origin: 382px 257px; }
+
+/* Work the logo does not contain, arriving once it is a schedule. */
+@keyframes hfExtra {
+  0%, 20%   { opacity: 0; transform: scaleX(.15); }
+  40%, 72%  { opacity: 1; transform: scaleX(1); }
+  88%, 100% { opacity: 0; transform: scaleX(.15); }
+}
+.hf-extra { opacity: 0; animation: hfExtra 13s cubic-bezier(.65, 0, .25, 1) infinite; }
+
+@keyframes hfCtx {
+  0%, 15%   { opacity: 0; }
+  34%, 72%  { opacity: 1; }
+  90%, 100% { opacity: 0; }
+}
+.hf-ctx { opacity: 0; animation: hfCtx 13s ease-in-out infinite; }
+
+/* Links draw only once the bars have arrived, so an arrow never points at
+   a bar that is still travelling. */
+@keyframes hfLink {
+  0%, 33%   { stroke-dashoffset: 64; opacity: 0; }
+  38%       { opacity: 1; }
+  52%, 72%  { stroke-dashoffset: 0; opacity: 1; }
+  88%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.hf-link {
+  stroke: rgba(255, 255, 255, .42);
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: square;
+  stroke-dasharray: 64;
+  stroke-dashoffset: 64;
+  animation: hfLink 13s ease-out infinite;
+}
+@keyframes hfHead {
+  0%, 50%   { opacity: 0; }
+  56%, 72%  { opacity: 1; }
+  88%, 100% { opacity: 0; }
+}
+.hf-head { fill: rgba(255, 255, 255, .42); opacity: 0; animation: hfHead 13s ease-out infinite; }
+
+/* The still frame is the finished schedule: bars out, links drawn. Nothing
+   here needs motion to be readable, so switching it off removes nothing. */
+@media (prefers-reduced-motion: reduce) {
+  .hf-stream, .hf-bar1, .hf-bar2, .hf-bar3, .hf-extra, .hf-ctx, .hf-link, .hf-head {
+    animation: none !important;
+  }
+  .hf-bar1, .hf-bar2, .hf-bar3, .hf-extra { transform: none; }
+  .hf-extra, .hf-ctx, .hf-head { opacity: 1; }
+  .hf-link { stroke-dashoffset: 0; opacity: 1; }
+  .hf-stream { stroke-dasharray: none; }
+}
