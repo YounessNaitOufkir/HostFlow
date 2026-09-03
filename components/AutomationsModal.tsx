@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useT } from "@/components/LanguageProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { X, Trash2, Loader2, Calendar, Play } from "lucide-react";
@@ -44,8 +45,29 @@ const Chip = ({ children }: { children: React.ReactNode; tone?: 'blue' | 'green'
 );
 
 /** "Daily 10:00" / "Instant", for the metadata line under a rule. */
-const timingLabel = (actionType: string, timeZone?: string | null) =>
-  isScheduled(actionType) ? `Daily ${cronTimeInTimezone(timeZone)}` : 'Instant';
+type Translate = ReturnType<typeof useT>;
+
+const timingLabel = (t: Translate, actionType: string, timeZone?: string | null) =>
+  isScheduled(actionType)
+    ? t("auto.timingDaily", { time: cronTimeInTimezone(timeZone) })
+    : t("auto.timingInstant");
+
+/**
+ * One translated sentence, with each {placeholder} swapped for a node.
+ *
+ * t() leaves a placeholder it was given no value for exactly as it is, so the
+ * sentence arrives here intact and the chips drop into wherever the French
+ * word order actually puts them.
+ */
+const fill = (text: string, nodes: Record<string, React.ReactNode>): React.ReactNode[] =>
+  text.split(/(\{\w+\})/g).map((part, i) => {
+    const name = /^\{(\w+)\}$/.exec(part)?.[1];
+    return name && name in nodes ? (
+      <React.Fragment key={i}>{nodes[name]}</React.Fragment>
+    ) : (
+      part
+    );
+  });
 
 /** The stripe colour: amber for scheduled, green for immediate. */
 const timingStripe = (actionType: string) =>
@@ -55,18 +77,24 @@ const timingStripe = (actionType: string) =>
 // Recipe cards still need to say when a rule would run, but as a quiet label
 // rather than a badge - the rules list carries the same fact in its metadata
 // line, and two different treatments of one fact read as two facts.
-const TimingBadge = ({ actionType, timeZone }: { actionType: string; timeZone?: string | null }) => (
-  <span
-    title={
-      isScheduled(actionType)
-        ? `Evaluated once a day by a scheduled job, not the moment something changes. Runs at ${cronTimeInTimezone(timeZone)} ${timeZone || DEFAULT_ORG_TIMEZONE}.`
-        : 'Runs the moment a matching change is made.'
-    }
-    className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.09em] text-gray-400 dark:text-slate-500"
-  >
-    {timingLabel(actionType, timeZone)}
-  </span>
-);
+const TimingBadge = ({ actionType, timeZone }: { actionType: string; timeZone?: string | null }) => {
+  const t = useT();
+  return (
+    <span
+      title={
+        isScheduled(actionType)
+          ? t("auto.timingDailyTip", {
+              time: cronTimeInTimezone(timeZone),
+              zone: timeZone || DEFAULT_ORG_TIMEZONE,
+            })
+          : t("auto.timingInstantTip")
+      }
+      className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.09em] text-gray-400 dark:text-slate-500"
+    >
+      {timingLabel(t, actionType, timeZone)}
+    </span>
+  );
+};
 /**
  * A small drawing of what each rule actually does.
  *
@@ -84,8 +112,10 @@ const TimingBadge = ({ actionType, timeZone }: { actionType: string; timeZone?: 
  * diagram below: this rule *moves* an item between groups, while that one
  * *rewrites* a status value. Two different mechanisms must not look alike.
  */
-const DiagramArchive = () => (
-  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label="A task being filed out of its list into the Completed group">
+const DiagramArchive = () => {
+  const t = useT();
+  return (
+  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label={t("auto.diagArchive")}>
     <rect x="6" y="8" width="42" height="6" rx="3" className="fill-gray-300 dark:fill-slate-600" />
     <rect x="6" y="19" width="42" height="6" rx="3" className="fill-gray-200 dark:fill-slate-700" />
     <rect x="6" y="30" width="28" height="6" rx="3" className="fill-gray-200 dark:fill-slate-700" />
@@ -96,10 +126,13 @@ const DiagramArchive = () => (
     <path d="M110 28h16" className="stroke-emerald-500" strokeWidth="2.4" strokeLinecap="round" />
   </svg>
 );
+};
 
 /** The clock reaching the date, which rings a notification. */
-const DiagramDueAlert = () => (
-  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label="The due date arriving and raising an alert">
+const DiagramDueAlert = () => {
+  const t = useT();
+  return (
+  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label={t("auto.diagDue")}>
     <circle cx="38" cy="22" r="14" className="stroke-amber-500" fill="none" strokeWidth="1.8" />
     <path d="M38 14v9l6 3" className="stroke-amber-500" fill="none" strokeWidth="1.8" strokeLinecap="round" />
     <path d="M62 22h20" className="stroke-gray-400 dark:stroke-slate-500" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3 3" />
@@ -108,10 +141,13 @@ const DiagramDueAlert = () => (
     <path d="M104 27a2.4 2.4 0 0 0 4 0" className="stroke-amber-600 dark:stroke-amber-400" fill="none" strokeWidth="1.6" strokeLinecap="round" />
   </svg>
 );
+};
 
 /** A task's status being rewritten to Overdue. */
-const DiagramOverdue = () => (
-  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label="A task's status being set to Overdue">
+const DiagramOverdue = () => {
+  const t = useT();
+  return (
+  <svg viewBox="0 0 150 44" className="w-full h-auto max-w-[168px]" role="img" aria-label={t("auto.diagOverdue")}>
     <rect x="8" y="12" width="56" height="20" rx="4" className="fill-gray-200 dark:fill-slate-700" />
     <rect x="15" y="19" width="30" height="6" rx="3" className="fill-gray-400 dark:fill-slate-500" />
     <path d="M72 22h14" className="stroke-gray-400 dark:stroke-slate-500" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3 3" />
@@ -120,8 +156,10 @@ const DiagramOverdue = () => (
     <rect x="103" y="19" width="32" height="6" rx="3" className="fill-rose-500" />
   </svg>
 );
+};
 
 export default function AutomationsModal({ board, groups, items, boardAutomations, profiles, timeZone, onClose }: AutomationsModalProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeType>(null);
@@ -212,7 +250,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       });
       const body = await res.json();
       if (!res.ok) {
-        toast.error(body?.error || 'Could not run this automation');
+        toast.error(body?.error || t("auto.errRun"));
         return;
       }
       if (body.triggeredCount > 0) {
@@ -222,7 +260,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
         toast.info(body.message);
       }
     } catch {
-      toast.error('Could not reach the server to run this automation');
+      toast.error(t("auto.errReach"));
     } finally {
       setRunningId(null);
     }
@@ -274,8 +312,8 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
           .single();
 
         if (groupError || !createdGroup) {
-          toast.error("Could not create the Completed group", {
-            description: "The automation was not enabled.",
+          toast.error(t("auto.errGroup"), {
+            description: t("auto.errGroupBody"),
           });
           return;
         }
@@ -341,13 +379,16 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     // otherwise activating it means waiting until the next daily run to find out
     // whether it does anything.
     const scheduled = isScheduled(data.action_type);
-    toast.success('Automation added', {
+    toast.success(t("auto.added"), {
       description: scheduled
-        ? `Runs daily at ${cronTimeInTimezone(timeZone)} ${timeZone || DEFAULT_ORG_TIMEZONE}.`
-        : 'Runs instantly, every time a matching change is made.',
+        ? t("auto.addedDaily", {
+            time: cronTimeInTimezone(timeZone),
+            zone: timeZone || DEFAULT_ORG_TIMEZONE,
+          })
+        : t("auto.addedInstant"),
       duration: scheduled ? 12000 : 5000,
       action: scheduled
-        ? { label: 'Run now', onClick: () => runNow(data.id) }
+        ? { label: t("auto.runNowAction"), onClick: () => runNow(data.id) }
         : undefined,
     });
   };
@@ -398,27 +439,28 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     }
   };
 
-  const getColName = (id: string) => board.columns.find((c) => c.id === id)?.title || "Column";
-  const getGroupName = (id: string) => groups.find((g) => g.id === id)?.title || "Group";
+  const getColName = (id: string) =>
+    board.columns.find((c) => c.id === id)?.title || t("auto.colFallback");
+  const getGroupName = (id: string) =>
+    groups.find((g) => g.id === id)?.title || t("auto.groupFallback");
 
   // One consistent chip, so a rule reads as a sentence with the changeable
 
   const renderRuleDescription = (auto: Automation) => {
     if (auto.action_type === 'sla_alert') {
-      return (
-        <>
-          When <Chip>{getColName(auto.trigger_column_id)}</Chip> arrives and the status is not{" "}
-          <Chip>Working on it</Chip>, notify and email the assignee
-        </>
-      );
+      return fill(t("auto.ruleSla"), {
+        column: <Chip>{getColName(auto.trigger_column_id)}</Chip>,
+        // The chips carry the literal status values the engine matches and
+        // writes, so they are board data and stay untranslated.
+        status: <Chip>Working on it</Chip>,
+      });
     }
     if (auto.action_type === 'overdue_tagging') {
-      return (
-        <>
-          When <Chip>{getColName(auto.trigger_column_id)}</Chip> has passed and the status is not{" "}
-          <Chip>Done</Chip>, set the status to <Chip tone="green">Overdue</Chip> and email the assignee
-        </>
-      );
+      return fill(t("auto.ruleOverdue"), {
+        column: <Chip>{getColName(auto.trigger_column_id)}</Chip>,
+        done: <Chip>Done</Chip>,
+        overdue: <Chip tone="green">Overdue</Chip>,
+      });
     }
     if (auto.action_type === 'timeline_shifting') {
       // Kept only so an existing rule can still be read and removed. Dependencies
@@ -427,22 +469,21 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       return (
         <>
           <span className="line-through opacity-60">
-            When <Chip>{getColName(auto.trigger_column_id)}</Chip> is postponed, shift every
-            dependent item
+            {fill(t("auto.ruleShift"), {
+              column: <Chip>{getColName(auto.trigger_column_id)}</Chip>,
+            })}
           </span>{" "}
           <span className="font-semibold text-amber-600 dark:text-amber-400">
-            — no longer needed: dependent dates now always shift. Safe to delete.
+            {t("auto.ruleShiftNote")}
           </span>
         </>
       );
     }
-    return (
-      <>
-        When <Chip>{getColName(auto.trigger_column_id)}</Chip> changes to{" "}
-        <Chip>{auto.trigger_value}</Chip>, move the item to{" "}
-        <Chip tone="green">{getGroupName(auto.action_target_id)}</Chip>
-      </>
-    );
+    return fill(t("auto.ruleMove"), {
+      column: <Chip>{getColName(auto.trigger_column_id)}</Chip>,
+      value: <Chip>{auto.trigger_value}</Chip>,
+      group: <Chip tone="green">{getGroupName(auto.action_target_id)}</Chip>,
+    });
   };
 
   return (
@@ -458,14 +499,17 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
         <div className="flex items-center justify-between gap-4 px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 shrink-0">
           <div className="min-w-0">
             <h2 className="text-[17px] font-bold text-gray-900 dark:text-white tracking-tight">
-              Automations
+              {t("auto.title")}
             </h2>
             <p className="text-[12.5px] text-gray-500 dark:text-slate-400 mt-0.5 truncate">
               {board.name}
               {automations.length > 0 && (
                 <>
-                  {` · ${automations.length} ${automations.length === 1 ? 'rule' : 'rules'}`}
-                  {scheduledCount > 0 && ` · ${scheduledCount} scheduled`}
+                  {` · ${automations.length === 1
+                    ? t("auto.ruleCountOne")
+                    : t("auto.ruleCount", { count: automations.length })}`}
+                  {scheduledCount > 0 &&
+                    ` · ${t("auto.scheduledCount", { count: scheduledCount })}`}
                 </>
               )}
             </p>
@@ -476,12 +520,12 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                 onClick={() => setIsCreating(true)}
                 className="px-3.5 py-2 text-[12.5px] font-semibold text-white bg-[#1A2C5B] hover:bg-[#24396f] dark:bg-[#24396f] dark:hover:bg-[#2d4682] rounded-lg transition-colors"
               >
-                New rule
+                {t("auto.newRule")}
               </button>
             )}
             <button
               onClick={onClose}
-              aria-label="Close"
+              aria-label={t("auto.close")}
               className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
               <X size={18} />
@@ -496,13 +540,13 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white">
-                  Choose what to automate
+                  {t("auto.choose")}
                 </h3>
                 <button
                   onClick={() => { setIsCreating(false); setSelectedRecipe(null); }}
                   className="text-[12px] text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
                 >
-                  Cancel
+                  {t("auto.cancel")}
                 </button>
               </div>
               {/*
@@ -518,34 +562,26 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                     {
                       id: "move_done" as const,
                       actionType: "move_group",
-                      title: "Archive finished work",
+                      title: t("auto.archiveTitle"),
                       diagram: <DiagramArchive />,
-                      description: (
-                        <>
-                          When a task is marked{" "}
-                          <b className="font-semibold text-gray-700 dark:text-slate-200">{effectiveTriggerValue}</b>, move it to{" "}
-                          <b className="font-semibold text-gray-700 dark:text-slate-200">{COMPLETED_GROUP_TITLE}</b>.
-                        </>
-                      ),
+                      description: t("auto.archiveBody", {
+                        status: effectiveTriggerValue,
+                        group: COMPLETED_GROUP_TITLE,
+                      }),
                     },
                     {
                       id: "sla_alert" as const,
                       actionType: "sla_alert",
-                      title: "Alert on the due date",
+                      title: t("auto.dueTitle"),
                       diagram: <DiagramDueAlert />,
-                      description: <>The date arrives and the task isn&apos;t underway — notify and email whoever it&apos;s assigned to.</>,
+                      description: t("auto.dueBody"),
                     },
                     {
                       id: "overdue_tagging" as const,
                       actionType: "overdue_tagging",
-                      title: "Flag overdue work",
+                      title: t("auto.overdueTitle"),
                       diagram: <DiagramOverdue />,
-                      description: (
-                        <>
-                          The date has passed and the task isn&apos;t done — set its status to{" "}
-                          <b className="font-semibold text-gray-700 dark:text-slate-200">Overdue</b> and email the assignee.
-                        </>
-                      ),
+                      description: t("auto.overdueBody"),
                     },
                   ]
                 ).map((recipe) => {
@@ -649,22 +685,12 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                       <div className="flex flex-wrap items-center gap-2">
                         {dateCols.length === 0 ? (
                           <span className="text-amber-600 dark:text-amber-400">
-                            This board has no date or timeline column, so this rule
-                            would have nothing to check.
+                            {t("auto.noDateColumn")}
                           </span>
                         ) : dateCols.length === 1 ? (
-                          <span>
-                            Checks the{" "}
-                            <b className="font-semibold text-gray-800 dark:text-gray-100">
-                              {dateCols[0].title}
-                            </b>{" "}
-                            column.
-                          </span>
+                          <span>{t("auto.checksColumn", { column: dateCols[0].title })}</span>
                         ) : (
-                          <span>
-                            Checks every date column on this board &mdash; whichever one
-                            an item has a date in is the one used.
-                          </span>
+                          <span>{t("auto.checksEvery")}</span>
                         )}
                       </div>
                     )}
@@ -675,15 +701,15 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                       onClick={() => { setIsCreating(false); setSelectedRecipe(null); }}
                       className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700 rounded-lg transition-colors"
                     >
-                      Cancel
+                      {t("auto.cancel")}
                     </button>
                     <button
                       onClick={() => handleCreateRecipe(selectedRecipe)}
                       disabled={blocked}
-                      title={duplicateRule ? "A rule for this trigger already exists. Delete it first - two rules on the same trigger cannot both run." : undefined}
+                      title={duplicateRule ? t("auto.duplicate") : undefined}
                       className="px-4 py-2 text-[13px] font-semibold text-white bg-[#1A2C5B] hover:bg-[#24396f] dark:bg-[#24396f] dark:hover:bg-[#2d4682] rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Create rule
+                      {t("auto.createRule")}
                     </button>
                   </div>
                 </div>
@@ -702,13 +728,13 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
             ) : automations.length === 0 ? (
               <div className="py-10 text-center">
                 <p className="text-[13.5px] text-gray-500 dark:text-slate-400">
-                  Nothing is automated on this board yet.
+                  {t("auto.none")}
                 </p>
                 <button
                   onClick={() => setIsCreating(true)}
                   className="mt-2 text-[13px] font-semibold text-[#1A2C5B] dark:text-amber-400 hover:underline"
                 >
-                  Create the first rule
+                  {t("auto.createFirst")}
                 </button>
               </div>
             ) : (
@@ -729,10 +755,10 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                         {renderRuleDescription(auto)}
                       </div>
                       <div className="mt-1 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-gray-400 dark:text-slate-500">
-                        {timingLabel(auto.action_type, timeZone)}
+                        {timingLabel(t, auto.action_type, timeZone)}
                         {" · "}
-                        {auto.workspace_id ? "Every board in this workspace" : "This board only"}
-                        {auto.enabled === false && " · Paused"}
+                        {auto.workspace_id ? t("auto.scopeWorkspace") : t("auto.scopeBoard")}
+                        {auto.enabled === false && ` · ${t("auto.paused")}`}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -741,7 +767,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                         <button
                           onClick={() => runNow(auto.id)}
                           disabled={runningId === auto.id}
-                          title="Evaluate this rule against the board right now"
+                          title={t("auto.runNow")}
                           className="px-2 py-1 text-[12px] font-semibold text-gray-500 hover:text-[#1A2C5B] dark:text-slate-400 dark:hover:text-amber-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors flex items-center gap-1 disabled:opacity-50"
                         >
                           {runningId === auto.id ? (
@@ -749,14 +775,14 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                           ) : (
                             <Play size={12} />
                           )}
-                          Run
+                          {t("auto.run")}
                         </button>
                       )}
                       <button
                         onClick={() => handleToggle(auto.id, auto.enabled !== false)}
                         role="switch"
                         aria-checked={auto.enabled !== false}
-                        title={auto.enabled !== false ? "Switch this rule off" : "Switch this rule on"}
+                        title={auto.enabled !== false ? t("auto.switchOff") : t("auto.switchOn")}
                         className={`relative w-8 h-[18px] rounded-full transition-colors shrink-0 ${
                           auto.enabled !== false
                             ? "bg-[#1A2C5B] dark:bg-amber-500"
@@ -771,7 +797,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                       </button>
                       <button
                         onClick={() => handleDelete(auto.id)}
-                        title="Delete this rule"
+                        title={t("auto.deleteRule")}
                         className="p-1.5 text-gray-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 rounded-md transition-colors"
                       >
                         <Trash2 size={14} />
