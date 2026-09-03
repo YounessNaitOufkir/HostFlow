@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useT } from "@/components/LanguageProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { Item, Group } from "@/types";
@@ -24,6 +25,7 @@ interface TrashViewProps {
 }
 
 export default function TrashView({ trashItems, groups, allItems, onRestore, onDeletePermanently }: TrashViewProps) {
+  const t = useT();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
   const queryClient = useQueryClient();
@@ -93,24 +95,26 @@ export default function TrashView({ trashItems, groups, allItems, onRestore, onD
               <Trash2 size={24} />
             </div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-              Trash Bin
+              {t("trash.title")}
             </h1>
           </div>
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            {trashItems.length + trashUpdates.length} items in trash
+            {trashItems.length + trashUpdates.length === 1
+              ? t("trash.countOne")
+              : t("trash.count", { count: trashItems.length + trashUpdates.length })}
           </div>
         </div>
 
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/50 rounded-lg p-4 flex items-start space-x-3 text-yellow-800 dark:text-yellow-200 text-sm">
           <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-          <p>Items here have been soft-deleted and will remain in the trash until permanently deleted by an admin. You can restore them back to their original groups.</p>
+          <p>{t("trash.notice")}</p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 overflow-hidden">
           <div className="p-4 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50">
             <input
               type="text"
-              placeholder="Search trash..."
+              placeholder={t("trash.search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="px-3 py-1.5 text-sm rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -120,17 +124,17 @@ export default function TrashView({ trashItems, groups, allItems, onRestore, onD
           {filteredItems.length === 0 && trashUpdates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
               <Trash2 size={48} className="opacity-20 mb-4" />
-              <p>No items or updates in the trash.</p>
+              <p>{t("trash.empty")}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
                 <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
                   <tr>
-                    <th className="px-6 py-3 border-b border-gray-200 dark:border-slate-700/50">Item Name</th>
-                    <th className="px-6 py-3 border-b border-gray-200 dark:border-slate-700/50">Original Group</th>
-                    <th className="px-6 py-3 border-b border-gray-200 dark:border-slate-700/50">Deleted At</th>
-                    <th className="px-6 py-3 border-b border-gray-200 dark:border-slate-700/50 text-right">Actions</th>
+                    <th className="px-6 py-3 border-b border-gray-200 dark:border-slate-700/50">{t("trash.itemName")}</th>
+                    <th className="px-6 py-3 border-b border-gray-200 dark:border-slate-700/50">{t("trash.originalGroup")}</th>
+                    <th className="px-6 py-3 border-b border-gray-200 dark:border-slate-700/50">{t("trash.deletedAt")}</th>
+                    <th className="px-6 py-3 border-b border-gray-200 dark:border-slate-700/50 text-right">{t("trash.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
