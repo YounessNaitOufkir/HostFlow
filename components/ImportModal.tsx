@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { useT } from "@/components/LanguageProvider";
 import Papa from "papaparse";
 import * as xlsx from "xlsx";
 import { Upload, X, AlertCircle } from "lucide-react";
@@ -123,6 +124,7 @@ function parseMondayUpdates(rawData: any[][]): ImportUpdate[] {
 }
 
 export default function ImportModal({ onClose, onImport, activeBoard, activeBoardColumns }: ImportModalProps) {
+  const t = useT();
   const [file, setFile] = useState<File | null>(null);
   const [data, setData] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -145,7 +147,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
     const extension = uploadedFile.name.split('.').pop()?.toLowerCase();
 
     const parseMondayRawData = (rawData: any[][]) => {
-      let currentGroup = "Imported Group";
+      let currentGroup = t("imp.importedGroup");
       let finalHeaders: string[] = [];
       let parsedData: any[] = [];
       let foundHeaders = false;
@@ -214,7 +216,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
         skipEmptyLines: true,
         complete: (results) => {
           if (results.errors.length > 0) {
-            setError("Error parsing CSV file.");
+            setError(t("imp.errCsv"));
             return;
           }
           const { parsedData, finalHeaders } = parseMondayRawData(results.data as any[][]);
@@ -222,7 +224,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
             setData(parsedData);
             setHeaders(finalHeaders);
           } else {
-            setError("Could not find any valid data in the CSV.");
+            setError(t("imp.errCsvEmpty"));
           }
         },
         error: (err) => {
@@ -257,19 +259,19 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
           setHeaders(finalHeaders);
           setUpdates(parsedUpdates);
         } else {
-          setError("Could not find any valid data in the spreadsheet.");
+          setError(t("imp.errXlsxEmpty"));
         }
       } catch (err: any) {
-        setError(err.message || "Error reading Excel file.");
+        setError(err.message || t("imp.errXlsx"));
       }
     } else {
-      setError("Unsupported file format. Please upload CSV or Excel files.");
+      setError(t("imp.errFormat"));
     }
   };
 
   const handleImport = async () => {
     if (target === "new_board" && !newBoardName.trim()) {
-      setError("Please provide a name for the new board.");
+      setError(t("imp.errName"));
       return;
     }
     
@@ -286,7 +288,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
       });
       onClose();
     } catch (err: any) {
-      setError(parseDatabaseError(err, err.message || "Failed to import data."));
+      setError(parseDatabaseError(err, err.message || t("imp.errImport")));
       setIsImporting(false);
     }
   };
@@ -297,8 +299,8 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
         className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 flex flex-col"
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-800">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Import Data</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t("imp.title")}</h2>
+          <button onClick={onClose} aria-label={t("imp.close")} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <X size={20} />
           </button>
         </div>
@@ -317,9 +319,9 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={32} className="text-blue-500 mb-3" />
-              <p className="text-gray-900 dark:text-white font-medium mb-1">Click to upload Data</p>
+              <p className="text-gray-900 dark:text-white font-medium mb-1">{t("imp.drop")}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                Drag and drop your .csv or .xlsx file here, or click to browse
+                {t("imp.dropHint")}
               </p>
               <input
                 type="file"
@@ -339,8 +341,13 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
                   <div>
                     <p className="font-medium text-sm text-gray-900 dark:text-white">{file.name}</p>
                     <p className="text-xs text-gray-500">
-                      {data.length} rows detected
-                      {updates.length > 0 && ` · ${updates.length} update${updates.length === 1 ? "" : "s"}`}
+                      {data.length === 1
+                        ? t("imp.rowsOne")
+                        : t("imp.rows", { count: data.length })}
+                      {updates.length > 0 &&
+                        ` · ${updates.length === 1
+                          ? t("imp.updatesOne")
+                          : t("imp.updates", { count: updates.length })}`}
                     </p>
                   </div>
                 </div>
@@ -348,12 +355,12 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
                   onClick={() => { setFile(null); setData([]); setHeaders([]); setUpdates([]); }}
                   className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white underline"
                 >
-                  Change File
+                  {t("imp.changeFile")}
                 </button>
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-semibold text-sm text-gray-900 dark:text-white">Import Destination</h3>
+                <h3 className="font-semibold text-sm text-gray-900 dark:text-white">{t("imp.destination")}</h3>
                 
                 <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50">
                   <input 
@@ -364,8 +371,8 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
                     onChange={() => setTarget("new_board")}
                   />
                   <div>
-                    <p className="font-medium text-sm text-gray-900 dark:text-white">Create New Board</p>
-                    <p className="text-xs text-gray-500">A new board will be created with columns generated from your CSV headers.</p>
+                    <p className="font-medium text-sm text-gray-900 dark:text-white">{t("imp.newBoard")}</p>
+                    <p className="text-xs text-gray-500">{t("imp.newBoardHint")}</p>
                   </div>
                 </label>
 
@@ -373,7 +380,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
                   <div className="pl-7 pr-3 pb-3">
                     <input 
                       type="text" 
-                      placeholder="New Board Name"
+                      placeholder={t("imp.newBoardName")}
                       value={newBoardName}
                       onChange={(e) => setNewBoardName(e.target.value)}
                       className="w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -393,9 +400,11 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
                     disabled={!activeBoard}
                   />
                   <div>
-                    <p className="font-medium text-sm text-gray-900 dark:text-white">Import into Current Board</p>
+                    <p className="font-medium text-sm text-gray-900 dark:text-white">{t("imp.current")}</p>
                     <p className="text-xs text-gray-500">
-                      {activeBoard ? `Append data to "${activeBoard.name}". We will try to map columns automatically.` : "No active board selected."}
+                      {activeBoard
+                        ? t("imp.currentHint", { board: activeBoard.name })
+                        : t("imp.noBoard")}
                     </p>
                   </div>
                 </label>
@@ -409,7 +418,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
           >
-            Cancel
+            {t("imp.cancel")}
           </button>
           <button 
             onClick={handleImport}
@@ -419,9 +428,9 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
             {isImporting ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Importing...
+                {t("imp.importing")}
               </>
-            ) : "Import"}
+            ) : t("imp.import")}
           </button>
         </div>
       </div>
