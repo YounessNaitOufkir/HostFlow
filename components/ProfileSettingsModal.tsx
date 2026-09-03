@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { useT } from "@/components/LanguageProvider";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { X, Upload, Loader2, Camera, Shield, User, Bell, Type, Check } from "lucide-react";
@@ -17,6 +18,7 @@ interface ProfileSettingsModalProps {
 }
 
 export default function ProfileSettingsModal({ profile, onClose, onProfileUpdated }: ProfileSettingsModalProps) {
+  const t = useT();
   const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "readability">("profile");
   const [fullName, setFullName] = useState(profile.full_name);
   const [emailNotifications, setEmailNotifications] = useState(profile.email_notifications_enabled ?? true);
@@ -124,7 +126,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-[#252849] rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700/50 flex justify-between items-center bg-gray-50/50 dark:bg-white/[0.02]">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Profile Settings</h2>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">{t("profile.title")}</h2>
           <button 
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full p-1 hover:bg-gray-200 dark:hover:bg-white/10"
@@ -189,7 +191,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
                 ) : (
                   <>
                     <Camera size={24} className="mb-1" />
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Change</span>
+                    <span className="text-[10px] font-medium uppercase tracking-wider">{t("profile.change")}</span>
                   </>
                 )}
               </button>
@@ -230,7 +232,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-semibold border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors shadow-sm"
                   >
                     <Shield size={12} />
-                    Restore Admin Rights
+                    {t("profile.restoreAdmin")}
                   </button>
                 </div>
               )}
@@ -240,7 +242,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
           <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-slate-700/50">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="fullName">
-                Full Name
+                {t("profile.fullName")}
               </label>
               <input
                 id="fullName"
@@ -256,28 +258,28 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
           {activeTab === 'notifications' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Notifications</h3>
-                <p className="text-sm text-gray-500">Control how and when you receive updates.</p>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{t("profile.notifications")}</h3>
+                <p className="text-sm text-gray-500">{t("profile.notificationsBody")}</p>
               </div>
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">Email Notifications</h4>
-                    <p className="text-xs text-gray-500">Receive emails when you are assigned a task.</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">{t("profile.email")}</h4>
+                    <p className="text-xs text-gray-500">{t("profile.emailBody")}</p>
                   </div>
                   <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">Daily Digest</h4>
-                    <p className="text-xs text-gray-500">Morning summary of tasks due today.</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">{t("profile.digest")}</h4>
+                    <p className="text-xs text-gray-500">{t("profile.digestBody")}</p>
                   </div>
                   <input type="checkbox" checked={dailyDigest} onChange={(e) => setDailyDigest(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">In-App Alerts</h4>
-                    <p className="text-xs text-gray-500">Show notification dots while using the app.</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">{t("profile.inApp")}</h4>
+                    <p className="text-xs text-gray-500">{t("profile.inAppBody")}</p>
                   </div>
                   <input type="checkbox" checked={inAppAlerts} onChange={(e) => setInAppAlerts(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
                 </div>
@@ -285,14 +287,14 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
 
               {/* Telegram Integration */}
               <div className="pt-4 border-t border-gray-100 dark:border-slate-700/50">
-                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">Telegram Alerts</h4>
-                <p className="text-xs text-gray-500 mb-3">Receive task notifications directly in Telegram.</p>
+                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">{t("profile.telegram")}</h4>
+                <p className="text-xs text-gray-500 mb-3">{t("profile.telegramBody")}</p>
                 <TelegramConnectButton profile={profile} onProfileUpdated={onProfileUpdated} />
               </div>
 
               {/* Google Calendar Integration */}
               <div className="pt-4 border-t border-gray-100 dark:border-slate-700/50">
-                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">Google Calendar Sync</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">{t("profile.calendar")}</h4>
                 <p className="text-xs text-gray-500 mb-3">Sync your assigned task deadlines directly to your Google Calendar.</p>
                 <GoogleCalendarConnectButton profile={profile} />
               </div>
@@ -303,10 +305,10 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                  Readability & Typography
+                  {t("profile.readability")}
                 </h3>
                 <p className="text-sm text-gray-500">
-                  Select your preferred font family.
+                  {t("profile.readabilityBody")}
                 </p>
               </div>
               <ReadabilityTabContent />
@@ -318,7 +320,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
-            Cancel
+            {t("profile.cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -326,7 +328,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
             className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
           >
             {saving && <Loader2 size={14} className="animate-spin" />}
-            Save Changes
+            {t("profile.save")}
           </button>
         </div>
       </div>
