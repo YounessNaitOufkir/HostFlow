@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { translate, isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { displayColumnTitle, displayCellLabel, displayStatus } from "@/lib/i18n/labels";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
@@ -47,7 +48,6 @@ import { reportError, reportFetchError, reportMutationError } from "@/lib/errorR
 import { format } from "date-fns";
 import DOMPurify from "dompurify";
 import { TruncatedText } from "@/components/ui/TruncatedText";
-import { escapeHtml } from "@/lib/escapeHtml";
 
 const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
@@ -332,6 +332,41 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
   // TipTap editor
   const { editor, isEditorEmpty, setIsEditorEmpty } = useUpdateEditor(profiles);
 
+  /**
+   * A mention lands in the reader's own language, so the recipients are grouped
+   * by the language each of them chose and notify_users is called once per
+   * group. One call with one string would put the writer's language into
+   * everybody's notification bell.
+   */
+  const notifyMentions = async (
+    mentionedIds: string[],
+    messageKey: "notif.mentionUpdate" | "notif.mentionReply",
+  ) => {
+    const byLocale = new Map<Locale, string[]>();
+    for (const id of mentionedIds) {
+      const chosen = profiles.find((p) => p.id === id)?.language;
+      const locale: Locale = isLocale(chosen) ? chosen : DEFAULT_LOCALE;
+      byLocale.set(locale, [...(byLocale.get(locale) ?? []), id]);
+    }
+
+    for (const [locale, ids] of byLocale) {
+      const { error } = await supabase.rpc("notify_users", {
+        recipient_ids: ids,
+        message: translate(locale, messageKey, {
+          actor: currentUser.name,
+          item: item.name,
+        }),
+        board_id: item.board_id,
+        item_id: item.id,
+      });
+      if (error) {
+        reportMutationError(error, "Failed to send mention notifications", { table: "notifications" });
+        return false;
+      }
+    }
+    return true;
+  };
+
   // ---- Handle Resizing ----
   useEffect(() => {
     if (!isResizing) return;
@@ -448,22 +483,18 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
       if (mentionedIds.length > 0) {
         // Notifying other users goes through notify_users, which authorises the
         // recipient list server-side; a direct insert is no longer permitted.
-        const { error: notifError } = await supabase.rpc("notify_users", {
-          recipient_ids: mentionedIds,
-          message: `${currentUser.name} mentioned you in an update on "${item.name}"`,
-          board_id: item.board_id,
-          item_id: item.id,
-        });
-        if (notifError) {
-          reportMutationError(notifError, "Failed to send mention notifications", { table: "notifications" });
+        if (!(await notifyMentions(mentionedIds, "notif.mentionUpdate"))) {
+          // notifyMentions has already reported the failure.
         } else {
-          // Send Telegram alert asynchronously
+          // Composed server-side, per recipient: the route is told which alert
+          // to send, not what it should say.
           fetch('/api/telegram/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userIds: mentionedIds,
-              message: `💬 <b>New Mention</b>\n${escapeHtml(currentUser.name)} mentioned you in an update on <b>${escapeHtml(item.name)}</b>`,
+              kind: "mention.update",
+              vars: { actor: currentUser.name, item: item.name },
             })
           }).catch(console.error);
           // Trigger local refresh for instant UI feedback
@@ -511,22 +542,18 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
 
       const mentionedIds = Array.from(extractMentionIds(editorJson));
       if (mentionedIds.length > 0) {
-        const { error: notifError } = await supabase.rpc("notify_users", {
-          recipient_ids: mentionedIds,
-          message: `${currentUser.name} mentioned you in a reply on "${item.name}"`,
-          board_id: item.board_id,
-          item_id: item.id,
-        });
-        if (notifError) {
-          reportMutationError(notifError, "Failed to send mention notifications", { table: "notifications" });
+        if (!(await notifyMentions(mentionedIds, "notif.mentionReply"))) {
+          // notifyMentions has already reported the failure.
         } else {
-          // Send Telegram alert asynchronously
+          // Composed server-side, per recipient: the route is told which alert
+          // to send, not what it should say.
           fetch('/api/telegram/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userIds: mentionedIds,
-              message: `💬 <b>New Mention</b>\n${escapeHtml(currentUser.name)} mentioned you in a reply on <b>${escapeHtml(item.name)}</b>`,
+              kind: "mention.reply",
+              vars: { actor: currentUser.name, item: item.name },
             })
           }).catch(console.error);
           window.dispatchEvent(new CustomEvent('notification-added'));

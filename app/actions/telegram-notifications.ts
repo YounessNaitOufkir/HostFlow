@@ -2,15 +2,20 @@
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { translate, isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 
 /**
  * Sends a Telegram notification to a list of users, provided they have linked their Telegram account
  * and have notifications enabled.
  * 
  * @param userIds List of HostFlow user IDs to notify
- * @param message The markdown-formatted message to send
+ * @param message The HTML-formatted message, or a function handed each
+ *                recipient's own locale so the message can be written in it.
  */
-export async function notifyUsersViaTelegram(userIds: string[], message: string) {
+export async function notifyUsersViaTelegram(
+  userIds: string[],
+  message: string | ((locale: Locale) => string),
+) {
   if (!userIds || userIds.length === 0) return;
 
   try {
@@ -19,7 +24,7 @@ export async function notifyUsersViaTelegram(userIds: string[], message: string)
     // Fetch the profiles to check who has Telegram enabled and linked
     const { data: profiles, error } = await supabase
       .from("profiles")
-      .select("id, telegram_chat_id, telegram_notifications_enabled")
+      .select("id, telegram_chat_id, telegram_notifications_enabled, language")
       .in("id", userIds);
 
     if (error) {
@@ -39,10 +44,14 @@ export async function notifyUsersViaTelegram(userIds: string[], message: string)
     // request to Telegram finishes. allSettled keeps one failure from losing the rest.
     await Promise.allSettled(
       eligibleProfiles.map((p) => {
-        // We add a helpful tip at the end of the first few messages, but since this is generic,
-        // we'll just send the message as is. We'll handle opt-out globally in the webhook.
-        // <i>, not _italics_: sendTelegramMessage sends parse_mode "HTML".
-        const finalMessage = `${message}\n\n<i>Tip: Type /stop to disable these alerts.</i>`;
+        // The tip is ours, so it is written in the recipient's language rather
+        // than the sender's - a French colleague mentioning an English one must
+        // not send them French. <i>, not _italics_: parse_mode is "HTML".
+        const locale: Locale = isLocale(p.language) ? p.language : DEFAULT_LOCALE;
+        const body = typeof message === "function" ? message(locale) : message;
+        const finalMessage = `${body}
+
+<i>${translate(locale, "tg.tip")}</i>`;
         return sendTelegramMessage(p.telegram_chat_id!, finalMessage);
       })
     );
