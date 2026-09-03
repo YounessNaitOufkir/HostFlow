@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo } from "react";
+import { useT } from "@/components/LanguageProvider";
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from "@hello-pangea/dnd";
 import { Plus, Layout as LayoutIcon } from "lucide-react";
 import type { Board, Item, Column, ColumnType, Group, Profile, Automation } from "@/types";
@@ -105,6 +106,7 @@ export default function BoardTableView({
   onToggleGroupCollapse,
   onMoveGroup,
 }: BoardTableViewProps) {
+  const t = useT();
   const [itemNameWidth, setItemNameWidth] = React.useState(300);
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
 
@@ -256,7 +258,7 @@ export default function BoardTableView({
 
             {/* Add Group Button */}
             {groups.length > 0 && (
-              <Tooltip content="Create a new item group" side="top">
+              <Tooltip content={t("group.createNew")} side="top">
                 <button
                   onClick={onAddGroup}
                   className="mt-2 flex items-center px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-[#1e2140] rounded-lg border border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all font-medium"
