@@ -129,7 +129,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex bg-[#111318] font-sans overflow-hidden">
 
       {/* ===== LEFT SIDE ===== */}
-      <div className="hidden lg:flex w-[48%] h-screen sticky top-0 relative flex-col justify-between overflow-hidden bg-[#0c1226]">
+      <div className="hidden lg:flex w-[48%] h-screen sticky top-0 relative flex-col justify-start overflow-hidden bg-[#0c1226]">
 
         {/* The mark unfolds, on the flow.
             
@@ -147,84 +147,74 @@ export default function LoginPage() {
           preserveAspectRatio="xMidYMid slice"
           aria-hidden="true"
         >
-          {/* Ghost lanes: what holds the composition together for anyone who
-              has asked their system to stop animations. */}
+          {/* Ghost lanes: what holds the composition together for anyone
+              who has asked their system to stop animations. */}
           <g stroke="#8fa0c4" strokeOpacity=".12" strokeWidth="1.5" fill="none">
-            <path d="M-40 56 C 10 56, 40 113, 70 113 L 570 113 C 640 113, 660 70, 760 70" />
-            <path d="M-40 228 C 10 228, 40 161, 70 161 L 570 161 C 640 161, 660 128, 760 128" />
-            <path d="M-40 136 C 10 136, 40 209, 70 209 L 570 209 C 640 209, 660 260, 760 260" />
-            <path d="M-40 332 C 10 332, 40 257, 70 257 L 570 257 C 640 257, 660 312, 760 312" />
-            <path d="M-40 252 C 10 252, 40 305, 70 305 L 570 305 C 640 305, 660 368, 760 368" />
+            <path d="M-40 200 C 10 200, 40 282, 70 282 L 570 282 C 640 282, 660 240, 760 240" />
+            <path d="M-40 240 C 10 240, 40 330, 70 330 L 570 330 C 640 330, 660 286, 760 286" />
+            <path d="M-40 452 C 10 452, 40 378, 70 378 L 570 378 C 640 378, 660 344, 760 344" />
+            <path d="M-40 352 C 10 352, 40 426, 70 426 L 570 426 C 640 426, 660 478, 760 478" />
+            <path d="M-40 540 C 10 540, 40 474, 70 474 L 570 474 C 640 474, 660 520, 760 520" />
           </g>
 
           {/* Five durations with negative delays, so the streams are already
-              mid-flow on load and never fall into step with one another. */}
+              mid-flow on load and never fall into step with one another. Two
+              of the five carry no bar: the plan is three rows, the flow is wider
+              than the plan. */}
           <g>
             <path
               className="hf-stream"
               stroke="#f5a623"
               strokeOpacity=".5"
               style={{ animationDuration: "12s" }}
-              d="M-40 56 C 10 56, 40 113, 70 113 L 570 113 C 640 113, 660 70, 760 70"
+              d="M-40 200 C 10 200, 40 282, 70 282 L 570 282 C 640 282, 660 240, 760 240"
             />
             <path
               className="hf-stream"
               stroke="#5b7fd4"
               strokeOpacity=".46"
               style={{ animationDuration: "15s", animationDelay: "-4s" }}
-              d="M-40 228 C 10 228, 40 161, 70 161 L 570 161 C 640 161, 660 128, 760 128"
+              d="M-40 240 C 10 240, 40 330, 70 330 L 570 330 C 640 330, 660 286, 760 286"
             />
             <path
               className="hf-stream"
               stroke="#f5a623"
               strokeOpacity=".42"
               style={{ animationDuration: "17s", animationDelay: "-9s" }}
-              d="M-40 136 C 10 136, 40 209, 70 209 L 570 209 C 640 209, 660 260, 760 260"
+              d="M-40 452 C 10 452, 40 378, 70 378 L 570 378 C 640 378, 660 344, 760 344"
             />
             <path
               className="hf-stream"
               stroke="#5b7fd4"
               strokeOpacity=".44"
               style={{ animationDuration: "13s", animationDelay: "-2s" }}
-              d="M-40 332 C 10 332, 40 257, 70 257 L 570 257 C 640 257, 660 312, 760 312"
+              d="M-40 352 C 10 352, 40 426, 70 426 L 570 426 C 640 426, 660 478, 760 478"
             />
             <path
               className="hf-stream"
               stroke="#f5a623"
               strokeOpacity=".34"
               style={{ animationDuration: "19s", animationDelay: "-6s" }}
-              d="M-40 252 C 10 252, 40 305, 70 305 L 570 305 C 640 305, 660 368, 760 368"
+              d="M-40 540 C 10 540, 40 474, 70 474 L 570 474 C 640 474, 660 520, 760 520"
             />
           </g>
 
-          {/* Work the mark does not contain, arriving once it is a schedule. */}
-          <rect
-            className="hf-extra"
-            x="150" y="100" width="95" height="26" rx="13"
-            fill="#ffffff" fillOpacity=".14"
-            style={{ transformOrigin: "150px 113px" }}
-          />
-          <rect
-            className="hf-extra"
-            x="420" y="292" width="105" height="26" rx="13"
-            fill="#ffffff" fillOpacity=".14"
-            style={{ transformOrigin: "420px 305px", animationDelay: ".4s" }}
-          />
+          {/* The mark's own three bars, authored at their schedule positions.
+              White, amber, white — the logo's own colours. The third was blue
+              while the headline sat behind it; moving the headline above the
+              plan let it go back to white. */}
+          <rect className="hf-bar1" x="90" y="317" width="110" height="26" rx="13" fill="#ffffff" fillOpacity=".93" style={{ transformOrigin: "90px 330px" }} />
+          <rect className="hf-bar2" x="216" y="365" width="150" height="26" rx="13" fill="#f5a623" style={{ transformOrigin: "216px 378px" }} />
+          <rect className="hf-bar3" x="382" y="413" width="120" height="26" rx="13" fill="#ffffff" fillOpacity=".93" style={{ transformOrigin: "382px 426px" }} />
 
-          {/* The mark's own three. Third one blue rather than the logo's white:
-              on white it disappeared into the headline behind it. */}
-          <rect className="hf-bar1" x="90" y="148" width="110" height="26" rx="13" fill="#ffffff" fillOpacity=".93" />
-          <rect className="hf-bar2" x="216" y="196" width="150" height="26" rx="13" fill="#f5a623" />
-          <rect className="hf-bar3" x="382" y="244" width="120" height="26" rx="13" fill="#3e6bd1" />
-
-          {/* The chain, and only across the mark's own bars. Each link is the
-              same shape: out 8 from the predecessor's right edge, down exactly
+          {/* The chain, across the mark's own bars and only those. Each link is
+              the same shape: out 8 from the predecessor's right edge, down exactly
               one row, in 8 onto the successor's left edge. */}
           <g className="hf-ctx">
-            <path className="hf-link" d="M200 161 H208 V209 H210" />
-            <path className="hf-link" d="M366 209 H374 V257 H376" />
-            <polygon className="hf-head" points="216,209 207,204.5 207,213.5" />
-            <polygon className="hf-head" points="382,257 373,252.5 373,261.5" />
+            <path className="hf-link" d="M200 330 H208 V378 H210" />
+            <path className="hf-link" d="M366 378 H374 V426 H376" />
+            <polygon className="hf-head" points="216,378 207,373.5 207,382.5" />
+            <polygon className="hf-head" points="382,426 373,421.5 373,430.5" />
           </g>
         </svg>
 
@@ -236,20 +226,16 @@ export default function LoginPage() {
           <span className="text-xl font-bold text-white tracking-tight">HostFlow</span>
         </div>
 
-        {/* Foot: headline. Deliberately the LAST of exactly two flow children,
-            so justify-between pins it to the bottom and leaves the whole middle
-            band to the graphic. It used to sit centred, where the schedule bars
-            ran straight through the type. */}
-        <div className="relative z-10 px-10 pb-10">
+        {/* The claim, then the plan demonstrating it underneath. Reading down,
+            the panel gives the promise and then the proof — which is also what
+            keeps the corner mark and the unfolding mark from sitting six bars
+            deep on top of each other. */}
+        <div className="relative z-10 px-10 mt-10">
           <h1 className="text-5xl xl:text-[3.5rem] font-extrabold text-white leading-[1.13] tracking-tight">
             Keep the work
             <br />
             flowing.
           </h1>
-          <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-[#93a1bd]">
-            From the first task to the last handover, on one timeline your whole
-            team can see.
-          </p>
         </div>
       </div>
 
