@@ -289,7 +289,7 @@ const GroupSection = memo(function GroupSection({
           <div
             {...dragHandleProps}
             className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mr-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
-            title="Drag to reorder group"
+            title={t("group.dragReorder")}
           >
             <GripVertical size={16} />
           </div>
@@ -333,7 +333,7 @@ const GroupSection = memo(function GroupSection({
             <button
               className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
-              title="Change Color"
+              title={t("group.changeColor")}
             >
               <div className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-slate-600" style={{ backgroundColor: group.color }}></div>
             </button>
@@ -379,7 +379,7 @@ const GroupSection = memo(function GroupSection({
                 }`}
                 onClick={() => !isFirstGroup && onMoveGroup(group.id, "up")}
                 disabled={isFirstGroup}
-                title="Move Group Up"
+                title={t("group.moveUp")}
               >
                 <ArrowUp size={15} />
               </button>
@@ -391,7 +391,7 @@ const GroupSection = memo(function GroupSection({
                 }`}
                 onClick={() => !isLastGroup && onMoveGroup(group.id, "down")}
                 disabled={isLastGroup}
-                title="Move Group Down"
+                title={t("group.moveDown")}
               >
                 <ArrowDown size={15} />
               </button>
@@ -407,7 +407,7 @@ const GroupSection = memo(function GroupSection({
           <button
             className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-all ml-1"
             onClick={() => onDeleteGroup(group.id)}
-            title="Delete Group"
+            title={t("group.delete")}
           >
             <Trash2 size={16} />
           </button>

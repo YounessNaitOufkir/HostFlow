@@ -208,7 +208,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                         onChange={(e) => setNewOperator(e.target.value)}
                         className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
                       >
-                        <option value="equals">Is</option>
+                        <option value="equals">{t("filter.is")}</option>
                         <option value="not_equals">{t("filter.isNot")}</option>
                         <option value="contains">{t("filter.contains")}</option>
                         <option value="not_contains">{t("filter.doesNotContain")}</option>
