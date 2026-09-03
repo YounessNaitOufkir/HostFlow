@@ -1,4 +1,5 @@
 import { escapeHtml, TELEGRAM_MAX_MESSAGE_CHARS } from "@/lib/telegram";
+import { translate, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 
 /**
  * Builds the daily digest message.
@@ -59,7 +60,12 @@ function renderTask(task: DigestTask): string {
   return property ? `${name} — <i>${escapeHtml(property)}</i>` : name;
 }
 
-function section(title: string, emoji: string, tasks: DigestTask[]): string {
+function section(
+  title: string,
+  emoji: string,
+  tasks: DigestTask[],
+  locale: Locale,
+): string {
   if (tasks.length === 0) return "";
 
   const shown = tasks.slice(0, MAX_ITEMS_PER_SECTION);
@@ -67,19 +73,33 @@ function section(title: string, emoji: string, tasks: DigestTask[]): string {
 
   const lines = shown.map((t) => `• ${renderTask(t)}`);
   if (remaining > 0) {
-    lines.push(`<i>…and ${remaining} more</i>`);
+    lines.push(`<i>${translate(locale, "digest.more", { count: remaining })}</i>`);
   }
 
   return `${emoji} <b>${title} (${tasks.length})</b>\n${lines.join("\n")}\n\n`;
 }
 
-export function buildDigestMessage(dueToday: DigestTask[], overdue: DigestTask[]): string {
+/**
+ * The digest is written to one reader, so it is built in that reader's own
+ * language. The cron cannot see the browser's choice, so it reads the copy
+ * useLocaleSync mirrors onto the profile. Task and property names are the
+ * user's own data and pass through untouched.
+ */
+export function buildDigestMessage(
+  dueToday: DigestTask[],
+  overdue: DigestTask[],
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   const total = dueToday.length + overdue.length;
 
-  let message = `📋 <b>Your Daily HostFlow Digest</b>\n`;
-  message += `You have ${total} task${total === 1 ? "" : "s"} needing attention:\n\n`;
-  message += section("Due Today", "🚨", dueToday);
-  message += section("Overdue", "⚠️", overdue);
+  let message = `📋 <b>${translate(locale, "digest.title")}</b>\n`;
+  message += `${
+    total === 1
+      ? translate(locale, "digest.introOne")
+      : translate(locale, "digest.intro", { count: total })
+  }\n\n`;
+  message += section(translate(locale, "digest.dueToday"), "🚨", dueToday, locale);
+  message += section(translate(locale, "digest.overdue"), "⚠️", overdue, locale);
 
   message = message.trimEnd();
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { createAdminClient } from "@/lib/supabase/server";
 import { notifyUsersViaTelegram } from "@/app/actions/telegram-notifications";
 import { buildDigestMessage } from "@/lib/digestMessage";
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
     // 2. Fetch profiles with Telegram enabled AND Daily Digest enabled
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, telegram_chat_id, telegram_notifications_enabled, daily_digest_enabled")
+      .select("id, telegram_chat_id, telegram_notifications_enabled, daily_digest_enabled, language")
       .eq("telegram_notifications_enabled", true)
       .eq("daily_digest_enabled", true)
       .not("telegram_chat_id", "is", null);
@@ -51,6 +52,8 @@ export async function GET(request: Request) {
     }
 
     const activeUserIds = profiles.map(p => p.id);
+    // Each digest is written to one reader, in the language they chose.
+    const languageOf = new Map(profiles.map((p) => [p.id, p.language]));
 
     // 3. Fetch boards to map column IDs to types (we need to find 'people' and 'date' columns)
     const { data: boards, error: boardsError } = await supabase
@@ -180,7 +183,8 @@ export async function GET(request: Request) {
             .map((t) => ({
               name: t.item.name,
               workspace: workspaceNameForBoard(t.item.board_id),
-            }))
+            })),
+          isLocale(languageOf.get(userId)) ? (languageOf.get(userId) as Locale) : DEFAULT_LOCALE
         );
 
         // Already filtered for activeUserIds above, so each of these is eligible.

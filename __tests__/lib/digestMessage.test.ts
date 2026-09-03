@@ -101,4 +101,30 @@ describe("buildDigestMessage", () => {
     expect(message).not.toContain("Due Today");
     expect(message).toContain("Overdue (2)");
   });
+  it("is written in the reader's language, not the sender's", () => {
+    const message = buildDigestMessage(
+      [{ name: "Nettoyage", workspace: "Résidence Alpha" }],
+      tasks(2, "Retard"),
+      "fr",
+    );
+    expect(message).toContain("Votre récapitulatif HostFlow du jour");
+    expect(message).toContain("Vous avez 3 tâches");
+    expect(message).toContain("À rendre aujourd'hui (1)");
+    expect(message).toContain("En retard (2)");
+    // Task and property names are the user's data, not ours to translate.
+    expect(message).toContain("Nettoyage");
+    expect(message).toContain("Résidence Alpha");
+  });
+
+  it("uses the French singular too", () => {
+    expect(buildDigestMessage([{ name: "Une seule" }], [], "fr")).toContain(
+      "Vous avez 1 tâche",
+    );
+  });
+
+  it("still caps a French digest, whose words are longer", () => {
+    const message = buildDigestMessage(tasks(200), tasks(200), "fr");
+    expect(message.length).toBeLessThanOrEqual(DIGEST_CHAR_BUDGET);
+    expect(message.length).toBeLessThanOrEqual(TELEGRAM_MAX_MESSAGE_CHARS);
+  });
 });
