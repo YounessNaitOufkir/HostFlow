@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { displayColumnTitle, displayCellLabel, displayStatus } from "@/lib/i18n/labels";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { ItemPanelSkeleton } from "@/components/skeletons/ItemPanelSkeleton";
@@ -562,7 +563,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
         const bg = opt ? opt.color : "bg-gray-200 dark:bg-slate-600";
         return (
           <span key={col.id} className={`${bg} text-white text-xs font-medium px-2.5 py-1 rounded-full inline-flex items-center`}>
-            {value}
+            {displayStatus(t, value as string)}
           </span>
         );
       }
@@ -574,7 +575,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
         
         return (
           <span key={col.id} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2.5 py-1 rounded-full inline-flex items-center">
-            {col.title}: {displayDate}
+            {displayColumnTitle(t, col.title)}: {displayDate}
           </span>
         );
       }
@@ -585,7 +586,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
         
         return (
           <span key={col.id} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 pl-2.5 pr-1.5 py-1 rounded-full inline-flex items-center gap-1.5">
-            <span className="text-[11px] font-medium">{col.title}:</span>
+            <span className="text-[11px] font-medium">{displayColumnTitle(t, col.title)}:</span>
             <div className="flex gap-0.5">
               {validIds.slice(0, 3).map((id) => {
                 const u = getAuthorUser(id);
@@ -613,14 +614,14 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
 
         return (
           <span key={col.id} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2.5 py-1 rounded-full max-w-[200px] truncate inline-flex items-center">
-            <TruncatedText className="truncate block">{col.title}: {depNames.join(", ")}</TruncatedText>
+            <TruncatedText className="truncate block">{displayColumnTitle(t, col.title)}: {depNames.join(", ")}</TruncatedText>
           </span>
         );
       }
 
       return (
         <span key={col.id} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2.5 py-1 rounded-full inline-flex items-center">
-          {col.title}: {String(value)}
+          {displayColumnTitle(t, col.title)}: {displayCellLabel(t, col.type, String(value))}
         </span>
       );
     });

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { displayStatus } from "@/lib/i18n/labels";
 import { Item, Board, Workspace, STATUS_OPTIONS } from "@/types";
 import { LayoutDashboard, AlertCircle } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
@@ -56,7 +57,7 @@ export default function MyWorkView({ items, boards, workspaces = [], onSelectIte
 
     return (
       <span className={`${bgClass} text-white text-xs font-medium px-2.5 py-1 rounded-full`}>
-        {val}
+        {displayStatus(t, val as string)}
       </span>
     );
   };

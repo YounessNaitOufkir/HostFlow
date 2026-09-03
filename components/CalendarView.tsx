@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useT } from "@/components/LanguageProvider";
+import { displayColumnTitle, displayCellLabel, displayStatus } from "@/lib/i18n/labels";
 import { Board, Item, Group, Column, STATUS_OPTIONS, PRIORITY_OPTIONS, Profile } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { 
@@ -221,7 +223,10 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
           uniqueStatuses.set(ci.statusLabel, ci.statusColor);
         }
       });
-      return Array.from(uniqueStatuses.entries()).map(([label, color]) => ({ label, color }));
+      return Array.from(uniqueStatuses.entries()).map(([label, color]) => ({
+        label: displayStatus(t, label),
+        color,
+      }));
     } else {
       // Show all groups on the board in the legend
       return groups.map(g => ({
@@ -229,7 +234,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
         color: g.color || "#579bfc"
       }));
     }
-  }, [calendarItems, colorBy, groups]);
+  }, [calendarItems, colorBy, groups, t]);
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
@@ -461,7 +466,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                   <div key={col.id} className="grid grid-cols-12 gap-4 items-center group min-h-[32px]">
                     <div className="col-span-4 flex items-center gap-2 text-gray-600 dark:text-gray-400">
                       <Icon size={16} className={iconColor} />
-                      <TruncatedText className="text-sm font-medium truncate">{col.title}</TruncatedText>
+                      <TruncatedText className="text-sm font-medium truncate">{displayColumnTitle(t, col.title)}</TruncatedText>
                     </div>
                     <div className="col-span-8 flex items-center bg-gray-50 dark:bg-slate-800/50 min-h-[36px] rounded p-1">
                       {/* Render Cell Value */}
@@ -474,7 +479,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                           const bg = statusHexOr(opt?.color);
                           return (
                             <div className="w-full text-center py-1.5 text-white text-[13px] font-medium flex items-center justify-center gap-1.5" style={{ backgroundColor: bg }}>
-                              <span>{val}</span>
+                              <span>{displayCellLabel(t, col.type, val as string)}</span>
                               {val === "Critical" && <span className="text-[11px] leading-none">⚠️</span>}
                             </div>
                           );

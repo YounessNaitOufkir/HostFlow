@@ -1,6 +1,7 @@
 "use client";
 
 import { useT } from "@/components/LanguageProvider";
+import { displayColumnTitle } from "@/lib/i18n/labels";
 import React, { useState } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Plus, MoreVertical, Copy, Trash2, ChevronRight } from "lucide-react";
@@ -149,7 +150,7 @@ export default function BoardCardsView({
                             {/* Property Label */}
                             <div className="w-[35%] max-w-[140px] bg-gray-50/50 dark:bg-slate-800/20 px-4 py-2.5 flex items-center border-r border-gray-100 dark:border-slate-800/50 shrink-0">
                               <TruncatedText className="text-xs font-medium text-gray-500 dark:text-gray-400 line-clamp-2">
-                                {col.title}
+                                {displayColumnTitle(t, col.title)}
                               </TruncatedText>
                             </div>
                             {/* Property Value (CellRenderer) */}

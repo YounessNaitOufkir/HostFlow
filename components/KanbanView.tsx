@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useT } from "@/components/LanguageProvider";
+import { displayColumnTitle, displayStatus, displayCellLabel } from "@/lib/i18n/labels";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { ChevronDown, Columns3, Link2 } from "lucide-react";
 
@@ -150,7 +152,7 @@ export default function KanbanView({
                       : "text-gray-700 dark:text-gray-200"
                   }`}
                 >
-                  {col.title}
+                  {displayColumnTitle(t, col.title)}
                 </button>
               ))}
             </div>
@@ -181,7 +183,9 @@ export default function KanbanView({
                     className="rounded-t-xl px-4 py-2.5 flex items-center justify-between"
                     style={{ backgroundColor: hexColor }}
                   >
-                    <span className="text-white text-sm font-semibold">{status.label}</span>
+                    <span className="text-white text-sm font-semibold">
+                      {displayCellLabel(t, selectedColumn?.type ?? "status", status.label)}
+                    </span>
                     <span className="bg-white dark:bg-slate-900/25 text-gray-800 dark:text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center">
                       {laneItems.length}
                     </span>
@@ -247,7 +251,7 @@ export default function KanbanView({
                                               className="text-white text-[10px] font-medium px-2 py-0.5 rounded-full"
                                               style={{ backgroundColor: bg }}
                                             >
-                                              {val}
+                                              {displayStatus(t, val as string)}
                                             </span>
                                           );
                                         }

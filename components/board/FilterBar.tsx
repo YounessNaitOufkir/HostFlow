@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { displayColumnTitle, displayCellLabel } from "@/lib/i18n/labels";
 import { useT } from "@/components/LanguageProvider";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Search, Filter, X, Plus, Trash2, ArrowUpDown, Eye, EyeOff } from "lucide-react";
@@ -111,7 +112,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                     >
                       <option value="">Select column...</option>
                       {columns.map(c => (
-                        <option key={c.id} value={c.id}>{c.title}</option>
+                        <option key={c.id} value={c.id}>{displayColumnTitle(t, c.title)}</option>
                       ))}
                     </select>
                   </div>
@@ -177,7 +178,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                   >
                     <option value="">Select column...</option>
                     {columns.map(c => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
+                      <option key={c.id} value={c.id}>{displayColumnTitle(t, c.title)}</option>
                     ))}
                   </select>
                 </div>
@@ -234,7 +235,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                           >
                             <option value="">Select option...</option>
                             {opts.map((o) => (
-                              <option key={o.label} value={o.label}>{o.label}</option>
+                              <option key={o.label} value={o.label}>{displayCellLabel(t, selCol.type, o.label)}</option>
                             ))}
                           </select>
                         );
@@ -312,7 +313,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                         onChange={() => onToggleColumnVisibility && onToggleColumnVisibility(c.id)}
                         className="rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 bg-transparent"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{c.title}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{displayColumnTitle(t, c.title)}</span>
                     </label>
                   ))}
                 </div>
