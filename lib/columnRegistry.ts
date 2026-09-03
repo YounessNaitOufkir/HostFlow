@@ -27,6 +27,7 @@ import {
   MousePointerClick,
 } from "lucide-react";
 import type { ColumnType, CellValue } from "@/types";
+import type { TranslationKey } from "@/lib/i18n/types";
 import type { LucideIcon } from "lucide-react";
 
 export interface ColumnDefinition {
@@ -34,6 +35,12 @@ export interface ColumnDefinition {
   type: ColumnType;
   /** Human-readable label for menus */
   label: string;
+  /**
+   * The label's translation key. `label` is the English fallback; the menu
+   * reads this. `defaultTitle` deliberately has no key - it is the value
+   * written to the board, and lib/i18n/labels.ts translates it on the way out.
+   */
+  labelKey: TranslationKey;
   /** Default title when adding a new column of this type */
   defaultTitle: string;
   /** Lucide icon component */
@@ -68,6 +75,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   status: {
     type: "status",
     label: "Status",
+    labelKey: "coltype.status",
     defaultTitle: "Status",
     icon: Settings2,
     widthClass: "w-32",
@@ -79,6 +87,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   text: {
     type: "text",
     label: "Text",
+    labelKey: "coltype.text",
     defaultTitle: "Text",
     icon: AlignLeft,
     widthClass: "w-48",
@@ -90,6 +99,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   numbers: {
     type: "numbers",
     label: "Numbers",
+    labelKey: "coltype.number",
     defaultTitle: "Numbers",
     icon: Hash,
     widthClass: "w-32",
@@ -102,6 +112,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   date: {
     type: "date",
     label: "Date",
+    labelKey: "coltype.date",
     defaultTitle: "Date",
     icon: Calendar,
     widthClass: "w-32",
@@ -114,6 +125,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   people: {
     type: "people",
     label: "People",
+    labelKey: "coltype.people",
     defaultTitle: "Assignee",
     icon: Users,
     widthClass: "w-36",
@@ -125,6 +137,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   timeline: {
     type: "timeline",
     label: "Timeline",
+    labelKey: "coltype.timeline",
     defaultTitle: "Timeline",
     icon: Clock,
     widthClass: "w-48",
@@ -136,6 +149,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   tags: {
     type: "tags",
     label: "Tags",
+    labelKey: "coltype.tags",
     defaultTitle: "Tags",
     icon: Tag,
     widthClass: "w-48",
@@ -147,6 +161,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   priority: {
     type: "priority",
     label: "Priority",
+    labelKey: "coltype.priority",
     defaultTitle: "Priority",
     icon: AlertTriangle,
     widthClass: "w-36",
@@ -158,6 +173,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   files: {
     type: "files",
     label: "Files",
+    labelKey: "coltype.files",
     defaultTitle: "Files",
     icon: Paperclip,
     widthClass: "w-40",
@@ -170,6 +186,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   dependency: {
     type: "dependency",
     label: "Dependency",
+    labelKey: "coltype.dependency",
     defaultTitle: "Dependency",
     icon: Link2,
     widthClass: "w-48",
@@ -181,6 +198,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   formula: {
     type: "formula",
     label: "Formula",
+    labelKey: "coltype.formula",
     defaultTitle: "Formula",
     icon: Calculator,
     widthClass: "w-36",
@@ -193,6 +211,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   checkbox: {
     type: "checkbox",
     label: "Checkbox",
+    labelKey: "coltype.checkbox",
     defaultTitle: "Done",
     icon: CheckSquare,
     widthClass: "w-24",
@@ -204,6 +223,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   link: {
     type: "link",
     label: "Link",
+    labelKey: "coltype.link",
     defaultTitle: "Link",
     icon: Link2,
     widthClass: "w-48",
@@ -216,6 +236,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   rating: {
     type: "rating",
     label: "Rating",
+    labelKey: "coltype.rating",
     defaultTitle: "Rating",
     icon: Star,
     widthClass: "w-32",
@@ -228,6 +249,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   relation: {
     type: "relation",
     label: "Relation",
+    labelKey: "coltype.relation",
     defaultTitle: "Relation",
     icon: Link2,
     widthClass: "w-48",
@@ -240,6 +262,7 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
   button: {
     type: "button",
     label: "Button",
+    labelKey: "coltype.button",
     defaultTitle: "Button",
     icon: MousePointerClick,
     widthClass: "w-32",

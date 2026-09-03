@@ -64,6 +64,16 @@ const COLUMN_KEYS: Record<string, TranslationKey> = {
   "Item": "col.item",
   "Task": "col.task",
   "Name": "col.name",
+  // The defaultTitle of every type in the "+ Add column" menu.
+  "Text": "col.text",
+  "Numbers": "col.numbers",
+  "Files": "col.files",
+  "Formula": "col.formula",
+  "Done": "col.done",
+  "Link": "col.link",
+  "Rating": "col.rating",
+  "Relation": "col.relation",
+  "Button": "col.button",
 };
 
 function lookUp(
