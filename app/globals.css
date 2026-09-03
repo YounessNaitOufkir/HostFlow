@@ -891,7 +891,9 @@ body {
    bars in the mark - the same rects, transformed - which only works
    because the HostFlow mark is already three staggered bars, i.e. a
    three-row Gantt. Geometry lives in app/login/page.tsx; the numbers
-   here are tied to the row pitch of 48px and must move with it.        */
+   here are tied to the row pitch of 48px and must move with it. Each bar's
+   transform-origin lives beside its coordinates in page.tsx, so the two
+   cannot drift apart.                                                  */
 
 @keyframes hfStream {
   from { stroke-dashoffset: 420; }
@@ -923,17 +925,9 @@ body {
   33%, 72%  { transform: translate(0, 0) scaleX(1); }
   96%, 100% { transform: translate(-89.6px, -12.85px) scaleX(.509); }
 }
-.hf-bar1 { animation: hfBar1 13s cubic-bezier(.65, 0, .25, 1) infinite; transform-origin: 90px 161px; }
-.hf-bar2 { animation: hfBar2 13s cubic-bezier(.65, 0, .25, 1) infinite; transform-origin: 216px 209px; }
-.hf-bar3 { animation: hfBar3 13s cubic-bezier(.65, 0, .25, 1) infinite; transform-origin: 382px 257px; }
-
-/* Work the logo does not contain, arriving once it is a schedule. */
-@keyframes hfExtra {
-  0%, 20%   { opacity: 0; transform: scaleX(.15); }
-  40%, 72%  { opacity: 1; transform: scaleX(1); }
-  88%, 100% { opacity: 0; transform: scaleX(.15); }
-}
-.hf-extra { opacity: 0; animation: hfExtra 13s cubic-bezier(.65, 0, .25, 1) infinite; }
+.hf-bar1 { animation: hfBar1 13s cubic-bezier(.65, 0, .25, 1) infinite; }
+.hf-bar2 { animation: hfBar2 13s cubic-bezier(.65, 0, .25, 1) infinite; }
+.hf-bar3 { animation: hfBar3 13s cubic-bezier(.65, 0, .25, 1) infinite; }
 
 @keyframes hfCtx {
   0%, 15%   { opacity: 0; }
@@ -969,11 +963,11 @@ body {
 /* The still frame is the finished schedule: bars out, links drawn. Nothing
    here needs motion to be readable, so switching it off removes nothing. */
 @media (prefers-reduced-motion: reduce) {
-  .hf-stream, .hf-bar1, .hf-bar2, .hf-bar3, .hf-extra, .hf-ctx, .hf-link, .hf-head {
+  .hf-stream, .hf-bar1, .hf-bar2, .hf-bar3, .hf-ctx, .hf-link, .hf-head {
     animation: none !important;
   }
-  .hf-bar1, .hf-bar2, .hf-bar3, .hf-extra { transform: none; }
-  .hf-extra, .hf-ctx, .hf-head { opacity: 1; }
+  .hf-bar1, .hf-bar2, .hf-bar3 { transform: none; }
+  .hf-ctx, .hf-head { opacity: 1; }
   .hf-link { stroke-dashoffset: 0; opacity: 1; }
   .hf-stream { stroke-dasharray: none; }
 }
