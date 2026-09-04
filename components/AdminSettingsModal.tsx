@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useT } from "@/components/LanguageProvider";
 import { fill } from "@/lib/i18n/fill";
 import { X, Building2, Users, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown } from "lucide-react";
@@ -587,15 +588,17 @@ export default function AdminSettingsModal({
                     {profiles.map((profile) => (
                       <div key={profile.id} className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-gray-100 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-shadow group">
                         <div className="flex items-center gap-4 mb-4">
-                          <div 
-                            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-inner"
-                            style={{ backgroundColor: profile.color }}
-                          >
-                            {profile.avatar_initials}
-                          </div>
+                          <Avatar
+                            name={profile.full_name}
+                            initials={profile.avatar_initials}
+                            url={profile.avatar_url}
+                            color={profile.color}
+                            size={48}
+                            className="shadow-inner"
+                          />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <TruncatedText as="h3" className="font-semibold text-gray-800 dark:text-gray-100 truncate">{profile.full_name}</TruncatedText>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-gray-800 dark:text-gray-100 break-words min-w-0">{profile.full_name}</h3>
                               {profile.is_owner && (
                                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-md border border-amber-300 dark:border-amber-500/30">
                                   {t("adm.owner")}
@@ -604,7 +607,7 @@ export default function AdminSettingsModal({
                             </div>
                             {/* Email is deliberately not available here: this list
                                 comes from user_directory, which never exposes it. */}
-                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug">
                               {profile.is_staff
                                 ? t("adm.teamMember")
                                 : t("adm.externalDesc")}
@@ -612,7 +615,7 @@ export default function AdminSettingsModal({
                           </div>
                         </div>
                         
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-slate-700/50">
+                        <div className="flex items-center justify-between gap-2 flex-wrap pt-4 border-t border-gray-100 dark:border-slate-700/50">
                           <div className="flex items-center gap-2">
                             <select
                               value={profile.role || "member"}
@@ -645,7 +648,7 @@ export default function AdminSettingsModal({
 
                           <button 
                             onClick={() => handleManagePermissions(profile.id)}
-                            className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-xs font-medium whitespace-nowrap text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                           >
                             {t("adm.manageAccess")}
                           </button>
@@ -679,9 +682,13 @@ export default function AdminSettingsModal({
                                 : "hover:bg-gray-100 dark:hover:bg-slate-800/50 text-gray-700 dark:text-gray-300"
                             }`}
                           >
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold shrink-0" style={{ backgroundColor: profile.color }}>
-                              {profile.avatar_initials}
-                            </div>
+                            <Avatar
+                              name={profile.full_name}
+                              initials={profile.avatar_initials}
+                              url={profile.avatar_url}
+                              color={profile.color}
+                              size={24}
+                            />
                             <TruncatedText className="text-sm font-medium truncate">{profile.full_name}</TruncatedText>
                           </button>
                         ))}

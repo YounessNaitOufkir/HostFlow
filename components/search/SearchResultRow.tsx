@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useT } from "@/components/LanguageProvider";
 import { displayStatus } from "@/lib/i18n/labels";
 import { statusHexOr, NEUTRAL_STATUS_COLOR } from "@/lib/statusColor";
@@ -156,14 +157,14 @@ export function SearchResultRow({
           </span>
         )}
         {people.map((p) => (
-          <span
+          <Avatar
             key={p.id}
-            title={p.full_name}
-            className="w-[22px] h-[22px] rounded-full text-[9px] font-bold text-white flex items-center justify-center"
-            style={{ backgroundColor: p.color }}
-          >
-            {p.avatar_initials}
-          </span>
+            name={p.full_name}
+            initials={p.avatar_initials}
+            url={p.avatar_url}
+            color={p.color}
+            size={22}
+          />
         ))}
       </span>
     </button>
