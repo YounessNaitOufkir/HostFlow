@@ -337,6 +337,35 @@ async function run() {
     );
   }
 
+  console.log("\nActivity");
+  // An admin used to read the change history of private workspaces: the policy
+  // was `user_id = auth.uid() OR is_global_admin()`, which never looked at the
+  // board. `action` is a sentence carrying the column name and both values.
+  const admActivity = await asAdmin.from("activity_logs").select("id").eq("board_id", fx.secretBoard);
+  check(
+    "an administrator reads no activity from a private board",
+    (admActivity.data ?? []).length === 0
+  );
+  const extActivity = await asExternal.from("activity_logs").select("id", { count: "exact", head: true });
+  check("an external account reads no activity at all", (extActivity.count ?? 0) === 0);
+
+  console.log("\nAttachments");
+  // storage.objects had a SELECT policy of just `bucket_id = 'attachments'`
+  // beside an owner-scoped one. Permissive policies are ORed, so every
+  // signed-in account could list and download the private bucket.
+  const extFiles = await asExternal.storage.from("attachments").list("updates", { limit: 100 });
+  check(
+    "an external account cannot list the private attachments bucket",
+    (extFiles.data ?? []).length === 0,
+    extFiles.error ? "refused" : `sees ${(extFiles.data ?? []).length} object(s)`
+  );
+
+  console.log("\nWebhooks");
+  // A global webhook (board_id NULL) was readable by anyone signed in, and an
+  // endpoint URL routinely carries its own token.
+  const extHooks = await asExternal.from("webhooks").select("id", { count: "exact", head: true });
+  check("an external account reads no webhook", (extHooks.count ?? 0) === 0);
+
   console.log("\nProfiles");
   const { data: profs } = await asExternal.from("profiles").select("id");
   check("an external account does not enumerate every profile",

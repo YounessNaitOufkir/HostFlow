@@ -9,12 +9,11 @@ import { Trash2, RotateCcw, AlertTriangle, MessageSquare, Trash } from "lucide-r
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import { Update } from "@/types";
-import DOMPurify from "dompurify";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { reportFetchError, reportMutationError } from "@/lib/errorReporting";
 import { useAuth } from "@/components/AuthProvider";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 
-const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
 interface TrashViewProps {
   trashItems: Item[];
