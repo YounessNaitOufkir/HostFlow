@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useT } from "@/components/LanguageProvider";
+import { notificationText } from "@/lib/notificationText";
 import { Bell, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { runWrite } from "@/lib/errorReporting";
@@ -8,6 +10,7 @@ import { Notification } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string) => void }) {
+  const t = useT();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -153,7 +156,7 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
                     }`}
                   >
                     <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
-                      {n.message}
+                      {notificationText(t, n)}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

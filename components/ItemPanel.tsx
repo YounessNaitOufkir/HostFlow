@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { translate, isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
+import { translate, DEFAULT_LOCALE } from "@/lib/i18n";
 import { displayColumnTitle, displayCellLabel, displayStatus } from "@/lib/i18n/labels";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
@@ -333,36 +333,32 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
   const { editor, isEditorEmpty, setIsEditorEmpty } = useUpdateEditor(profiles);
 
   /**
-   * A mention lands in the reader's own language, so the recipients are grouped
-   * by the language each of them chose and notify_users is called once per
-   * group. One call with one string would put the writer's language into
-   * everybody's notification bell.
+   * A mention is stored as a key and its values, not as a finished sentence,
+   * so the bell renders it in whoever is reading it's language at the moment
+   * they read it. This used to group recipients by their language and write a
+   * pre-rendered string per group, which got the language right on the day and
+   * wrong ever afterwards: change your language and every past notification
+   * stayed in the old one.
+   *
+   * `fallback` is written too. It is what rows without a key have always shown,
+   * and it covers a client that does not recognise the key.
    */
   const notifyMentions = async (
     mentionedIds: string[],
     messageKey: "notif.mentionUpdate" | "notif.mentionReply",
   ) => {
-    const byLocale = new Map<Locale, string[]>();
-    for (const id of mentionedIds) {
-      const chosen = profiles.find((p) => p.id === id)?.language;
-      const locale: Locale = isLocale(chosen) ? chosen : DEFAULT_LOCALE;
-      byLocale.set(locale, [...(byLocale.get(locale) ?? []), id]);
-    }
-
-    for (const [locale, ids] of byLocale) {
-      const { error } = await supabase.rpc("notify_users", {
-        recipient_ids: ids,
-        message: translate(locale, messageKey, {
-          actor: currentUser.name,
-          item: item.name,
-        }),
-        board_id: item.board_id,
-        item_id: item.id,
-      });
-      if (error) {
-        reportMutationError(error, "Failed to send mention notifications", { table: "notifications" });
-        return false;
-      }
+    const vars = { actor: currentUser.name, item: item.name };
+    const { error } = await supabase.rpc("notify_users_i18n", {
+      recipient_ids: mentionedIds,
+      message_key: messageKey,
+      message_vars: vars,
+      fallback: translate(DEFAULT_LOCALE, messageKey, vars),
+      board_id: item.board_id,
+      item_id: item.id,
+    });
+    if (error) {
+      reportMutationError(error, "Failed to send mention notifications", { table: "notifications" });
+      return false;
     }
     return true;
   };
