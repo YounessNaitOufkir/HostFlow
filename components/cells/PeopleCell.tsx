@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useAssignablePeople } from "@/components/AssignablePeopleContext";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column, Profile } from "@/types";
@@ -87,11 +88,16 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold ring-2 ring-white dark:ring-slate-900 relative group/avatar overflow-hidden shrink-0`}
                 style={{ backgroundColor: user.color }}
               >
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
-                ) : (
-                  user.avatar_initials
-                )}
+                <Avatar
+                  name={user.full_name}
+                  initials={user.avatar_initials}
+                  url={user.avatar_url}
+                  color={user.color}
+                  size={28}
+                  // The wrapper below already carries the name.
+                  title={null}
+                  className="absolute inset-0"
+                />
                 <button
                   onClick={(e) => removeUser(user.id, e)}
                   className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full items-center justify-center text-white hidden group-hover/avatar:flex z-10"
@@ -141,11 +147,13 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
                   className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold mr-2.5 shrink-0 overflow-hidden`}
                   style={{ backgroundColor: user.color }}
                 >
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
-                  ) : (
-                    user.avatar_initials
-                  )}
+                  <Avatar
+                    name={user.full_name}
+                    initials={user.avatar_initials}
+                    url={user.avatar_url}
+                    color={user.color}
+                    size={28}
+                  />
                 </div>
                 <TruncatedText className="text-gray-700 dark:text-gray-200 truncate">{user.full_name}</TruncatedText>
                 {isSelected && (

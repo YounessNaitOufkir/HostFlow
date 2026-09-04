@@ -40,7 +40,18 @@ interface Props {
   /** Rendered size in pixels. Text scales with it. */
   size?: number;
   className?: string;
-  title?: string;
+  /**
+   * Hover text. Defaults to the name; pass null where a wrapper already
+   * carries one, so the same person is not announced twice by a screen reader
+   * or matched twice by a query.
+   */
+  title?: string | null;
+  /**
+   * Drawn over the avatar. PeopleCell hangs a remove button off the corner of
+   * one, so the circle has to be able to host an overlay rather than forcing
+   * the caller back to a hand-rolled div and losing the fallbacks with it.
+   */
+  children?: React.ReactNode;
 }
 
 export function Avatar({
@@ -51,11 +62,14 @@ export function Avatar({
   size = 32,
   className = "",
   title,
+  children,
 }: Props) {
   const [imageFailed, setImageFailed] = useState(false);
 
   const text = (initials?.trim() || initialsFrom(name) || "–").slice(0, 3);
-  const label = title ?? name ?? undefined;
+  const label = title === null ? undefined : title ?? name ?? undefined;
+  // The picture still describes the person even when the title is suppressed.
+  const alt = name ?? title ?? "";
 
   const style: React.CSSProperties = {
     width: size,
@@ -68,21 +82,22 @@ export function Avatar({
 
   return (
     <span
-      title={label}
+      title={label ?? undefined}
       style={style}
-      className={`rounded-full inline-flex items-center justify-center overflow-hidden text-white font-bold shrink-0 select-none ${className}`}
+      className={`relative rounded-full inline-flex items-center justify-center overflow-hidden text-white font-bold shrink-0 select-none ${className}`}
     >
       {url && !imageFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
-          alt={label ?? ""}
+          alt={alt}
           onError={() => setImageFailed(true)}
           className="w-full h-full object-cover"
         />
       ) : (
         text
       )}
+      {children}
     </span>
   );
 }

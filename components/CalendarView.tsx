@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useT } from "@/components/LanguageProvider";
 import { displayColumnTitle, displayCellLabel, displayStatus } from "@/lib/i18n/labels";
 import { Board, Item, Group, Column, STATUS_OPTIONS, PRIORITY_OPTIONS, Profile } from "@/types";
@@ -498,17 +499,16 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                               {(Array.isArray(val) ? val : [val]).map((id: string, i: number) => {
                                 const p = profiles?.find(prof => prof.id === id);
                                 return (
-                                  <div key={i} className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs text-blue-700 font-bold border border-white dark:border-slate-800" title={p?.full_name || p?.email || "Unknown"}>
-                                    {p?.avatar_url ? (
-                                      <img src={p.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                    ) : p?.full_name ? (
-                                      p.full_name.charAt(0).toUpperCase()
-                                    ) : p?.avatar_initials ? (
-                                      p.avatar_initials
-                                    ) : (
-                                      <User size={14}/>
-                                    )}
-                                  </div>
+                                  <Avatar
+                                    key={i}
+                                    name={p?.full_name}
+                                    initials={p?.avatar_initials}
+                                    url={p?.avatar_url}
+                                    color={p?.color}
+                                    size={28}
+                                    title={p?.full_name || p?.email || "Unknown"}
+                                    className="border border-white dark:border-slate-800"
+                                  />
                                 );
                               })}
                             </div>
