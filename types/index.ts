@@ -1,4 +1,4 @@
-import type { Locale } from "@/lib/i18n";
+import type { Locale, TranslationKey } from "@/lib/i18n";
 // ============================================================
 // Shared TypeScript interfaces for the HostFlow platform
 // ============================================================
@@ -268,7 +268,18 @@ export interface Automation {
 export interface Notification {
   id: string;
   user_id: string;
+  /**
+   * The sentence as it was rendered when written. Still the fallback, and all
+   * that rows written before notifications became translatable have.
+   */
   message: string;
+  /**
+   * The sentence as a key, rendered in the READER's language when they open
+   * the bell. Absent on older rows.
+   */
+  message_key?: TranslationKey | null;
+  /** Values interpolated into `message_key`. User data: rendered as text. */
+  message_vars?: Record<string, string> | null;
   read: boolean;
   created_at: string;
   board_id?: string;
