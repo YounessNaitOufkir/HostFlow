@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useTheme } from "next-themes";
 import { LogOut, Moon, Sun, User, Shield, Type } from "lucide-react";
 import { Profile } from "@/types";
@@ -63,11 +64,13 @@ export default function ProfileMenu({ profile, onSignOut, onOpenAdmin, onOpenPro
           className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[12px] font-bold shadow-md cursor-pointer ring-2 ring-transparent hover:ring-white/50 transition-all select-none overflow-hidden"
           style={{ backgroundColor: profile.color }}
       >
-        {profile.avatar_url ? (
-          <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
-        ) : (
-          profile.avatar_initials
-        )}
+        <Avatar
+          name={profile.full_name}
+          initials={profile.avatar_initials}
+          url={profile.avatar_url}
+          color={profile.color}
+          size={40}
+        />
       </div>
 
       <AnimatePresence>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useT } from "@/components/LanguageProvider";
 import { displayColumnTitle, displayStatus, displayCellLabel } from "@/lib/i18n/labels";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -263,24 +264,15 @@ export default function KanbanView({
                                           return (
                                             <div key={col.id} className="flex -space-x-1.5">
                                               {users.slice(0, 3).map((u) => (
-                                                u.avatar_url ? (
-                                                  <img
-                                                    key={u.id}
-                                                    src={u.avatar_url}
-                                                    alt={u.full_name}
-                                                    title={u.full_name}
-                                                    className="w-5 h-5 rounded-full object-cover ring-1 ring-white"
-                                                  />
-                                                ) : (
-                                                  <div
-                                                    key={u.id}
-                                                    title={u.full_name}
-                                                    className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold ring-1 ring-white"
-                                                    style={{ backgroundColor: u.color }}
-                                                  >
-                                                    {u.avatar_initials}
-                                                  </div>
-                                                )
+                                                <Avatar
+                                                  key={u.id}
+                                                  name={u.full_name}
+                                                  initials={u.avatar_initials}
+                                                  url={u.avatar_url}
+                                                  color={u.color}
+                                                  size={20}
+                                                  className="ring-1 ring-white"
+                                                />
                                               ))}
                                               {users.length > 3 && (
                                                 <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center text-[8px] font-bold text-gray-600 dark:text-gray-300 ring-1 ring-white">
