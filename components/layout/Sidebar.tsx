@@ -2,20 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import {
-  LayoutDashboard,
-  Plus,
-  Bell,
-  Pencil,
-  Layout,
-  Trash2,
-  ChevronDown,
-  Briefcase,
-  Lock,
-  Users2,
-  LayoutGrid,
-  CalendarDays,
-} from "lucide-react";
+import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
@@ -56,6 +43,7 @@ interface SidebarProps {
   onCreateWorkspace: () => void;
   onSignOut: () => void;
   onOpenAdmin: () => void;
+  onOpenSearch: () => void;
   onOpenProfileSettings: () => void;
   onNotificationClick: (boardId?: string, itemId?: string) => void;
   onDuplicateWorkspace?: (ws: Workspace) => void;
@@ -100,6 +88,7 @@ export default function Sidebar({
   onCreateWorkspace,
   onSignOut,
   onOpenAdmin,
+  onOpenSearch,
   onOpenProfileSettings,
   onNotificationClick,
   onImportData,
@@ -167,6 +156,16 @@ export default function Sidebar({
             </SpringButton>
           </Tooltip>
           <div className="w-8 border-t border-white/10 my-1"></div>
+          {/* Cmd+K is invisible until you know it exists, and there is no Cmd
+              on a phone. The rail carries the same thing where it can be seen. */}
+          <Tooltip content={t("search.openPalette")} side="right">
+            <SpringButton
+              onClick={onOpenSearch}
+              className="w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-colors text-white/60 hover:text-white hover:bg-white/8"
+            >
+              <Search size={20} />
+            </SpringButton>
+          </Tooltip>
           <Tooltip content={t("sidebar.myWork")} side="right">
             <SpringButton
               onClick={() =>
