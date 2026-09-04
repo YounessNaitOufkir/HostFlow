@@ -3,9 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Loader2, CornerDownLeft, LayoutGrid } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
-import { useGlobalSearch, type SearchHit } from "@/hooks/queries/useGlobalSearch";
+import { useGlobalSearch, type SearchHit, type CommentHit } from "@/hooks/queries/useGlobalSearch";
 import { MIN_SEARCH_LENGTH } from "@/hooks/queries/useDependencySearch";
 import { SearchResultRow } from "./SearchResultRow";
+import { CommentResultRow } from "./CommentResultRow";
 import type { Board, Profile, Workspace } from "@/types";
 
 /**
@@ -68,15 +69,17 @@ export function SearchPalette({
   const { data, isFetching } = useGlobalSearch(query, boards, workspaces, open);
   const items = useMemo(() => data?.items ?? [], [data]);
   const boardHits = useMemo(() => data?.boards ?? [], [data]);
+  const comments = useMemo(() => data?.comments ?? [], [data]);
 
   // One flat list of what Enter can land on, so the arrow keys do not have to
   // know that the results are drawn in sections.
   const rows = useMemo(
     () => [
       ...items.map((hit) => ({ kind: "item" as const, hit })),
+      ...comments.map((hit) => ({ kind: "comment" as const, hit })),
       ...boardHits.map((b) => ({ kind: "board" as const, board: b })),
     ],
-    [items, boardHits]
+    [items, comments, boardHits]
   );
 
   useEffect(() => {
@@ -95,6 +98,9 @@ export function SearchPalette({
     const row = rows[index];
     if (!row) return;
     if (row.kind === "item") onSelectItem(row.hit.boardId, row.hit.id);
+    // A comment sends you to the task carrying it - the comment is the reason
+    // you found it, the task is the thing you wanted.
+    else if (row.kind === "comment") onSelectItem(row.hit.boardId, row.hit.itemId);
     else onSelectBoard(row.board.id);
     onClose();
   };
@@ -142,7 +148,7 @@ export function SearchPalette({
             ref={inputRef}
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
-            placeholder={t("search.placeholder")}
+            placeholder={t("search.placeholderDeep")}
             className="flex-1 bg-transparent border-0 outline-none text-[15px] text-gray-900 dark:text-white placeholder-gray-400"
           />
           {isFetching && <Loader2 size={15} className="animate-spin text-gray-400 shrink-0" />}
@@ -188,13 +194,38 @@ export function SearchPalette({
             </>
           )}
 
+          {comments.length > 0 && (
+            <>
+              <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-gray-400">
+                {t("search.comments", { count: comments.length })}
+              </p>
+              {comments.map((hit, i) => {
+                const index = items.length + i;
+                return (
+                  <div key={hit.id} data-row={index}>
+                    <CommentResultRow
+                      hit={hit}
+                      query={query}
+                      active={cursor === index}
+                      onHover={() => setCursor(index)}
+                      onSelect={(h: CommentHit) => {
+                        onSelectItem(h.boardId, h.itemId);
+                        onClose();
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </>
+          )}
+
           {boardHits.length > 0 && (
             <>
               <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-gray-400">
                 {t("search.boards", { count: boardHits.length })}
               </p>
               {boardHits.map((b, i) => {
-                const index = items.length + i;
+                const index = items.length + comments.length + i;
                 return (
                   <button
                     key={b.id}

@@ -6,6 +6,7 @@ import { useT } from "@/components/LanguageProvider";
 import { useGlobalSearch } from "@/hooks/queries/useGlobalSearch";
 import { MIN_SEARCH_LENGTH } from "@/hooks/queries/useDependencySearch";
 import { SearchResultRow } from "@/components/search/SearchResultRow";
+import { CommentResultRow } from "@/components/search/CommentResultRow";
 import { displayStatus } from "@/lib/i18n/labels";
 import type { Board, Profile, Workspace } from "@/types";
 
@@ -44,14 +45,18 @@ export function SearchView({
   const [workspaceId, setWorkspaceId] = useState("");
   const [status, setStatus] = useState("");
   const [ownerId, setOwnerId] = useState("");
+  // Off by default; the view is where asking for it makes sense, because
+  // this is the surface people reach for when something has gone missing.
+  const [includeDeleted, setIncludeDeleted] = useState(false);
 
   useEffect(() => {
     const id = setTimeout(() => setQuery(raw), DEBOUNCE_MS);
     return () => clearTimeout(id);
   }, [raw]);
 
-  const { data, isFetching } = useGlobalSearch(query, boards, workspaces);
+  const { data, isFetching } = useGlobalSearch(query, boards, workspaces, true, includeDeleted);
   const all = useMemo(() => data?.items ?? [], [data]);
+  const comments = useMemo(() => data?.comments ?? [], [data]);
 
   // Narrowing happens here rather than in the query: the result set is capped
   // well below a thousand, and filtering in memory keeps every adjustment
@@ -90,7 +95,7 @@ export function SearchView({
             <input
               value={raw}
               onChange={(e) => setRaw(e.target.value)}
-              placeholder={t("search.placeholder")}
+              placeholder={t("search.placeholderDeep")}
               autoFocus
               className="flex-1 bg-transparent border-0 outline-none text-sm text-gray-900 dark:text-white placeholder-gray-400"
             />
@@ -117,6 +122,16 @@ export function SearchView({
               <option key={p.id} value={p.id}>{p.full_name}</option>
             ))}
           </select>
+
+          <label className="flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-700 dark:text-gray-200 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeDeleted}
+              onChange={(e) => setIncludeDeleted(e.target.checked)}
+              className="accent-amber-500"
+            />
+            {t("search.includeTrash")}
+          </label>
         </div>
       </div>
 
@@ -156,6 +171,24 @@ export function SearchView({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {searched && comments.length > 0 && (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden mt-4">
+            <p className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400 border-b border-gray-100 dark:border-slate-800">
+              {t("search.comments", { count: comments.length })}
+            </p>
+            <div className="divide-y divide-gray-50 dark:divide-slate-800/60">
+              {comments.map((hit) => (
+                <CommentResultRow
+                  key={hit.id}
+                  hit={hit}
+                  query={query}
+                  onSelect={(h) => onSelectItem(h.boardId, h.itemId)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>

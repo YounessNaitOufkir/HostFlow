@@ -116,6 +116,11 @@ export function SearchResultRow({
       </span>
 
       <span className="flex items-center gap-2 shrink-0">
+        {hit.deleted && (
+          <span className="text-[10px] font-semibold text-white bg-gray-400 dark:bg-slate-600 rounded px-1.5 py-[2px]">
+            {t("search.deleted")}
+          </span>
+        )}
         {hit.status && (
           <span
             className="text-[10px] font-semibold text-white rounded px-1.5 py-[2px] max-w-[110px] truncate"
