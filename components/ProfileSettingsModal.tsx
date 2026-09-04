@@ -4,12 +4,10 @@ import React, { useState, useRef } from "react";
 import { useT } from "@/components/LanguageProvider";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
-import { X, Upload, Loader2, Camera, Shield, User, Bell, Type, Check } from "lucide-react";
+import { X, Upload, Loader2, Camera, Shield, User, Bell } from "lucide-react";
 import TelegramConnectButton from "@/components/TelegramConnectButton";
 import GoogleCalendarConnectButton from "@/components/GoogleCalendarConnectButton";
-import { useFont } from "@/components/FontProvider";
 import { toast } from "sonner";
-import { TruncatedText } from "@/components/ui/TruncatedText";
 
 interface ProfileSettingsModalProps {
   profile: Profile;
@@ -19,7 +17,7 @@ interface ProfileSettingsModalProps {
 
 export default function ProfileSettingsModal({ profile, onClose, onProfileUpdated }: ProfileSettingsModalProps) {
   const t = useT();
-  const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "readability">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "notifications">("profile");
   const [fullName, setFullName] = useState(profile.full_name);
   const [emailNotifications, setEmailNotifications] = useState(profile.email_notifications_enabled ?? true);
   const [dailyDigest, setDailyDigest] = useState(profile.daily_digest_enabled ?? true);
@@ -148,12 +146,6 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
             className={`flex-1 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-2 transition-colors ${activeTab === 'notifications' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
           >
             <Bell size={16} /> Notifications
-          </button>
-          <button 
-            onClick={() => setActiveTab('readability')}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-2 transition-colors ${activeTab === 'readability' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
-          >
-            <Type size={16} /> Appearance
           </button>
         </div>
 
@@ -301,19 +293,6 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
             </div>
           )}
 
-          {activeTab === 'readability' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                  {t("profile.readability")}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {t("profile.readabilityBody")}
-                </p>
-              </div>
-              <ReadabilityTabContent />
-            </div>
-          )}
         </div>
 <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-200 dark:border-slate-700/50 flex justify-end gap-3">
           <button
@@ -336,69 +315,3 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
   );
 }
 
-function ReadabilityTabContent() {
-  const { currentFont, setFont, fontOptions } = useFont();
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4">
-        {fontOptions.map((option) => {
-          const isSelected = currentFont === option.id;
-          return (
-            <div
-              key={option.id}
-              onClick={() => setFont(option.id)}
-              className={`group relative rounded-xl border-2 p-4 cursor-pointer transition-all flex flex-col justify-between select-none ${
-                isSelected
-                  ? "border-blue-600 dark:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 shadow-md ring-2 ring-blue-500/20"
-                  : "border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40 hover:border-gray-300 dark:hover:border-slate-600 hover:shadow-sm"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                {option.badge ? (
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      isSelected
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    {option.badge}
-                  </span>
-                ) : (
-                  <span />
-                )}
-
-                {isSelected && (
-                  <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-sm">
-                    <Check size={12} className="stroke-[3]" />
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-1 flex items-center justify-between">
-                <div>
-                  <p
-                    className="text-base font-bold text-gray-900 dark:text-white"
-                    style={{ fontFamily: option.cssValue }}
-                  >
-                    {option.name}
-                  </p>
-                  <TruncatedText as="p" className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
-                    {option.description}
-                  </TruncatedText>
-                </div>
-                <div
-                  className="px-3 py-1 rounded bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700/60"
-                  style={{ fontFamily: option.cssValue }}
-                >
-                  <p className="text-sm text-gray-800 dark:text-gray-100 font-normal">Aa</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
