@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { startCronRun, finishCronRun } from "@/lib/cronHeartbeat";
 import { isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { createAdminClient } from "@/lib/supabase/server";
 import { notifyUsersViaTelegram } from "@/app/actions/telegram-notifications";
@@ -22,6 +23,7 @@ function getDueState(dateString: string): "today" | "overdue" | "future" | "none
 }
 
 export async function GET(request: Request) {
+  let runId: string | null = null;
   try {
     // 1. Verify CRON_SECRET for security
     //
@@ -37,6 +39,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Opened only after the secret checks out: an unauthorised probe must not
+    // be able to leave a trace that makes the job look alive.
+    runId = await startCronRun("daily-digest");
+
     const supabase = createAdminClient();
 
     // 2. Fetch profiles with Telegram enabled AND Daily Digest enabled
@@ -48,6 +54,7 @@ export async function GET(request: Request) {
       .not("telegram_chat_id", "is", null);
 
     if (profilesError || !profiles || profiles.length === 0) {
+      await finishCronRun(runId, true, { eligibleProfiles: 0 });
       return NextResponse.json({ message: "No eligible profiles found" });
     }
 
@@ -201,6 +208,12 @@ export async function GET(request: Request) {
       console.error(`[Daily Digest Cron] ${failed} of ${sends.length} sends failed.`);
     }
 
+    await finishCronRun(runId, true, {
+      eligibleProfiles: profiles.length,
+      withTasks: sentCount,
+      failed,
+    });
+
     return NextResponse.json({
       success: true,
       eligibleProfiles: profiles.length,
@@ -211,6 +224,7 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error("[Daily Digest Cron] Error:", error);
+    await finishCronRun(runId, false, {}, error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
