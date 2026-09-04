@@ -78,3 +78,6 @@ test-db.js
 test-policies.mjs
 test-supabase.mjs
 update_widths.js
+
+# Ad-hoc SQL kept on the machine, superseded by supabase/migrations/.
+scratch/
