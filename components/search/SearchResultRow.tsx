@@ -5,7 +5,7 @@ import { useT } from "@/components/LanguageProvider";
 import { displayStatus } from "@/lib/i18n/labels";
 import { statusHexOr, NEUTRAL_STATUS_COLOR } from "@/lib/statusColor";
 import type { SearchHit } from "@/hooks/queries/useGlobalSearch";
-import type { Profile, Board } from "@/types";
+import { STATUS_OPTIONS, type Profile, type Board, type StatusOption } from "@/types";
 
 /**
  * One search result.
@@ -21,6 +21,36 @@ import type { Profile, Board } from "@/types";
  * mean" is answered by state, the other half by who has it, and answering both
  * here saves opening the wrong one to find out.
  */
+
+/**
+ * The colour a status is drawn in on its own board.
+ *
+ * Two things went wrong when this was one lookup on the first status column's
+ * `settings.statusLabels`. Boards that never customised their labels have no
+ * such array, and nothing fell back to STATUS_OPTIONS - so every status on
+ * those boards came out neutral grey, "Stuck" included. And a board with more
+ * than one status column was read from the first, while the VALUE may have
+ * come from the second, so the label was looked up in the wrong set.
+ *
+ * Both are fixed by asking every status column on the board and only then the
+ * shipped defaults. `firstStatusValue` picks the value the same way, so the
+ * two agree about which column an item's status came from.
+ */
+function statusColour(board: Board | undefined, status: string): string {
+  const wanted = status.trim().toLowerCase();
+  const sets = [
+    ...(board?.columns ?? [])
+      .filter((c) => c.type === "status")
+      .map((c) => c.settings?.statusLabels)
+      .filter((o): o is StatusOption[] => Array.isArray(o)),
+    STATUS_OPTIONS,
+  ];
+  for (const set of sets) {
+    const hit = set.find((o) => o.label.trim().toLowerCase() === wanted);
+    if (hit) return statusHexOr(hit.color);
+  }
+  return NEUTRAL_STATUS_COLOR;
+}
 
 /** Splits a name around the match so it can be marked without dangerouslySetInnerHTML. */
 function markMatch(name: string, query: string): React.ReactNode {
@@ -64,11 +94,7 @@ export function SearchResultRow({
   const t = useT();
 
   const board = boards.find((b) => b.id === hit.boardId);
-  const statusCol = board?.columns?.find((c) => c.type === "status");
-  const options = statusCol?.settings?.statusLabels;
-  const colour = hit.status
-    ? statusHexOr(options?.find((o) => o.label === hit.status)?.color)
-    : NEUTRAL_STATUS_COLOR;
+  const colour = hit.status ? statusColour(board, hit.status) : NEUTRAL_STATUS_COLOR;
 
   const people = hit.assigneeIds
     .map((id) => profiles.find((p) => p.id === id))
