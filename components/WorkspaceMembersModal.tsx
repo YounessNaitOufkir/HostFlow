@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { Avatar } from "@/components/ui/Avatar";
 import { createPortal } from "react-dom";
 import { X, Lock, Globe, Check, Loader2, UserPlus, Ban } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,6 +15,7 @@ interface DirectoryUser {
   id: string;
   full_name: string | null;
   avatar_initials: string | null;
+  avatar_url?: string | null;
   color: string | null;
   /** Company staff. Externals never reach a shared workspace - see below. */
   is_staff: boolean | null;
@@ -80,7 +82,7 @@ export default function WorkspaceMembersModal({
     const [dirRes, memberRes] = await Promise.all([
       supabase
         .from("user_directory")
-        .select("id, full_name, avatar_initials, color, is_staff")
+        .select("id, full_name, avatar_initials, avatar_url, color, is_staff")
         .order("full_name"),
       supabase
         .from("workspace_members")
@@ -232,13 +234,13 @@ export default function WorkspaceMembersModal({
                   key={u.id}
                   className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors"
                 >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
-                    style={{ backgroundColor: u.color || "#579bfc" }}
-                  >
-                    {u.avatar_initials ||
-                      (u.full_name || "?").slice(0, 2).toUpperCase()}
-                  </div>
+                  <Avatar
+                    name={u.full_name}
+                    initials={u.avatar_initials}
+                    url={u.avatar_url}
+                    color={u.color || "#579bfc"}
+                    size={32}
+                  />
                   <TruncatedText className="truncate flex-1 text-sm text-gray-800 dark:text-gray-200">
                     {u.full_name || "Unnamed user"}
                     {isSelf && <span className="text-gray-400 text-xs"> (you)</span>}
