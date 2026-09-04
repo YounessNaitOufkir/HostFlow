@@ -39,13 +39,19 @@ describe("display labels", () => {
     }
   });
 
-  it("passes a board's own labels straight through", () => {
-    // A real board here lists exactly these. They are the user's words, and
-    // translating them would be rewriting their data.
+  it("keeps a board's own wording for a reader who can already read it", () => {
+    // A real board here lists exactly these. To a French reader they are the
+    // user's own words and are left alone - rewriting "Fait" as "Terminé"
+    // would be changing their vocabulary for no reason they asked for.
+    //
+    // This used to assert the same of an English reader, which was wrong: it
+    // left an imported board reading half in French for someone who had
+    // chosen English. A name in the OTHER language is now translated.
     for (const own of ["Fait", "En cours", "Bloqué", "En retard"]) {
       expect(displayStatus(fr, own)).toBe(own);
-      expect(displayStatus(en, own)).toBe(own);
     }
+    expect(displayStatus(en, "Fait")).toBe("Done");
+    expect(displayStatus(en, "En cours")).toBe("Working on it");
     for (const own of ["Critique", "Élevée", "Moyenne", "Basse"]) {
       expect(displayPriority(fr, own)).toBe(own);
     }
@@ -78,5 +84,47 @@ describe("display labels", () => {
 
   it("ignores surrounding whitespace, which the importer leaves behind", () => {
     expect(displayStatus(fr, " Done ")).toBe("Terminé");
+  });
+});
+
+describe("a name stored in either language reads in the reader's", () => {
+  // The bug this covers: the tables only mapped English defaults, so French
+  // mode turned "Status" into "Statut" while English mode left an imported
+  // "Statut" alone - a board reading half in each language.
+  it("renders French-stored column titles in English", () => {
+    expect(displayColumnTitle(en, "Statut")).toBe("Status");
+    expect(displayColumnTitle(en, "Priorité")).toBe("Priority");
+    expect(displayColumnTitle(en, "Dépend de")).toBe("Depends on");
+    expect(displayColumnTitle(en, "Responsable")).toBe("Owner");
+    expect(displayColumnTitle(en, "Commentaires")).toBe("Comments");
+  });
+
+  it("renders French-stored statuses and priorities in English", () => {
+    expect(displayStatus(en, "Fait")).toBe("Done");
+    expect(displayStatus(en, "En cours")).toBe("Working on it");
+    expect(displayStatus(en, "Bloqué")).toBe("Stuck");
+    expect(displayStatus(en, "En retard")).toBe("Overdue");
+    expect(displayPriority(en, "Critique")).toBe("Critical");
+    expect(displayPriority(en, "Élevée")).toBe("High");
+    expect(displayPriority(en, "Basse")).toBe("Low");
+  });
+
+  it("still renders English-stored names in French", () => {
+    expect(displayColumnTitle(fr, "Status")).toBe("Statut");
+    expect(displayStatus(fr, "Done")).toBe("Terminé");
+  });
+
+  it("matches whether or not the accents survived the import", () => {
+    expect(displayColumnTitle(en, "Priorite")).toBe("Priority");
+    expect(displayStatus(en, "Bloque")).toBe("Stuck");
+    expect(displayPriority(en, "Elevee")).toBe("High");
+  });
+
+  it("leaves a name the user chose alone, in either language", () => {
+    for (const t of [en, fr]) {
+      expect(displayColumnTitle(t, "Works")).toBe("Works");
+      expect(displayColumnTitle(t, "Send to telegram")).toBe("Send to telegram");
+      expect(displayStatus(t, "Awaiting client sign-off")).toBe("Awaiting client sign-off");
+    }
   });
 });
