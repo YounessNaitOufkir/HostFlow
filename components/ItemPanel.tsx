@@ -46,10 +46,9 @@ import { Item, Column, Update, Profile, STATUS_OPTIONS, ActivityLog } from "@/ty
 import { Clock, Reply, Trash2 } from "lucide-react";
 import { reportError, reportFetchError, reportMutationError } from "@/lib/errorReporting";
 import { format } from "date-fns";
-import DOMPurify from "dompurify";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 
-const sanitizeHtml = (html: string) => typeof window !== "undefined" ? DOMPurify.sanitize(html) : html;
 
 // ============================================================
 // Relative time formatter (no dependency needed)
