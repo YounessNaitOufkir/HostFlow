@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template, which carries names and no values.
+!.env.example
 
 # vercel
 .vercel
@@ -60,3 +62,17 @@ test-results/
 
 # Design canvas working files (the canvas itself lives as a published artifact)
 design/
+
+# Local tooling and working notes — useful on a machine, noise in the repo.
+.agents/
+AGENTS.md
+CLAUDE.md
+AUDIT_BRIEF.md
+QA_REPORT.md
+QA_E2E_REPORT.md
+PRODUCTION_READINESS_PLAN.md
+apply-dark-mode.js
+db.sql
+query.js
+test-db.js
+test-policies.mjs
