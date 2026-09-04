@@ -621,6 +621,8 @@ export const fr: Dictionary = {
   "search.includeTrash": "Inclure les éléments supprimés",
   "search.deleted": "Supprimé",
   "search.placeholderDeep": "Rechercher tâches, tableaux et commentaires…",
+  "col.comments": "Commentaires",
+  "col.collaborator": "Collaborateur",
   "auto.title": "Automatisations",
   "auto.ruleCount": "{count} règles",
   "auto.ruleCountOne": "1 règle",

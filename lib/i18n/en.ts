@@ -619,6 +619,8 @@ export const en = {
   "search.includeTrash": "Include deleted",
   "search.deleted": "Deleted",
   "search.placeholderDeep": "Search tasks, boards and comments…",
+  "col.comments": "Comments",
+  "col.collaborator": "Collaborator",
   "auto.title": "Automations",
   "auto.ruleCount": "{count} rules",
   "auto.ruleCountOne": "1 rule",
