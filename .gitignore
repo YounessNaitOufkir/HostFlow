@@ -76,3 +76,5 @@ db.sql
 query.js
 test-db.js
 test-policies.mjs
+test-supabase.mjs
+update_widths.js
