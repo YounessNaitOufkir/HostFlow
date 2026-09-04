@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { statusSemanticOf } from "@/lib/statusSemantics";
 import { ImportConfig, ImportUpdate } from "@/components/ImportModal";
 
 /**
@@ -307,7 +308,18 @@ export async function executeImport(
               return true;
             });
 
-            if (type === "status") settings = { statusLabels: dedupedLabels };
+            // Record what each label MEANS at import time, while the guess is
+            // as good as it will ever be. Everything downstream - the overdue
+            // rule, the digest, the dashboard - then reads a declared value
+            // instead of pattern-matching the words on every evaluation. A
+            // label the guess cannot place is left undeclared rather than
+            // forced into a bucket.
+            const withSemantics = dedupedLabels.map((l) => {
+              const semantic = statusSemanticOf(cleanLabelValue(l.label));
+              return semantic ? { ...l, semantic } : l;
+            });
+
+            if (type === "status") settings = { statusLabels: withSemantics };
             else if (type === "priority") settings = { priorityLabels: dedupedLabels };
           }
 
