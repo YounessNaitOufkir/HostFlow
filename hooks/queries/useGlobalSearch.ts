@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { queryKeys } from "./queryKeys";
 import { escapeLike, MIN_SEARCH_LENGTH } from "./useDependencySearch";
 import { firstStatusValue } from "@/lib/statusSemantics";
+import { commentSnippet } from "@/lib/searchSnippet";
 import type { Board, Workspace } from "@/types";
 
 /**
@@ -29,6 +30,9 @@ import type { Board, Workspace } from "@/types";
 /** Matches to keep. Enough to be worth scrolling, short enough to read. */
 const SEARCH_LIMIT = 60;
 
+/** Comments are the secondary result, so they take a smaller share of the list. */
+const COMMENT_LIMIT = 20;
+
 export interface SearchHit {
   id: string;
   name: string;
@@ -42,6 +46,21 @@ export interface SearchHit {
   status: string | null;
   /** User ids from the first people column, for the avatars on a row. */
   assigneeIds: string[];
+  /** In the trash. Only ever set when the caller asked for deleted work. */
+  deleted: boolean;
+}
+
+export interface CommentHit {
+  id: string;
+  /** The comment, tags stripped and cut around the match. Text, never markup. */
+  snippet: string;
+  authorName: string;
+  createdAt: string;
+  itemId: string;
+  itemName: string;
+  boardId: string;
+  boardName: string;
+  workspaceName: string;
 }
 
 export interface BoardMatch {
@@ -50,12 +69,22 @@ export interface BoardMatch {
   workspaceName: string;
 }
 
+interface RawComment {
+  id: string;
+  body: string | null;
+  author_name: string | null;
+  created_at: string;
+  item_id: string;
+  items: { id: string; name: string; board_id: string } | { id: string; name: string; board_id: string }[] | null;
+}
+
 interface RawItem {
   id: string;
   name: string;
   board_id: string;
   group_id: string;
   column_values: Record<string, unknown> | null;
+  deleted_at: string | null;
   groups: { title: string } | { title: string }[] | null;
 }
 
@@ -76,22 +105,35 @@ export function useGlobalSearch(
   query: string,
   boards: Board[],
   workspaces: Workspace[],
-  enabled = true
+  enabled = true,
+  includeDeleted = false
 ) {
   const trimmed = query.trim();
 
   return useQuery({
-    queryKey: queryKeys.globalSearch(trimmed.toLowerCase()),
-    queryFn: async (): Promise<{ items: SearchHit[]; boards: BoardMatch[] }> => {
+    queryKey: queryKeys.globalSearch(
+      `${trimmed.toLowerCase()}${includeDeleted ? "|+trash" : ""}`
+    ),
+    queryFn: async (): Promise<{
+      items: SearchHit[];
+      boards: BoardMatch[];
+      comments: CommentHit[];
+    }> => {
       const pattern = `%${escapeLike(trimmed)}%`;
 
-      const { data, error } = await supabase
+      // Deleted work is out by default: a task you binned turning up in
+      // results reads as a bug until you spot the badge. It is worth asking
+      // for, though - "I deleted it and now I need it" is when people search
+      // hardest - so it is a toggle rather than a rule.
+      let itemQuery = supabase
         .from("items")
-        .select("id, name, board_id, group_id, column_values, groups(title)")
-        .is("deleted_at", null)
+        .select("id, name, board_id, group_id, column_values, deleted_at, groups(title)")
         .ilike("name", pattern)
         .order("updated_at", { ascending: false })
         .limit(SEARCH_LIMIT);
+      if (!includeDeleted) itemQuery = itemQuery.is("deleted_at", null);
+
+      const { data, error } = await itemQuery;
       if (error) throw error;
 
       const boardById = new Map(boards.map((b) => [b.id, b]));
@@ -121,7 +163,49 @@ export function useGlobalSearch(
           groupTitle: one(raw.groups)?.title ?? "",
           status: firstStatusValue(columns, raw.column_values),
           assigneeIds: Array.isArray(assignees) ? (assignees as string[]) : [],
+          deleted: !!raw.deleted_at,
         });
+      }
+
+      // Comments, over the generated tsvector rather than ILIKE: the bodies are
+      // HTML and a substring scan of them is both slow and wrong - it would
+      // match tag names. websearch lets a person type "facture client" or a
+      // quoted phrase and have it mean what they expect. RLS gates this the
+      // same as everything else, which it did NOT before the read policy on
+      // updates was fixed.
+      const comments: CommentHit[] = [];
+      const { data: rawComments, error: commentError } = await supabase
+        .from("updates")
+        .select(
+          "id, body, author_name, created_at, item_id, items!inner(id, name, board_id)"
+        )
+        .is("deleted_at", null)
+        .textSearch("search_tsv", trimmed, { type: "websearch", config: "simple" })
+        .order("created_at", { ascending: false })
+        .limit(COMMENT_LIMIT);
+
+      // A failure here must not take the task results down with it: names are
+      // the part people rely on, comments are the bonus.
+      if (commentError) {
+        console.warn("[search] comment search failed:", commentError.message);
+      } else {
+        for (const raw of (rawComments ?? []) as RawComment[]) {
+          const item = one(raw.items);
+          const board = item ? boardById.get(item.board_id) : undefined;
+          if (!item || !board) continue;
+          const workspace = board.workspace_id ? workspaceById.get(board.workspace_id) : undefined;
+          comments.push({
+            id: raw.id,
+            snippet: commentSnippet(raw.body ?? "", trimmed),
+            authorName: raw.author_name ?? "",
+            createdAt: raw.created_at,
+            itemId: item.id,
+            itemName: item.name,
+            boardId: item.board_id,
+            boardName: board.name,
+            workspaceName: workspace?.name ?? "",
+          });
+        }
       }
 
       // Boards are matched from the cache: the list is small, already loaded,
@@ -138,7 +222,7 @@ export function useGlobalSearch(
             : "",
         }));
 
-      return { items, boards: boardHits };
+      return { items, boards: boardHits, comments };
     },
     enabled: enabled && trimmed.length >= MIN_SEARCH_LENGTH,
     // Reopening the palette a moment later should not ask again.
