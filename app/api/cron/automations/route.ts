@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { evaluateTimeAutomations } from "@/lib/automations/engine";
+import { startCronRun, finishCronRun } from "@/lib/cronHeartbeat";
 
 export async function GET(request: Request) {
+  let runId: string | null = null;
   try {
     // 1. Verify CRON_SECRET for security
     //
@@ -18,6 +20,10 @@ export async function GET(request: Request) {
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Opened only after the secret checks out: an unauthorised probe must not
+    // be able to leave a trace that makes the job look alive.
+    runId = await startCronRun("automations");
 
     const supabase = createAdminClient();
 
@@ -92,6 +98,8 @@ export async function GET(request: Request) {
       totalTriggered += result.triggeredCount;
     }
 
+    await finishCronRun(runId, true, { triggered: totalTriggered });
+
     return NextResponse.json({ 
       success: true, 
       message: `Time-based automations executed successfully. Total triggered alerts: ${totalTriggered}.` 
@@ -99,6 +107,7 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error("[Automations Cron] Error:", error);
+    await finishCronRun(runId, false, {}, error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
