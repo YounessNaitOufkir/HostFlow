@@ -22,7 +22,7 @@ export const MIN_SEARCH_LENGTH = 2;
  * otherwise match nearly everything. Escaped rather than stripped: the
  * characters are part of the name the user is looking for.
  */
-function escapeLike(value: string): string {
+export function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 

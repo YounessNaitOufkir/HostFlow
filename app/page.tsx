@@ -57,6 +57,8 @@ import DashboardView from "@/components/DashboardView";
 import CalendarView from "@/components/CalendarView";
 import GanttView from "@/components/GanttView";
 import MyWorkView from "@/components/MyWorkView";
+import SearchView from "@/components/views/SearchView";
+import SearchPalette from "@/components/search/SearchPalette";
 import TrashView from "@/components/views/TrashView";
 import BoardCardsView from "@/components/views/BoardCardsView";
 import WorkspaceOverview from "@/components/WorkspaceOverview";
@@ -84,6 +86,10 @@ export default function MondayClone() {
   useLocaleSync(profile);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  // Handed to the view when the palette gives up on a query, so the words
+  // are not typed twice.
+  const [searchSeed, setSearchSeed] = useState("");
   const [showReadabilityModal, setShowReadabilityModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -578,6 +584,20 @@ export default function MondayClone() {
    * Used by notifications and by My Work, so clicking a task there lands on it
    * in context instead of hunting for which board it belongs to.
    */
+  // Cmd/Ctrl+K from anywhere. Bound on the window rather than on a component
+  // so it works whatever has focus, and it deliberately does not fire while
+  // the caret is in a field - / and K are letters people type.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const navigateToItem = useCallback((boardId?: string, itemId?: string) => {
     if (boardId) {
       if (state.activeBoard?.id !== boardId) {
@@ -715,6 +735,7 @@ export default function MondayClone() {
         onCreateWorkspace={() => store.createWorkspace(profile)}
         onSignOut={signOut}
         onOpenAdmin={() => setShowAdminSettingsModal(true)}
+        onOpenSearch={() => setIsSearchOpen(true)}
         onOpenProfileSettings={() => setShowProfileSettings(true)}
         onDuplicateWorkspace={handleDuplicateWorkspace}
         onImportData={() => setShowImportModal(true)}
@@ -731,7 +752,15 @@ export default function MondayClone() {
           transition={{ duration: 0.15, ease: "easeOut" }}
           className="flex-1 flex flex-col h-full overflow-hidden"
         >
-          {state.mainView === "my_work" ? (
+          {state.mainView === "search" ? (
+        <SearchView
+          boards={state.boards}
+          workspaces={state.workspaces}
+          profiles={state.profiles}
+          initialQuery={searchSeed}
+          onSelectItem={(boardId, itemId) => navigateToItem(boardId, itemId)}
+        />
+      ) : state.mainView === "my_work" ? (
         <MyWorkView
           items={state.myWorkItems}
           boards={state.boards}
@@ -1045,6 +1074,28 @@ export default function MondayClone() {
       )}
 
       {/* Comprehensive Settings Modal */}
+      <SearchPalette
+        open={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        boards={state.boards}
+        workspaces={state.workspaces}
+        profiles={state.profiles}
+        onSelectItem={(boardId, itemId) => navigateToItem(boardId, itemId)}
+        onSelectBoard={(boardId) => {
+          const board = state.boards.find((b) => b.id === boardId);
+          if (!board) return;
+          if (state.activeBoard?.id === board.id) {
+            dispatch({ type: "SET_MAIN_VIEW", payload: "board" });
+          } else {
+            store.switchBoard(board);
+          }
+        }}
+        onSeeAll={(query) => {
+          setSearchSeed(query);
+          dispatch({ type: "SET_MAIN_VIEW", payload: "search" });
+        }}
+      />
+
       {showAdminSettingsModal && (
         <AdminSettingsModal
           onClose={() => setShowAdminSettingsModal(false)}
