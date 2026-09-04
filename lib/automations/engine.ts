@@ -1,4 +1,4 @@
-import { Board, Item, Profile, Automation } from "@/types";
+import { Board, Item, Profile, Automation, StatusOption, STATUS_OPTIONS } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { renderEmail, itemUrl, formatEmailDate } from "@/lib/emailTemplate";
 import {
@@ -12,7 +12,7 @@ import {
 import { todayInTimezone } from "@/lib/orgTime";
 
 export { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
-import { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
+import { DONE_STATUS_PATTERN, isDoneStatusValue } from "@/lib/statusSemantics";
 import { toast } from "sonner";
 
 export interface EventAutomationResult {
@@ -147,9 +147,13 @@ export async function evaluateTimeAutomations(
 
     // Find status for item
     let currentStatus: string | null = null;
+    // Kept alongside the value so "is this finished?" can be answered from what
+    // the board declared its labels to mean, rather than from what they look like.
+    let currentStatusOptions: StatusOption[] | null = null;
     for (const sCol of statusCols) {
       if (values[sCol.id]) {
         currentStatus = values[sCol.id];
+        currentStatusOptions = sCol.settings?.statusLabels ?? STATUS_OPTIONS;
         break;
       }
     }
@@ -188,7 +192,10 @@ export async function evaluateTimeAutomations(
     const locale: Locale = isLocale(assigneeLanguage) ? assigneeLanguage : DEFAULT_LOCALE;
     const tr = (key: TranslationKey, vars?: TranslateVars) => translate(locale, key, vars);
 
-    const isDoneStatus = currentStatus && DONE_STATUS_PATTERN.test(currentStatus);
+    // isDoneStatusValue, not the bare pattern: the pattern matches anywhere in
+    // the string, so "Not done" and "Non terminé" used to read as finished and
+    // this rule skipped them - the exact items it exists to chase.
+    const isDoneStatus = isDoneStatusValue(currentStatus, currentStatusOptions);
     // 1. Overdue Tagging Rule: Due Date has passed (< todayStr) AND Status != Done
     if (overdueRule && itemDateStr < todayStr && !isDoneStatus) {
       const isAlreadyOverdue = currentStatus === "Overdue";

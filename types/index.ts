@@ -35,9 +35,26 @@ export type ColumnType =
 // Column Settings (per-type configuration)
 // ============================================================
 
+/**
+ * What a status MEANS, as opposed to what it is called.
+ *
+ * Everything that has to reason about progress - the overdue rule, the daily
+ * digest, the dashboard - needs to know whether a label stands for finished
+ * work. Until this existed the only way to ask was to match the label against
+ * a regex of human words, which is a guess: it read "Not done" as finished and
+ * did not recognise "Clôturé" at all.
+ */
+export type StatusSemantic = "done" | "working" | "stuck" | "idle";
+
 export interface StatusOption {
   label: string;
   color: string; // Tailwind bg class like "bg-[#fdab3d]"
+  /**
+   * Declared meaning. Optional: a board that has never said what its labels
+   * mean falls back to matching the words, which is why the fallback still
+   * exists. Set it and the guessing stops.
+   */
+  semantic?: StatusSemantic;
 }
 
 export interface ColumnSettings {
@@ -302,11 +319,11 @@ export interface SortRule {
 // ============================================================
 
 export const STATUS_OPTIONS: StatusOption[] = [
-  { label: "Working on it", color: "bg-[#fdab3d]" },
-  { label: "Done", color: "bg-[#00c875]" },
-  { label: "Stuck", color: "bg-[#e2445c]" },
-  { label: "Not Started", color: "bg-[#c4c4c4]" },
-  { label: "Overdue", color: "bg-gradient-to-r from-red-600 to-rose-600" },
+  { label: "Working on it", color: "bg-[#fdab3d]", semantic: "working" },
+  { label: "Done", color: "bg-[#00c875]", semantic: "done" },
+  { label: "Stuck", color: "bg-[#e2445c]", semantic: "stuck" },
+  { label: "Not Started", color: "bg-[#c4c4c4]", semantic: "idle" },
+  { label: "Overdue", color: "bg-gradient-to-r from-red-600 to-rose-600", semantic: "stuck" },
 ];
 
 export const PRIORITY_OPTIONS: StatusOption[] = [

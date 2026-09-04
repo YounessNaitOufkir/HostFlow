@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   DONE_STATUS_PATTERN,
   isDoneStatusValue,
+  isStuckStatusValue,
+  isWorkingStatusValue,
   firstStatusValue,
 } from "@/lib/statusSemantics";
 
@@ -77,5 +79,76 @@ describe("statusSemantics", () => {
       expect(firstStatusValue(columns, null)).toBeNull();
       expect(firstStatusValue([], { "col-status": "Done" })).toBeNull();
     });
+  });
+});
+
+describe("negated labels are not their own opposite", () => {
+  // Each of these used to read as FINISHED, because the pattern matches
+  // anywhere in the string. The overdue rule skipped them, the digest left
+  // them out and the dashboard counted them complete - the exact items that
+  // most needed chasing went silent.
+  it.each([
+    "Not done",
+    "Undone",
+    "Not completed",
+    "Never completed",
+    "Non terminé",
+    "Pas terminé",
+    "Incomplete",
+    "Invalid",
+  ])("%s is not done", (label) => {
+    expect(isDoneStatusValue(label)).toBe(false);
+  });
+
+  it.each(["Not blocked", "Unblocked", "Débloqué", "Non bloqué"])(
+    "%s is not stuck",
+    (label) => {
+      expect(isStuckStatusValue(label)).toBe(false);
+    }
+  );
+
+  it("still recognises the plain words", () => {
+    expect(isDoneStatusValue("Done")).toBe(true);
+    expect(isDoneStatusValue("Terminé")).toBe(true);
+    expect(isDoneStatusValue("Fait")).toBe(true);
+    expect(isStuckStatusValue("Bloqué")).toBe(true);
+    expect(isWorkingStatusValue("En cours")).toBe(true);
+  });
+
+  it("recognises done words the old vocabulary missed", () => {
+    for (const label of ["Finished", "Closed", "Clôturé", "Archivé", "Livré", "Résolu"]) {
+      expect(isDoneStatusValue(label)).toBe(true);
+    }
+  });
+});
+
+describe("a declared semantic beats the words", () => {
+  const options = [
+    { label: "Fait à 50%", color: "", semantic: "working" as const },
+    { label: "Bon pour paiement", color: "", semantic: "done" as const },
+    { label: "En attente client", color: "", semantic: "stuck" as const },
+  ];
+
+  it("believes the board over the pattern", () => {
+    // "Fait à 50%" contains "fait", so the fallback calls it finished. It is
+    // half done, which is exactly the sort of thing only the board can say.
+    expect(isDoneStatusValue("Fait à 50%")).toBe(true);
+    expect(isDoneStatusValue("Fait à 50%", options)).toBe(false);
+    expect(isWorkingStatusValue("Fait à 50%", options)).toBe(true);
+  });
+
+  it("finds meaning the words could never carry", () => {
+    // No pattern would ever guess these two.
+    expect(isDoneStatusValue("Bon pour paiement")).toBe(false);
+    expect(isDoneStatusValue("Bon pour paiement", options)).toBe(true);
+    expect(isStuckStatusValue("En attente client", options)).toBe(true);
+  });
+
+  it("matches the label regardless of case or padding", () => {
+    expect(isDoneStatusValue("  bon POUR paiement ", options)).toBe(true);
+  });
+
+  it("falls back for a value the board never declared", () => {
+    expect(isDoneStatusValue("Done", options)).toBe(true);
   });
 });

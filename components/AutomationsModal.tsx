@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { isDoneStatusValue } from "@/lib/statusSemantics";
 import { displayColumnTitle } from "@/lib/i18n/labels";
 import { useT } from "@/components/LanguageProvider";
 import { fill } from "@/lib/i18n/fill";
@@ -10,7 +11,7 @@ import { X, Trash2, Loader2, Calendar, Play } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { reportMutationError } from "@/lib/errorReporting";
 import { toast } from "sonner";
-import { Board, Column, Group, Automation, Item, STATUS_OPTIONS, Profile } from "@/types";
+import { Board, Column, Group, Automation, Item, STATUS_OPTIONS, Profile, StatusOption } from "@/types";
 import { cronTimeInTimezone, DEFAULT_ORG_TIMEZONE } from "@/lib/orgTime";
 import { DONE_STATUS_PATTERN } from "@/lib/automations/engine";
 
@@ -257,7 +258,7 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   // the engine's own test avoids picking statusLabels[0], which is only the right
   // answer by luck.
   const effectiveTriggerValue =
-    statusLabels.find((l) => DONE_STATUS_PATTERN.test(l)) ||
+    statusLabels.find((l) => isDoneStatusValue(l, currentStatusOptions as StatusOption[])) ||
     statusLabels[0] ||
     canonicalForRecipe;
 
