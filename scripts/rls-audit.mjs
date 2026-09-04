@@ -125,6 +125,9 @@ async function clean() {
   const bIds = (bs ?? []).map((b) => b.id);
 
   if (bIds.length) {
+    const { data: its } = await admin.from("items").select("id").in("board_id", bIds);
+    const itemIds = (its ?? []).map((i) => i.id);
+    if (itemIds.length) await admin.from("updates").delete().in("item_id", itemIds);
     await admin.from("items").delete().in("board_id", bIds);
     await admin.from("groups").delete().in("board_id", bIds);
     await admin.from("boards").delete().in("id", bIds);
@@ -193,6 +196,22 @@ async function seed() {
     void owner;
   }
 
+  // A comment on the company board. The first version of this audit checked
+  // boards, items, workspaces and profiles and called it done - and missed
+  // that `updates` carried a policy of literally `true`, so every comment in
+  // the system was readable by anyone who could sign in. Coverage that stops
+  // at the tables you happened to think of is how that survives.
+  const { data: openItem } = await admin
+    .from("items").select("id").eq("board_id", openBoard).limit(1).single();
+  if (openItem) {
+    await ensureRow("updates", { item_id: openItem.id }, {
+      item_id: openItem.id,
+      body: "<p>ZZ RLS comment</p>",
+      author_id: users.member.id,
+      author_name: "ZZ RLS Member",
+    });
+  }
+
   // The member is a member of the company workspace; the external is not.
   await ensureRow(
     "workspace_members",
@@ -214,7 +233,7 @@ async function seed() {
     );
   }
 
-  return { users, companyWs, privateWs, openBoard, secretBoard };
+  return { users, companyWs, privateWs, openBoard, secretBoard, openItem: openItem?.id ?? null };
 }
 
 // ---------------------------------------------------------------- checks
@@ -289,6 +308,34 @@ async function run() {
 
   const { data: privRows } = await asExternal.from("workspaces").select("id").eq("id", fx.privateWs);
   check("an external account cannot read the private workspace row", (privRows ?? []).length === 0);
+
+  console.log("\nComments");
+  const extUpdates = await asExternal.from("updates").select("id", { count: "exact", head: true });
+  check(
+    "an external account reads no comment at all",
+    (extUpdates.count ?? 0) === 0,
+    `sees ${extUpdates.count ?? 0} comment row(s)`
+  );
+  const memUpdates = await asMember.from("updates").select("id");
+  check(
+    "someone who can reach the board still reads its comments",
+    (memUpdates.data ?? []).length > 0,
+    "closing a leak must not take the feature with it"
+  );
+  if (fx.openItem) {
+    const { data: me } = await asExternal.auth.getUser();
+    const { error: postErr } = await asExternal.from("updates").insert({
+      item_id: fx.openItem,
+      body: "<p>should not exist</p>",
+      author_id: me.user?.id,
+      author_name: "probe",
+    });
+    check(
+      "an external account cannot post a comment onto that board",
+      !!postErr,
+      postErr ? postErr.code || "rejected" : "INSERT SUCCEEDED"
+    );
+  }
 
   console.log("\nProfiles");
   const { data: profs } = await asExternal.from("profiles").select("id");
