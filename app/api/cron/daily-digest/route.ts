@@ -2,25 +2,10 @@ import { NextResponse } from "next/server";
 import { startCronRun, finishCronRun } from "@/lib/cronHeartbeat";
 import { isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { createAdminClient } from "@/lib/supabase/server";
-import { notifyUsersViaTelegram } from "@/app/actions/telegram-notifications";
+import { notifyUsersViaTelegram, type TelegramFanOut } from "@/app/actions/telegram-notifications";
 import { buildDigestMessage } from "@/lib/digestMessage";
 import { itemIsDone } from "@/lib/statusSemantics";
-
-// Helper to get due state of a date string
-function getDueState(dateString: string): "today" | "overdue" | "future" | "none" {
-  if (!dateString) return "none";
-  const itemDate = new Date(dateString);
-  const today = new Date();
-  
-  // Set both to midnight for comparison
-  itemDate.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-  
-  const diff = itemDate.getTime() - today.getTime();
-  if (diff < 0) return "overdue";
-  if (diff === 0) return "today";
-  return "future";
-}
+import { todayInTimezone, dueStateIn } from "@/lib/orgTime";
 
 export async function GET(request: Request) {
   let runId: string | null = null;
@@ -73,6 +58,16 @@ export async function GET(request: Request) {
       throw new Error("Failed to fetch boards");
     }
 
+    // The company timezone decides what "today" means here, exactly as it does
+    // for the overdue and SLA automations. Not fatal if it is missing:
+    // todayInTimezone falls back to UTC.
+    const { data: orgSettings } = await supabase
+      .from("organization_settings")
+      .select("default_timezone")
+      .maybeSingle();
+    const orgTimeZone: string | null = orgSettings?.default_timezone ?? null;
+    const todayStr = todayInTimezone(orgTimeZone);
+
     // Workspace names disambiguate the digest. A workspace is one property and its
     // boards are that property's lifecycle phases, so the same task name appears on
     // every apartment — without the property, several lines read identically.
@@ -118,7 +113,7 @@ export async function GET(request: Request) {
       for (const colId of dateCols) {
         const val = item.column_values?.[colId];
         if (typeof val === 'string') {
-          const state = getDueState(val);
+          const state = dueStateIn(val, todayStr, orgTimeZone);
           if (state === "overdue") taskState = "overdue";
           else if (state === "today" && taskState !== "overdue") taskState = "today";
         }
@@ -127,7 +122,7 @@ export async function GET(request: Request) {
       for (const colId of timelineCols) {
         const val = item.column_values?.[colId];
         if (val && typeof val === 'object' && typeof val.end === 'string') {
-          const state = getDueState(val.end);
+          const state = dueStateIn(val.end, todayStr, orgTimeZone);
           if (state === "overdue") taskState = "overdue";
           else if (state === "today" && taskState !== "overdue") taskState = "today";
         }
@@ -172,7 +167,7 @@ export async function GET(request: Request) {
     // responds — so the message frequently never left. app/api/telegram/notify
     // already awaits for exactly this reason, which is why task-assignment alerts
     // arrive and the digest did not.
-    const sends: Promise<unknown>[] = [];
+    const sends: Promise<TelegramFanOut>[] = [];
     let sentCount = 0;
     for (const userId of Object.keys(userTasks)) {
       const tasks = userTasks[userId];
@@ -204,8 +199,16 @@ export async function GET(request: Request) {
 
     // allSettled so one user's failure cannot stop the rest, but still awaited so
     // the instance stays alive until every send has actually resolved.
+    //
+    // Counted from what the helper reports, not from rejections: Telegram
+    // refusing a message comes back as { ok: false } rather than as a thrown
+    // error, so every send looked "fulfilled" and this route reported failed: 0
+    // on runs where nothing arrived.
     const results = await Promise.allSettled(sends);
-    const failed = results.filter((r) => r.status === "rejected").length;
+    const failed = results.reduce(
+      (n, r) => n + (r.status === "fulfilled" ? r.value.failed : 1),
+      0
+    );
     if (failed > 0) {
       console.error(`[Daily Digest Cron] ${failed} of ${sends.length} sends failed.`);
     }

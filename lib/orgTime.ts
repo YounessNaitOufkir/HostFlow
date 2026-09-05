@@ -68,3 +68,47 @@ export function cronTimeInTimezone(
     return `${String(utcHour).padStart(2, "0")}:00`;
   }
 }
+
+/**
+ * The calendar day a stored date falls on, in `timeZone`.
+ *
+ * A "YYYY-MM-DD" prefix is taken as-is: it is already a calendar day, and
+ * re-parsing it through Date would shift it across a midnight boundary west of
+ * UTC. Anything else is parsed and then asked which day it lands on there.
+ */
+export function dueDayIn(
+  dateString: string,
+  timeZone: string | null | undefined
+): string | null {
+  if (!dateString) return null;
+  // Only a BARE date is taken as-is. The same prefix inside a full timestamp is
+  // an instant, not a calendar day, and has to be resolved in the zone -
+  // "2026-09-06T00:30:00Z" is still the 5th in Los Angeles.
+  const bare = dateString.trim().match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (bare) return bare[1];
+  const parsed = new Date(dateString);
+  if (isNaN(parsed.getTime())) return null;
+  return todayInTimezone(timeZone, parsed);
+}
+
+/**
+ * Whether a date is behind, on, or ahead of a given day.
+ *
+ * "Today" has to be the organisation's today. The overdue and SLA automations
+ * read organization_settings.default_timezone; the daily digest derived its own
+ * from the server clock, so in the hours between the two midnights the digest
+ * and the board disagreed about the same task and a reader got a line the board
+ * would not confirm. Compared as "YYYY-MM-DD" strings, which sort correctly and
+ * cannot drift the way two Date objects can.
+ */
+export function dueStateIn(
+  dateString: string,
+  todayStr: string,
+  timeZone: string | null | undefined
+): "today" | "overdue" | "future" | "none" {
+  const day = dueDayIn(dateString, timeZone);
+  if (!day) return "none";
+  if (day < todayStr) return "overdue";
+  if (day === todayStr) return "today";
+  return "future";
+}
