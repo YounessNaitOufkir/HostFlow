@@ -88,6 +88,21 @@ export async function duplicateBoard(boardId: string, targetWorkspaceId: string,
         board_id: newBoardId,
       };
     });
+    // A board can hold items while holding no group - an import that failed
+    // part-way leaves exactly that. Without somewhere to put them, every item
+    // below resolved to group_id undefined, the insert failed the NOT NULL, and
+    // the duplicate came out as a board with no items at all. One fallback group
+    // keeps the work.
+    if (newGroupsData.length === 0 && (items || []).length > 0) {
+      newGroupsData.push({
+        id: crypto.randomUUID(),
+        board_id: newBoardId,
+        title: "Imported Group",
+        color: "#579bfc",
+        position: 0,
+      });
+    }
+
     if (newGroupsData.length > 0) {
       const { error: insertGroupsErr } = await supabase.from("groups").insert(newGroupsData);
       if (insertGroupsErr) throw insertGroupsErr;

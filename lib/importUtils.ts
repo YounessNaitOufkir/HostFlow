@@ -425,7 +425,10 @@ export async function executeImport(
             id: newGrpId,
             board_id: targetBoardId,
             title: groupName,
-            color: "#" + Math.floor(Math.random()*16777215).toString(16),
+            // Padded: toString(16) drops leading zeros, so roughly one colour in
+            // sixteen came out as "#abc12" or shorter, which is not a colour at
+            // all and rendered the group with none.
+            color: "#" + Math.floor(Math.random() * 16777216).toString(16).padStart(6, "0"),
             position: createdGroups.size + 1
           });
           if (groupErr) throw groupErr;

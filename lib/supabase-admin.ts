@@ -16,9 +16,17 @@ export function getSupabaseAdmin(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  // The guard shape stays as it was so TypeScript still narrows both to string
+  // below; only the message changed. It used to blame the service role key for a
+  // missing URL, which sends whoever is debugging a deployment to the wrong
+  // setting entirely.
   if (!url || !serviceRoleKey) {
+    const missing = [
+      !url && 'NEXT_PUBLIC_SUPABASE_URL',
+      !serviceRoleKey && 'SUPABASE_SERVICE_ROLE_KEY',
+    ].filter(Boolean);
     throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY is not configured. Admin operations cannot run; ' +
+      `${missing.join(' and ')} is not configured. Admin operations cannot run; ` +
         'set it in the deployment environment.'
     );
   }
