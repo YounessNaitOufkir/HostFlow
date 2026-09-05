@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { hashApiKey, looksLikeApiKey, digestsMatch } from '@/lib/apiKeys';
 
 // POST /api/v1/tasks
 // Creates a new task via API
@@ -11,16 +12,32 @@ export async function POST(request: Request) {
     }
 
     const apiKey = authHeader.split(' ')[1];
+
+    // Rejected on shape before the database is touched, so a malformed header
+    // costs nothing.
+    if (!looksLikeApiKey(apiKey)) {
+      return NextResponse.json({ error: 'Invalid API Key' }, { status: 401 });
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
 
-    // Validate API Key
+    // Looked up by DIGEST.
+    //
+    // This queried `.eq('key', apiKey)`, and there is no `key` column - the
+    // column is `key_hash` - so the query errored and every single request was
+    // answered 401. The endpoint has never worked. Worse, what sat in that
+    // column were 21-character values: tokens, not digests, usable as-is by
+    // anyone who could read the table or a backup.
+    const presentedHash = hashApiKey(apiKey);
     const { data: keyData, error: keyError } = await supabaseAdmin
       .from('api_keys')
-      .select('user_id')
-      .eq('key', apiKey)
-      .single();
+      .select('user_id, key_hash')
+      .eq('key_hash', presentedHash)
+      .maybeSingle();
 
-    if (keyError || !keyData) {
+    // The equality above already selected the row; comparing again in constant
+    // time keeps the decision here rather than resting on how PostgREST filtered.
+    if (keyError || !keyData || !digestsMatch(keyData.key_hash ?? '', presentedHash)) {
       return NextResponse.json({ error: 'Invalid API Key' }, { status: 401 });
     }
 
