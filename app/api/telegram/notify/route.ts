@@ -21,6 +21,9 @@ const KINDS: Record<string, TranslationKey> = {
 /** Values a caller may interpolate. Escaped, and capped so a name cannot flood a chat. */
 const MAX_VAR_CHARS = 200;
 
+/** A mention names a handful of people, never a mailing list. */
+const MAX_RECIPIENTS = 25;
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -42,6 +45,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unknown notification kind" }, { status: 400 });
     }
 
+    if (userIds.length === 0 || userIds.length > MAX_RECIPIENTS) {
+      return NextResponse.json({ error: "Invalid recipient list" }, { status: 400 });
+    }
+
+    // Who the CALLER is allowed to notify.
+    //
+    // The kind allowlist stopped a caller writing the message, but not choosing
+    // the reader: any signed-in account could name any user id and ring a
+    // stranger's phone. user_directory is already scoped to the people you share
+    // a workspace or board with, and this reads it as the caller rather than as
+    // the service role, so the database decides the answer rather than this
+    // route re-deriving it.
+    const { data: reachable, error: reachError } = await supabase
+      .from("user_directory")
+      .select("id")
+      .in("id", userIds);
+
+    if (reachError) {
+      console.error("[Telegram Notify API] recipient check failed:", reachError);
+      return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+
+    // Silently dropping the rest rather than failing: a mention of somebody who
+    // has since left the workspace should still notify everyone else named.
+    const allowedIds = (reachable ?? []).map((r: { id: string }) => r.id);
+    if (allowedIds.length === 0) {
+      return NextResponse.json({ success: true, notified: 0 });
+    }
+
     const safeVars: Record<string, string> = {};
     for (const [name, value] of Object.entries(vars ?? {})) {
       safeVars[name] = escapeHtml(String(value).slice(0, MAX_VAR_CHARS));
@@ -52,12 +84,12 @@ export async function POST(request: Request) {
 
     // Built per recipient, so a French colleague mentioning an English one
     // sends English - the reader's language decides, not the writer's.
-    await notifyUsersViaTelegram(userIds, (locale: Locale) => {
+    await notifyUsersViaTelegram(allowedIds, (locale: Locale) => {
       const title = translate(locale, "tg.mentionTitle");
       return `💬 <b>${title}</b>\n${translate(locale, messageKey, safeVars)}`;
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, notified: allowedIds.length });
   } catch (error) {
     console.error("[Telegram Notify API] Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

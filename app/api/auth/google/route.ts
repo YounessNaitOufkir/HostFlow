@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'node:crypto';
+import { cookies } from 'next/headers';
 import { getGoogleOAuthClient } from '@/lib/google-calendar';
 import { createClient } from '@/lib/supabase/server';
+
+/**
+ * The cookie carrying the one-time OAuth state.
+ *
+ * Exported so the callback checks the same name, and prefixed `__Host-` so the
+ * browser refuses it unless it is Secure, path=/ and has no Domain - which stops
+ * a sibling subdomain from writing a state the callback would then trust. The
+ * prefix is dropped in development, where there is no HTTPS to satisfy it.
+ */
+export const OAUTH_STATE_COOKIE =
+  process.env.NODE_ENV === 'production' ? '__Host-google_oauth_state' : 'google_oauth_state';
+
+/** Long enough to finish a consent screen, short enough not to linger. */
+const STATE_TTL_SECONDS = 10 * 60;
 
 export async function GET(request: Request) {
   try {
@@ -18,11 +34,30 @@ export async function GET(request: Request) {
       'https://www.googleapis.com/auth/calendar.readonly'
     ];
 
+    // A random, single-use state held in an HttpOnly cookie.
+    //
+    // It used to be the user's own id, which is not a secret: every people cell
+    // on a shared board carries one. Anyone holding a colleague's id could run
+    // the consent screen against their OWN Google account, hand back that id as
+    // the state, and have the callback bind their calendar to the colleague's
+    // HostFlow account. The state now proves only that this browser started the
+    // flow; the callback takes the identity from the session, never from here.
+    const state = randomBytes(32).toString('base64url');
+
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
       prompt: 'consent', // Force consent screen to always get refresh token
-      state: user.id, // Pass the user ID in the state to map it on callback
+      state,
+    });
+
+    const jar = await cookies();
+    jar.set(OAUTH_STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax', // must survive the redirect back from Google
+      path: '/',
+      maxAge: STATE_TTL_SECONDS,
     });
 
     return NextResponse.redirect(url);
