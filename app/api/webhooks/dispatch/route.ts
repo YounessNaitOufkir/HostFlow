@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkOutboundUrl } from '@/lib/ssrf';
 
 /** A webhook receiver gets five seconds; the dispatcher is not a queue. */
 const WEBHOOK_TIMEOUT_MS = 5000;
@@ -59,6 +60,17 @@ export async function POST(request: Request) {
     // all. A slow endpoint now costs itself and nothing else.
     const results = await Promise.allSettled(
       webhooks.map(async (hook) => {
+        // The endpoint is a URL somebody typed into a form and the server then
+        // fetches, which is SSRF by construction: the same field that reaches
+        // Slack also reaches the cloud metadata service or anything else on the
+        // private network this runs inside. Refused before the request is made,
+        // and refused by RESOLVED address, so a public name pointing at
+        // 127.0.0.1 does not get through either.
+        const verdict = await checkOutboundUrl(hook.endpoint_url);
+        if (!verdict.ok) {
+          throw new Error(`refused ${hook.endpoint_url}: ${verdict.reason}`);
+        }
+
         // Extract chat_id from the endpoint_url if provided (e.g. ?chat_id=12345)
         let chatId = 'default';
         try {
