@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeText, sanitizeHtml } from "@/lib/sanitize";
+import { sanitizeText, sanitizeHtml, safeExternalUrl } from "@/lib/sanitize";
 
 describe("Input Sanitization Utilities (DOMPurify)", () => {
   describe("sanitizeText", () => {
@@ -59,5 +59,42 @@ describe("Input Sanitization Utilities (DOMPurify)", () => {
       const result = sanitizeHtml(input);
       expect(result.toLowerCase()).not.toContain("javascript:");
     });
+  });
+});
+
+describe("safeExternalUrl", () => {
+  it("does not throw on a schemeless host, and assumes https", () => {
+    // The crash: new URL("example.com") throws, and it was called during render,
+    // so one link cell holding a bare host took down the whole board view.
+    expect(() => safeExternalUrl("example.com")).not.toThrow();
+    expect(safeExternalUrl("example.com").href).toBe("https://example.com/");
+    expect(safeExternalUrl("example.com").host).toBe("example.com");
+  });
+
+  it("refuses to make a javascript: URL clickable", () => {
+    // The raw value went straight into href, so this was a link a reader could
+    // click. No href means the text renders without being a link.
+    expect(safeExternalUrl("javascript:alert(1)").href).toBe(null);
+    expect(safeExternalUrl("JaVaScRiPt:alert(1)").href).toBe(null);
+    expect(safeExternalUrl("data:text/html,<script>alert(1)</script>").href).toBe(null);
+  });
+
+  it("keeps ordinary links working", () => {
+    expect(safeExternalUrl("https://example.com/a?b=1").href).toBe("https://example.com/a?b=1");
+    expect(safeExternalUrl("http://example.com").host).toBe("example.com");
+    expect(safeExternalUrl("https://sub.example.co.uk/x").host).toBe("sub.example.co.uk");
+  });
+
+  it("allows mailto and shows the address", () => {
+    expect(safeExternalUrl("mailto:a@example.com").href).toBe("mailto:a@example.com");
+    expect(safeExternalUrl("mailto:a@example.com").host).toBe("a@example.com");
+  });
+
+  it("shows unparseable text without linking it", () => {
+    expect(safeExternalUrl("just some words").href).toBe(null);
+    expect(safeExternalUrl("just some words").host).toBe("just some words");
+    expect(safeExternalUrl("").href).toBe(null);
+    expect(safeExternalUrl(null).href).toBe(null);
+    expect(safeExternalUrl(undefined).href).toBe(null);
   });
 });

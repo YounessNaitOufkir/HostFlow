@@ -207,6 +207,16 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
   // how a board ends up with several identical rules and behaviour nobody can
   // explain: the rule you just made is not the one that fires.
   const plannedActionType = isMoveRecipe ? 'move_group' : selectedRecipe;
+  const canonicalForRecipe = "Done";
+  // Auto-Archive is a fixed rule, so the label is resolved rather than chosen.
+  // Not simply "Done": the imported French board's done label is "Fait". Matching
+  // the engine's own test avoids picking statusLabels[0], which is only the right
+  // answer by luck.
+  const effectiveTriggerValue =
+    statusLabels.find((l) => isDoneStatusValue(l, currentStatusOptions as StatusOption[])) ||
+    statusLabels[0] ||
+    canonicalForRecipe;
+
   const plannedColumn = isMoveRecipe ? triggerColId : triggerDateColId;
   const duplicateRule = selectedRecipe
     ? automations.find(
@@ -252,16 +262,6 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
       setRunningId(null);
     }
   };
-  const canonicalForRecipe = "Done";
-  // Auto-Archive is a fixed rule, so the label is resolved rather than chosen.
-  // Not simply "Done": the imported French board's done label is "Fait". Matching
-  // the engine's own test avoids picking statusLabels[0], which is only the right
-  // answer by luck.
-  const effectiveTriggerValue =
-    statusLabels.find((l) => isDoneStatusValue(l, currentStatusOptions as StatusOption[])) ||
-    statusLabels[0] ||
-    canonicalForRecipe;
-
   // The group Auto-Archive files completed work into. Boards normally have one
   // "Completed" group; if a board somehow has more, the lowest-positioned one wins
   // rather than an arbitrary pick, since groups arrive ordered by position.

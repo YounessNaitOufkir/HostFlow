@@ -56,11 +56,22 @@ export default function WorkspaceMembersModal({
     setTogglingPrivacy(true);
     setError(null);
     try {
-      const { error } = await supabase
+      // The updated row is read back, not assumed.
+      //
+      // An UPDATE that row-level security refuses does not fail: it matches no
+      // row and returns no error. Without the select, `error` was null, the
+      // toggle flipped, and the modal told the user a workspace was private
+      // while the database still had it shared - the one lie this control must
+      // never tell.
+      const { data, error } = await supabase
         .from("workspaces")
         .update({ is_private: next })
-        .eq("id", workspace.id);
+        .eq("id", workspace.id)
+        .select("id, is_private");
       if (error) throw error;
+      if (!data || data.length === 0 || data[0].is_private !== next) {
+        throw new Error("Visibility was not changed: the update matched no row.");
+      }
       setIsPrivate(next);
       // Visibility change alters what RLS returns, so refresh both lists.
       // "boards" is invalidated by prefix because its key carries a workspace id.

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Item, Column } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { safeExternalUrl } from "@/lib/sanitize";
 import { ExternalLink, Link2 } from "lucide-react";
 
 interface LinkCellProps {
@@ -41,6 +42,12 @@ export default function LinkCell({ item, column, onUpdate }: LinkCellProps) {
       onUpdate(item.id, column.id, { url: tempUrl.trim(), label: tempLabel.trim() || undefined });
     }
   };
+
+  // Resolved rather than used raw: new URL(value.url) threw during render for a
+  // schemeless string like "example.com" and took the board view with it, and the
+  // raw value went straight into href, so "javascript:..." was clickable. A link
+  // that resolves to nothing navigable renders as plain text.
+  const safeLink = safeExternalUrl(value?.url);
 
   if (isEditing) {
     return (
@@ -83,15 +90,19 @@ export default function LinkCell({ item, column, onUpdate }: LinkCellProps) {
       {value?.url ? (
         <div className="flex items-center gap-1.5 max-w-full">
           <a
-            href={value.url}
+            href={safeLink.href ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate flex items-center gap-1"
+            onClick={(e) => (safeLink.href ? e.stopPropagation() : e.preventDefault())}
+            className={`text-xs truncate flex items-center gap-1 ${
+              safeLink.href
+                ? "text-blue-600 dark:text-blue-400 hover:underline"
+                : "text-gray-500 dark:text-gray-400 cursor-default"
+            }`}
           >
             <ExternalLink size={11} className="shrink-0" />
             <TruncatedText className="truncate" tooltip={value.url}>
-              {value.label || new URL(value.url).hostname}
+              {value.label || safeLink.host}
             </TruncatedText>
           </a>
         </div>
