@@ -1,0 +1,43 @@
+# CodeRabbit configuration for HostFlow.
+# https://docs.coderabbit.ai/reference/configuration
+
+language: en
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    # Generated README screenshots and clips — binary, and re-shot by
+    # scripts/capture-readme.mjs rather than hand-edited.
+    - "!docs/assets/**"
+    - "!**/*.lock"
+    - "!package-lock.json"
+  path_instructions:
+    - path: "supabase/migrations/**"
+      instructions: >
+        These are additive, forward-only migrations against a live database.
+        Flag anything that isn't purely additive (a DROP, a column type change,
+        a NOT NULL added without a default) and any RLS policy change — this
+        project has a history of leaks caused by a new permissive policy being
+        OR'd together with an existing one rather than replacing it.
+    - path: "lib/statusSemantics.ts"
+      instructions: >
+        A status label's meaning must be read from the board's own declared
+        StatusOption.semantic before falling back to word-matching. Flag any
+        new caller that checks a status value by comparing English/French
+        words directly instead of going through this module.
+  tools:
+    eslint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    shellcheck:
+      enabled: true
+
+chat:
+  auto_reply: true
