@@ -39,7 +39,15 @@ export function useItemMutations({
       if (changes.length === 0) return;
 
       // Several changes can land on one item, so they are merged before writing.
+      //
+      // Two maps on purpose. `nextValues` is the whole object, for the optimistic
+      // dispatch, which has to render the complete row. `patches` carries ONLY
+      // the keys this edit touches, because that is what gets written: sending
+      // the whole object meant two people editing different cells on one row
+      // each wrote a complete copy built from their own stale snapshot, and the
+      // second silently discarded the first one's edit.
       const nextValues = new Map<string, Item["column_values"]>();
+      const patches = new Map<string, Record<string, unknown>>();
       const previous = new Map<string, Item>();
 
       for (const change of changes) {
@@ -49,6 +57,12 @@ export function useItemMutations({
         nextValues.set(item.id, {
           ...(nextValues.get(item.id) ?? item.column_values ?? {}),
           [change.columnId]: change.value,
+        });
+        patches.set(item.id, {
+          ...(patches.get(item.id) ?? {}),
+          // null, never undefined: undefined disappears when the patch is
+          // serialised, which would turn "clear this cell" into a no-op.
+          [change.columnId]: change.value === undefined ? null : change.value,
         });
       }
 
@@ -61,12 +75,14 @@ export function useItemMutations({
         });
       }
 
+      // merge_item_values applies the patch with jsonb `||` inside the database,
+      // so a concurrent edit to another cell on the same row survives. It is
+      // SECURITY INVOKER, so the caller's row-level security still decides
+      // whether the write is allowed, exactly as the UPDATE did.
       const results = await Promise.all(
-        Array.from(nextValues.entries()).map(([itemId, column_values]) =>
+        Array.from(patches.entries()).map(([itemId, patch]) =>
           supabase
-            .from("items")
-            .update({ column_values })
-            .eq("id", itemId)
+            .rpc("merge_item_values", { p_item_id: itemId, p_patch: patch })
             .then(({ error }) => ({ itemId, error }))
         )
       );
