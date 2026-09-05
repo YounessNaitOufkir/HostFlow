@@ -99,6 +99,49 @@ export function isDoneStatusValue(
   return statusSemanticOf(value, options) === "done";
 }
 
+/** A column definition, as much of one as reading a status needs. */
+type StatusAwareColumn = {
+  id: string;
+  type: string;
+  settings?: { statusLabels?: { label: string; semantic?: StatusSemantic }[] | null } | null;
+};
+
+/**
+ * What an item's status means, read through its own board's vocabulary.
+ *
+ * Takes the first status column that holds a value — the same rule as
+ * `firstStatusValue` — and passes that column's declared labels to
+ * `statusSemanticOf`. Callers that only have the bare value fall back to
+ * matching English and French words, which is a guess; this does not have to.
+ * A board saying "On site" or "Livré" answers here, and answers nothing there.
+ */
+export function itemStatusSemantic(
+  columns: StatusAwareColumn[],
+  columnValues: Record<string, unknown> | null | undefined
+): StatusSemantic | null {
+  const values = columnValues || {};
+  for (const col of columns) {
+    if (col.type !== "status") continue;
+    const raw = values[col.id];
+    if (typeof raw !== "string" || raw.trim() === "") continue;
+    return statusSemanticOf(raw, col.settings?.statusLabels);
+  }
+  return null;
+}
+
+/**
+ * Whether an item's own status says the work is finished.
+ *
+ * Anything that paints a date as late needs this: a task whose end date has
+ * passed is only overdue if it is not already finished.
+ */
+export function itemIsDone(
+  columns: StatusAwareColumn[],
+  columnValues: Record<string, unknown> | null | undefined
+): boolean {
+  return itemStatusSemantic(columns, columnValues) === "done";
+}
+
 /**
  * The status an item is in: the first status column that actually holds a value.
  * Mirrors the engine, so the digest and the overdue rule agree about an item.

@@ -5,6 +5,8 @@ import {
   isStuckStatusValue,
   isWorkingStatusValue,
   firstStatusValue,
+  itemIsDone,
+  itemStatusSemantic,
 } from "@/lib/statusSemantics";
 
 describe("statusSemantics", () => {
@@ -150,5 +152,56 @@ describe("a declared semantic beats the words", () => {
 
   it("falls back for a value the board never declared", () => {
     expect(isDoneStatusValue("Done", options)).toBe(true);
+  });
+});
+
+describe("reading an item's status through its board", () => {
+  const columns: Parameters<typeof itemStatusSemantic>[0] = [
+    { id: "name", type: "text" },
+    {
+      id: "state",
+      type: "status",
+      settings: {
+        statusLabels: [
+          { label: "On site", semantic: "working" },
+          { label: "Signed off", semantic: "done" },
+          { label: "Waiting on client", semantic: "stuck" },
+        ],
+      },
+    },
+  ];
+
+  it("uses the labels the board declared, not the words in them", () => {
+    // "On site" matches no pattern in either language. Before the board's own
+    // labels were consulted the dashboard read it as nothing at all, and showed
+    // zero work in progress on a board where three tasks were underway.
+    expect(itemStatusSemantic(columns, { state: "On site" })).toBe("working");
+    expect(itemStatusSemantic(columns, { state: "Signed off" })).toBe("done");
+    expect(itemStatusSemantic(columns, { state: "Waiting on client" })).toBe("stuck");
+  });
+
+  it("says a task is finished when the board says so", () => {
+    expect(itemIsDone(columns, { state: "Signed off" })).toBe(true);
+    expect(itemIsDone(columns, { state: "On site" })).toBe(false);
+  });
+
+  it("still falls back to the words for a board that declared nothing", () => {
+    const bare = [{ id: "state", type: "status" }];
+    expect(itemIsDone(bare, { state: "Terminé" })).toBe(true);
+    expect(itemIsDone(bare, { state: "Not done" })).toBe(false);
+  });
+
+  it("takes the first status column that holds a value", () => {
+    const two = [
+      { id: "a", type: "status" },
+      { id: "b", type: "status" },
+    ];
+    expect(itemIsDone(two, { a: "", b: "Done" })).toBe(true);
+    expect(itemIsDone(two, { a: "Stuck", b: "Done" })).toBe(false);
+  });
+
+  it("is false for an item with no status at all", () => {
+    expect(itemStatusSemantic(columns, {})).toBe(null);
+    expect(itemIsDone(columns, null)).toBe(false);
   });
 });

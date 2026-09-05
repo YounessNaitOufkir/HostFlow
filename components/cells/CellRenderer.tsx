@@ -77,12 +77,13 @@ export default function CellRenderer({
       );
     case "timeline":
       return (
-        <TimelineCell 
-          item={item} 
-          column={column} 
-          onUpdate={onUpdate} 
+        <TimelineCell
+          item={item}
+          column={column}
+          onUpdate={onUpdate}
           activeStatusId={activeStatusId}
           setActiveStatusId={setActiveStatusId}
+          columns={columns}
         />
       );
     case "tags":

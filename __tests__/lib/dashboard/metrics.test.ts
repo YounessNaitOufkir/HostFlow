@@ -357,3 +357,48 @@ describe("an absent board", () => {
     expect(m.statuses).toEqual([]);
   });
 });
+
+describe("a board with its own vocabulary", () => {
+  // Every label here is one no pattern would recognise, which is the point:
+  // the board declared what they mean and the dashboard has to read that.
+  const labels = [
+    { label: "On site", color: "bg-[#fdab3d]", semantic: "working" },
+    { label: "Signed off", color: "bg-[#00c875]", semantic: "done" },
+    { label: "Waiting on client", color: "bg-[#e2445c]", semantic: "stuck" },
+  ] as never;
+
+  it("counts work in progress the board calls something else", () => {
+    // The regression: these three tiles were computed from the bare status
+    // string, so a board saying "On site" reported nothing in progress.
+    const m = computeDashboardMetrics(
+      boardWith(labels),
+      groups,
+      [
+        item("a", { status: "On site" }),
+        item("b", { status: "On site" }),
+        item("c", { status: "Signed off" }),
+        item("d", { status: "Waiting on client" }),
+      ],
+      profiles,
+      NOW
+    );
+    expect(m.working).toBe(2);
+    expect(m.done).toBe(1);
+    expect(m.stuck).toBe(1);
+    expect(m.total).toBe(4);
+  });
+
+  it("does not count a finished task as overdue", () => {
+    const m = computeDashboardMetrics(
+      boardWith(labels),
+      groups,
+      [
+        item("done-late", { status: "Signed off", tl: { start: "2026-08-01", end: "2026-08-10" } }),
+        item("still-late", { status: "On site", tl: { start: "2026-08-01", end: "2026-08-10" } }),
+      ],
+      profiles,
+      NOW
+    );
+    expect(m.overdue).toBe(1);
+  });
+});
