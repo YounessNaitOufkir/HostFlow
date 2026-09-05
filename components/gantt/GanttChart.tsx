@@ -44,6 +44,7 @@ import { collectDependencies } from "@/lib/gantt/dependencies";
 import { computeSchedule, type TaskSchedule } from "@/lib/gantt/schedule";
 import { rescheduleFrom } from "@/lib/gantt/reschedule";
 import {
+  describeViolation,
   inferDependencyType,
   validateNewLink,
   type BarEdge,
@@ -779,6 +780,12 @@ export default function GanttChart({
     const target = model.byItemId.get(violation.targetId);
     if (!target) return;
 
+    // Say what is actually wrong with this one. Arriving at the task told you
+    // only that it was among the broken links, not which rule it broke or by
+    // how much - and the scheduler's own sentence could not be shown here,
+    // because it was built in English inside lib/.
+    toast.warning(describeViolation(t, violation));
+
     // Reveal it first: a task inside a shut lane has nowhere on screen to be
     // scrolled to.
     if (collapsed.has(target.group.id)) onToggleCollapse(target.group.id);
@@ -786,7 +793,7 @@ export default function GanttChart({
     if (collapsed.has(lane)) onToggleCollapse(lane);
 
     setPendingFocus(violation.targetId);
-  }, [schedule.violations, violationCursor, model.byItemId, collapsed, onToggleCollapse]);
+  }, [schedule.violations, violationCursor, model.byItemId, collapsed, onToggleCollapse, t]);
 
   /**
    * Runs once the row it wants actually exists.

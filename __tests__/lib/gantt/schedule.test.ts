@@ -172,7 +172,6 @@ describe("violations", () => {
       type: "FS",
       overlapDays: 3, // B should start on day 5, it starts on day 2
     });
-    expect(violations[0].message).toContain("3 days too early");
   });
 
   it("counts a lag as part of what was promised", () => {

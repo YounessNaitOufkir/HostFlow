@@ -49,7 +49,6 @@ export interface DependencyViolation {
   lag: number;
   /** Days by which the entered dates break the link. Always positive. */
   overlapDays: number;
-  message: string;
 }
 
 export interface ScheduleResult {
@@ -266,23 +265,19 @@ function findViolations(
 
     let required: number;
     let actual: number;
-    let what: string;
 
     switch (edge.type) {
       case "FS":
         required = source.end + 1 + edge.lag;
         actual = target.start;
-        what = "start after";
         break;
       case "SS":
         required = source.start + edge.lag;
         actual = target.start;
-        what = "start no earlier than";
         break;
       case "FF":
         required = source.end + edge.lag;
         actual = target.end;
-        what = "finish no earlier than";
         break;
     }
 
@@ -295,18 +290,11 @@ function findViolations(
         type: edge.type,
         lag: edge.lag,
         overlapDays,
-        message: `This task should ${what} its predecessor by ${describeLag(edge.lag)}, but it is ${overlapDays} day${overlapDays === 1 ? "" : "s"} too early.`,
       });
     }
   }
 
   return violations;
-}
-
-function describeLag(lag: number): string {
-  if (lag === 0) return "0 days";
-  if (lag > 0) return `${lag} day${lag === 1 ? "" : "s"}`;
-  return `${-lag} day${lag === -1 ? "" : "s"} of overlap`;
 }
 
 /**

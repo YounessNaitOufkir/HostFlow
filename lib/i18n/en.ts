@@ -224,6 +224,8 @@ export const en = {
   "gantt.dep.FF": "Finish → Finish",
   "gantt.depLater": "{name}, {days}d later",
   "gantt.depOverlap": "{name}, {days}d overlap",
+  "gantt.violationEarly": "{link} — {days} day too early.",
+  "gantt.violationEarlyPlural": "{link} — {days} days too early.",
   "gantt.linkFromStart": "Drag to link from this start",
   "gantt.linkFromFinish": "Drag to link from this finish",
   "gantt.linkColumnOnly": "This link was made in the item's Dependency column, which cannot carry a type or a lag.",

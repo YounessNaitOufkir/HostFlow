@@ -6,8 +6,10 @@ import {
   wouldCreateCycle,
   clampLag,
   describeDependency,
+  describeViolation,
   SELECTABLE_DEPENDENCY_TYPES,
 } from "@/lib/gantt/linking";
+import { translate, type Locale } from "@/lib/i18n";
 import type { GanttDependency } from "@/lib/gantt/dependencies";
 import type { DependencyType } from "@/types";
 
@@ -153,5 +155,39 @@ describe("describeDependency", () => {
     expect(describeDependency(t, "FS", 0)).toBe("Finish → Start");
     expect(describeDependency(t, "SS", 3)).toBe("Start → Start, 3d later");
     expect(describeDependency(t, "FF", -2)).toBe("Finish → Finish, 2d overlap");
+  });
+});
+
+describe("describeViolation", () => {
+  // The real catalogues, not a stub. translate() falls back to English for a
+  // key French is missing, so asserting the French sentence is the only way to
+  // prove fr.ts actually carries it.
+  const real = (locale: Locale) =>
+    (key: Parameters<typeof translate>[1], vars?: Parameters<typeof translate>[2]) =>
+      translate(locale, key, vars);
+
+  it("says which rule was broken and by how much", () => {
+    expect(describeViolation(real("en"), { type: "FS", lag: 0, overlapDays: 3 })).toBe(
+      "Finish → Start — 3 days too early."
+    );
+  });
+
+  it("keeps the lag in the sentence, because it is part of the promise", () => {
+    expect(describeViolation(real("en"), { type: "SS", lag: 2, overlapDays: 1 })).toBe(
+      "Start → Start, 2d later — 1 day too early."
+    );
+  });
+
+  it("reads a single day as singular", () => {
+    const one = describeViolation(real("en"), { type: "FS", lag: 0, overlapDays: 1 });
+    expect(one).toContain("1 day too early");
+    expect(one).not.toContain("days");
+  });
+
+  it("is translated, which is the whole point of moving it out of lib/", () => {
+    const fr = describeViolation(real("fr"), { type: "FF", lag: -2, overlapDays: 4 });
+    expect(fr).toBe("Fin → Fin, 2 j de chevauchement — 4 jours trop tôt.");
+    // Guards the English fallback: a missing fr key would render the en string.
+    expect(fr).not.toContain("too early");
   });
 });

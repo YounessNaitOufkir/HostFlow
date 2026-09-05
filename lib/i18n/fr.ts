@@ -226,6 +226,8 @@ export const fr: Dictionary = {
   "gantt.dep.FF": "Fin → Fin",
   "gantt.depLater": "{name}, {days} j plus tard",
   "gantt.depOverlap": "{name}, {days} j de chevauchement",
+  "gantt.violationEarly": "{link} — {days} jour trop tôt.",
+  "gantt.violationEarlyPlural": "{link} — {days} jours trop tôt.",
   "gantt.linkFromStart": "Faites glisser pour lier depuis ce début",
   "gantt.linkFromFinish": "Faites glisser pour lier depuis cette fin",
   "gantt.linkColumnOnly": "Ce lien vient de la colonne Dépendance de l'élément, qui ne peut porter ni type ni décalage.",

@@ -22,12 +22,6 @@ export interface GanttDependency {
   lag: number;
 }
 
-export const DEPENDENCY_TYPE_LABELS: Record<DependencyType, string> = {
-  FS: "Finish → Start",
-  SS: "Start → Start",
-  FF: "Finish → Finish",
-};
-
 const VALID_TYPES: DependencyType[] = ["FS", "SS", "FF"];
 
 /**

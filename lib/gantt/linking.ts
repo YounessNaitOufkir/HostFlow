@@ -15,6 +15,7 @@
 import type { DependencyType } from "@/types";
 import type { TranslateVars, TranslationKey } from "@/lib/i18n";
 import type { GanttDependency } from "./dependencies";
+import type { DependencyViolation } from "./schedule";
 
 /** Which end of a bar a drag started from or landed on. */
 export type BarEdge = "start" | "finish";
@@ -170,4 +171,26 @@ export function describeDependency(
   return lag > 0
     ? t("gantt.depLater", { name, days: lag })
     : t("gantt.depOverlap", { name, days: -lag });
+}
+
+/**
+ * Why one link is broken: "Finish → Start, 3d later — 2 days too early."
+ *
+ * The scheduler used to build this sentence itself, in English, inside `lib/`.
+ * Nothing there can reach the translator, so a French reader got an English
+ * string — and only in theory, because nothing ever rendered it: the toolbar
+ * reported a count and the message was dead. It is composed here instead, from
+ * the facts the violation carries, in the same vocabulary the link editor uses.
+ */
+export function describeViolation(
+  t: (key: TranslationKey, vars?: TranslateVars) => string,
+  violation: Pick<DependencyViolation, "type" | "lag" | "overlapDays">
+): string {
+  return t(
+    violation.overlapDays === 1 ? "gantt.violationEarly" : "gantt.violationEarlyPlural",
+    {
+      link: describeDependency(t, violation.type, violation.lag),
+      days: violation.overlapDays,
+    }
+  );
 }
