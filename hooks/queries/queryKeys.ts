@@ -1,0 +1,17 @@
+export const queryKeys = {
+  globalSettings: () => ["globalSettings"] as const,
+  workspaces: () => ["workspaces"] as const,
+  globalSearch: (query: string) => ["globalSearch", query] as const,
+  profiles: () => ["profiles"] as const,
+  boards: (workspaceId?: string) => ["boards", { workspaceId }] as const,
+  boardData: (boardId: string) => ["boardData", boardId] as const,
+  myWorkItems: (profileId: string) => ["myWorkItems", profileId] as const,
+  itemUpdates: (itemId: string) => ["updates", itemId] as const,
+  itemActivityLogs: (itemId: string) => ["activityLogs", itemId] as const,
+  workspaceGantt: (boardIds: string[]) => ["workspaceGantt", boardIds] as const,
+  trashUpdates: (itemIds: string[]) => ["trashUpdates", itemIds] as const,
+  adminData: () => ["adminData"] as const,
+  automations: (boardId: string) => ["automations", boardId] as const,
+  dependencySearch: (query: string) => ["dependencySearch", query] as const,
+  itemsByIds: (ids: string[]) => ["itemsByIds", [...ids].sort()] as const,
+};
