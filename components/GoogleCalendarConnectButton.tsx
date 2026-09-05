@@ -19,13 +19,18 @@ export default function GoogleCalendarConnectButton({ profile }: GoogleCalendarC
 
   const checkConnection = async () => {
     try {
+      // google_connected, not the token itself: this only needs to know whether
+      // a refresh token exists, and a refresh token does not expire the way an
+      // access token does - reading one into the browser hands durable calendar
+      // access to any XSS on the page. The client can no longer select either
+      // token column at all.
       const { data, error } = await supabase
         .from("user_integrations")
-        .select("google_refresh_token")
+        .select("google_connected")
         .eq("user_id", profile.id)
         .single();
 
-      if (data && data.google_refresh_token) {
+      if (data?.google_connected) {
         setIsConnected(true);
       }
     } catch (err) {

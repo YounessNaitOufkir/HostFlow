@@ -418,6 +418,21 @@ async function run() {
     rename.error === null,
     rename.error ? rename.error.message : "accepted");
 
+  console.log("\nOAuth tokens");
+  // The connect button used to select google_refresh_token just to test it for
+  // null. A refresh token does not expire the way an access token does, so it
+  // must never reach the browser - not even the owner's own.
+  for (const col of ["google_refresh_token", "google_access_token"]) {
+    const probe = await asExternal.from("user_integrations").select(col);
+    check(`a client cannot read ${col}`,
+      probe.error !== null,
+      probe.error ? probe.error.code ?? probe.error.message : "THE COLUMN WAS RETURNED");
+  }
+  const connected = await asExternal.from("user_integrations").select("google_connected");
+  check("the connected flag is still readable",
+    connected.error === null,
+    connected.error ? connected.error.message : "readable");
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
   if (failed.length) {
