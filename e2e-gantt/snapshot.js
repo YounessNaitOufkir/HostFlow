@@ -25,8 +25,18 @@ async function page(headers, path) {
     const r = await fetch(`${url}/rest/v1/${path}`, {
       headers: { ...headers, Range: `${from}-${from + 999}` },
     });
+    if (!r.ok) {
+      throw new Error(`${path} page ${from}: ${r.status} ${await r.text()}`);
+    }
     const rows = await r.json();
-    if (!Array.isArray(rows) || rows.length === 0) break;
+    // A failed request answers with an error OBJECT, not an array. Treating that
+    // as "no more rows" ended the loop quietly and produced a snapshot that was
+    // silently short - the worst possible outcome for something used as a
+    // baseline to compare against.
+    if (!Array.isArray(rows)) {
+      throw new Error(`${path} page ${from}: expected rows, got ${JSON.stringify(rows).slice(0, 200)}`);
+    }
+    if (rows.length === 0) break;
     out.push(...rows);
     if (rows.length < 1000) break;
   }

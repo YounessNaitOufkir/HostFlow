@@ -52,10 +52,23 @@ const MEANING = {
 
 const apply = process.argv.includes("--apply");
 
-const { data: boards, error } = await db.from("boards").select("id, name, columns");
-if (error) {
-  console.error(error.message);
-  process.exit(1);
+// Paged. A bare select stops at Supabase's db.max_rows, which defaults to 1000,
+// and this script writes with --apply: a silent cap would leave every board past
+// the first thousand un-backfilled, with the run still reporting success.
+const boards = [];
+for (let from = 0; ; from += 1000) {
+  const { data, error } = await db
+    .from("boards")
+    .select("id, name, columns")
+    .order("id")
+    .range(from, from + 999);
+  if (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  if (!data || data.length === 0) break;
+  boards.push(...data);
+  if (data.length < 1000) break;
 }
 
 let touchedBoards = 0;

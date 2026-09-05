@@ -127,7 +127,21 @@ test.describe("Gantt audit", () => {
     await openAuditBoard(page, fixture.workspaces.test.name, fixture.boards.a.name);
     await openGantt(page);
 
-    const before = await barBox(page, "A Permis");
+    // Each bar is measured against ITSELF across the toggle.
+    //
+    // This used to capture one bar's colour before the toggle and then assert
+    // that every critical bar differed from that single value. Any bar whose
+    // group colour already differed from A's satisfied that without the toggle
+    // doing anything at all, so the test could pass while critical-path
+    // highlighting was entirely broken.
+    const names = [
+      ...fixture.expected.criticalNames,
+      ...fixture.expected.floatingNames,
+    ];
+    const before = new Map<string, string>();
+    for (const name of names) {
+      before.set(name, (await barBox(page, name)).background);
+    }
 
     await page.getByRole("button", { name: /^View/ }).click();
     await page.getByRole("switch", { name: /Critical path/ }).click();
@@ -136,17 +150,23 @@ test.describe("Gantt audit", () => {
 
     // A→B→C→D→E is 25 days; nothing else comes close, so those five carry no
     // float and everything else does.
+    const criticalColours = new Set<string>();
     for (const name of fixture.expected.criticalNames) {
-      const box = await barBox(page, name);
-      expect(box.background, `${name} should be on the critical path`).not.toBe(
-        before.background
-      );
+      const after = (await barBox(page, name)).background;
+      expect(after, `${name} should change colour when the critical path is shown`)
+        .not.toBe(before.get(name));
+      criticalColours.add(after);
     }
 
+    // One highlight colour for the whole chain, not a coincidence per bar.
+    expect(criticalColours.size, "the critical chain should share one colour").toBe(1);
+    const criticalColour = [...criticalColours][0];
+
     for (const name of fixture.expected.floatingNames) {
-      const box = await barBox(page, name);
-      expect(box.background, `${name} has slack and should not be red`).not.toBe(
-        (await barBox(page, "C Travaux")).background
+      const after = (await barBox(page, name)).background;
+      expect(after, `${name} has slack and should be untouched`).toBe(before.get(name));
+      expect(after, `${name} has slack and should not be highlighted`).not.toBe(
+        criticalColour
       );
     }
   });
