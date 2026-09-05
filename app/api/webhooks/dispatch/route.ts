@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+
+/** A webhook receiver gets five seconds; the dispatcher is not a queue. */
+const WEBHOOK_TIMEOUT_MS = 5000;
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
@@ -48,10 +51,14 @@ export async function POST(request: Request) {
     // Format message for Telegram bot
     const message = `[HostFlow Update] ${payload.event}\nTask: ${payload.task.name || payload.task.title || 'Unknown Task'}`;
 
-    // Dispatch to all webhooks
-    let successCount = 0;
-    for (const hook of webhooks) {
-      try {
+    // Dispatched together and each one bounded.
+    //
+    // These awaited in turn with no timeout, so a single endpoint that accepted
+    // the connection and then never answered held this handler open until the
+    // platform killed it - and every webhook queued behind it was never sent at
+    // all. A slow endpoint now costs itself and nothing else.
+    const results = await Promise.allSettled(
+      webhooks.map(async (hook) => {
         // Extract chat_id from the endpoint_url if provided (e.g. ?chat_id=12345)
         let chatId = 'default';
         try {
@@ -61,21 +68,34 @@ export async function POST(request: Request) {
           }
         } catch (e) {}
 
-        await fetch(hook.endpoint_url, {
+        const res = await fetch(hook.endpoint_url, {
           method: 'POST',
+          signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: message,
             chat_id: chatId
           }),
         });
-        successCount++;
-      } catch (err) {
-        console.error('Failed to dispatch webhook to', hook.endpoint_url, err);
-      }
+
+        // A refusal is a failure. The old count incremented on any response the
+        // fetch did not throw on, so a wall of 500s reported as fully dispatched.
+        if (!res.ok) {
+          throw new Error(`${hook.endpoint_url} responded ${res.status}`);
+        }
+      })
+    );
+
+    const successCount = results.filter((r) => r.status === 'fulfilled').length;
+    for (const r of results) {
+      if (r.status === 'rejected') console.error('Failed to dispatch webhook:', r.reason);
     }
 
-    return NextResponse.json({ success: true, dispatched: successCount });
+    return NextResponse.json({
+      success: true,
+      dispatched: successCount,
+      failed: results.length - successCount,
+    });
   } catch (err: any) {
     console.error('Webhook Dispatch Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -127,18 +127,19 @@ export function useGroupMutations({
           table: "groups",
           operation: "delete",
         });
-        // Revert optimism
+        // Revert optimism.
+        //
+        // `groups` and `items` are the arrays captured at render, so they still
+        // hold the rows this tried to delete - finding groupToDelete in `groups`
+        // above depends on exactly that. Appending them back therefore added the
+        // group a second time and every one of its items a second time, leaving
+        // a failed delete showing doubled rows under duplicate React keys.
+        // Restoring the captured arrays as they are is the whole revert.
         if (groupToDelete) {
-          dispatch({
-            type: "SET_GROUPS",
-            payload: [...groups, groupToDelete],
-          });
+          dispatch({ type: "SET_GROUPS", payload: groups });
         }
         if (itemsToDelete.length > 0) {
-          dispatch({
-            type: "SET_ITEMS",
-            payload: [...items, ...itemsToDelete],
-          });
+          dispatch({ type: "SET_ITEMS", payload: items });
         }
       }
     },

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Board, Profile, Column } from "@/types";
 import type { BoardStoreDispatch } from "./types";
-import { reportMutationError } from "@/lib/errorReporting";
+import { reportMutationError, runWrite } from "@/lib/errorReporting";
 import { getQueryClient } from "@/components/QueryProvider";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 
@@ -105,26 +105,22 @@ export function useBoardMutations({
     async (board: Board) => {
       const newName = await requestPrompt("Enter new board name:", board.name);
       if (newName && newName !== board.name) {
-        try {
-          const { error } = await supabase
-            .from("boards")
-            .update({ name: newName })
-            .eq("id", board.id);
-          if (!error) {
-            dispatch({
-              type: "UPDATE_BOARD",
-              payload: { ...board, name: newName },
-            });
-            getQueryClient().invalidateQueries({
-              queryKey: queryKeys.boards(),
-            });
-          }
-        } catch (err) {
-          reportMutationError(err, "Failed to rename board", {
-            table: "boards",
-            operation: "update",
-          });
-        }
+        // runWrite, not a bare try/catch: supabase-js RESOLVES with { error } on
+        // a PostgREST failure such as an RLS denial, so the catch never ran and
+        // the `if (!error)` simply skipped the dispatch. The rename quietly did
+        // nothing - no toast, no Sentry, and the old name still on screen.
+        const renamed = await runWrite(
+          supabase.from("boards").update({ name: newName }).eq("id", board.id),
+          "Failed to rename board",
+          { table: "boards", operation: "update" }
+        );
+        if (!renamed) return;
+
+        dispatch({
+          type: "UPDATE_BOARD",
+          payload: { ...board, name: newName },
+        });
+        getQueryClient().invalidateQueries({ queryKey: queryKeys.boards() });
       }
     },
     [dispatch, requestPrompt]
@@ -137,23 +133,15 @@ export function useBoardMutations({
           `Are you sure you want to delete board "${board.name}"?`
         )
       ) {
-        try {
-          const { error } = await supabase
-            .from("boards")
-            .delete()
-            .eq("id", board.id);
-          if (!error) {
-            dispatch({ type: "REMOVE_BOARD", payload: board.id });
-            getQueryClient().invalidateQueries({
-              queryKey: queryKeys.boards(),
-            });
-          }
-        } catch (err) {
-          reportMutationError(err, "Failed to delete board", {
-            table: "boards",
-            operation: "delete",
-          });
-        }
+        const deleted = await runWrite(
+          supabase.from("boards").delete().eq("id", board.id),
+          "Failed to delete board",
+          { table: "boards", operation: "delete" }
+        );
+        if (!deleted) return;
+
+        dispatch({ type: "REMOVE_BOARD", payload: board.id });
+        getQueryClient().invalidateQueries({ queryKey: queryKeys.boards() });
       }
     },
     [dispatch]

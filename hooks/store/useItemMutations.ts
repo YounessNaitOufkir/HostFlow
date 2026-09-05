@@ -947,22 +947,31 @@ export function useItemMutations({
         (prevPos !== null && newPos <= prevPos) ||
         (nextPos !== null && newPos >= nextPos);
 
+      // Nothing here writes to an existing item object.
+      //
+      // destGroupItems holds the same references as `items`, and `items` is what
+      // the catch below dispatches to undo a failed move. Renumbering siblings in
+      // place therefore edited the very array the rollback restores, so their
+      // positions were never put back - and because the references had not
+      // changed, memoised rows could keep the stale ones on screen. The new
+      // positions travel as plain data and are applied to copies below.
       const renumbered: { id: string; position: number }[] = [];
       if (collides) {
         destGroupItems.forEach((it, idx) => {
-          const pos = (idx + 1) * SPACING;
-          it.position = pos;
-          renumbered.push({ id: it.id, position: pos });
+          renumbered.push({ id: it.id, position: (idx + 1) * SPACING });
         });
         newPos = draggedItem.position;
       }
 
-      draggedItem.position = newPos;
-      draggedItem.group_id = destination.droppableId;
+      const movedItem = {
+        ...draggedItem,
+        position: newPos,
+        group_id: destination.droppableId,
+      };
 
       const renumberedById = new Map(renumbered.map((r) => [r.id, r.position]));
       const finalItems = items.map((item) => {
-        if (item.id === draggableId) return draggedItem;
+        if (item.id === draggableId) return movedItem;
         const pos = renumberedById.get(item.id);
         return pos === undefined ? item : { ...item, position: pos };
       });
