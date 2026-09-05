@@ -13,6 +13,22 @@ export const getGoogleOAuthClient = () => {
   );
 };
 
+/**
+ * The calendar event id for a task, derived rather than remembered.
+ *
+ * Google accepts a caller-supplied event id and enforces that it is unique on
+ * the calendar, which is what makes syncing a task idempotent without a lock:
+ * two runs racing each other produce the same id, one insert wins and the other
+ * is told the event already exists.
+ *
+ * The id must be base32hex - the characters 0-9 and a-v, at least five long. A
+ * UUID with its dashes removed is 32 hex characters, which is already inside
+ * that alphabet, so it only needs a prefix to keep it clearly ours.
+ */
+export function googleEventIdFor(taskId: string): string {
+  return `hf${taskId.replace(/-/g, "").toLowerCase()}`;
+}
+
 export async function syncTaskToGoogleCalendar(userId: string, task: { id: string, name: string, start?: string, end?: string, boardName?: string }) {
   if (!task.start) return; // Need at least a start date
 
@@ -68,39 +84,58 @@ export async function syncTaskToGoogleCalendar(userId: string, task: { id: strin
     event.end = { date: endDate.toISOString().split('T')[0] };
   }
 
+  const body = {
+    ...event,
+    extendedProperties: {
+      private: { hostflow_task_id: task.id }
+    }
+  };
+
   try {
-    // Try to find if this task already has an event in GCal
-    // We can store the google_event_id in a new column on the item or just search by extended properties
-    const res = await calendar.events.list({
+    // An event this task created before ids were derived, if there is one.
+    //
+    // Those carry a Google-generated id, so they cannot be found by calculating
+    // one. Updating whichever exists keeps its history rather than leaving it
+    // behind as a duplicate of the event written below.
+    const legacy = await calendar.events.list({
       calendarId: 'primary',
       privateExtendedProperty: [`hostflow_task_id=${task.id}`],
     });
 
-    const existingEvents = res.data.items;
+    const wanted = googleEventIdFor(task.id);
+    const previous = (legacy.data.items ?? []).find((e) => e.id && e.id !== wanted);
 
-    if (existingEvents && existingEvents.length > 0) {
-      // Update existing
-      const eventId = existingEvents[0].id!;
+    if (previous) {
       await calendar.events.update({
         calendarId: 'primary',
-        eventId,
-        requestBody: {
-          ...event,
-          extendedProperties: {
-            private: { hostflow_task_id: task.id }
-          }
-        }
+        eventId: previous.id!,
+        requestBody: body,
       });
-    } else {
-      // Create new
+      return;
+    }
+
+    // The id is derived from the task, so the insert is the lock.
+    //
+    // This used to list, find nothing, and insert - so two syncs running
+    // together both found nothing and both inserted, and the task appeared
+    // twice in the calendar. Google enforces id uniqueness, so now one insert
+    // wins and the other comes back 409 and updates instead. No claim to take
+    // and none to leave behind if the process dies mid-way.
+    try {
       await calendar.events.insert({
         calendarId: 'primary',
-        requestBody: {
-          ...event,
-          extendedProperties: {
-            private: { hostflow_task_id: task.id }
-          }
-        }
+        requestBody: { ...body, id: wanted },
+      });
+    } catch (insertError: any) {
+      const status = insertError?.code ?? insertError?.response?.status;
+      if (status !== 409) throw insertError;
+
+      // Already there - either this task synced before, or another run beat us
+      // to it by milliseconds. Same outcome either way.
+      await calendar.events.update({
+        calendarId: 'primary',
+        eventId: wanted,
+        requestBody: body,
       });
     }
   } catch (error) {
