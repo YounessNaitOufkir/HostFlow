@@ -130,6 +130,10 @@ export async function executeImport(
     let targetBoardId = activeBoardId;
     let targetColumns = activeBoardColumns || [];
     let defaultGroupId = "";
+    // Whether THIS run created the default group. On an existing board,
+    // defaultGroupId is the board's own first group, which the cleanup at the
+    // end must never delete - see the guard there.
+    let defaultGroupCreatedHere = false;
 
     // Pre-fetch people for mapping the assignee column.
     //
@@ -347,6 +351,7 @@ export async function executeImport(
 
       // Create a default group
       defaultGroupId = crypto.randomUUID();
+      defaultGroupCreatedHere = true;
       const { error: grpErr } = await supabase.from("groups").insert({
         id: defaultGroupId,
         board_id: targetBoardId,
@@ -376,6 +381,7 @@ export async function executeImport(
       } else {
         // Board is entirely empty! Create a fallback group
         defaultGroupId = crypto.randomUUID();
+        defaultGroupCreatedHere = true;
         const { error: newGrpErr } = await supabase.from("groups").insert({
           id: defaultGroupId,
           board_id: targetBoardId,
@@ -567,7 +573,13 @@ export async function executeImport(
     }
 
     // 5. Cleanup empty default group
-    if (defaultGroupId) {
+    //
+    // Only ever a group this run created. On an existing board defaultGroupId is
+    // the board's own first group (grps[0]), and a CSV carrying a "Group" column
+    // routes every row to a named group - so this condition was true on an
+    // ordinary import and deleted a group the user already had, taking its
+    // items with it.
+    if (defaultGroupId && defaultGroupCreatedHere) {
       const hasItemsInDefaultGroup = itemsToInsert.some(item => item.group_id === defaultGroupId);
       if (!hasItemsInDefaultGroup) {
         await supabase.from("groups").delete().eq("id", defaultGroupId);

@@ -200,16 +200,16 @@ class Parser {
     return this.advance();
   }
 
-  // Entry point: expression
+  // Entry point: comparison, the loosest binding of all
   parse(): FormulaValue {
-    const result = this.parseExpression();
+    const result = this.parseComparison();
     if (this.peek().type !== "EOF") {
       throw new Error(`Unexpected token: ${this.peek().value}`);
     }
     return result;
   }
 
-  // expression = comparison ((+|-) comparison)*
+  // expression = term ((+|-) term)*
   private parseExpression(): FormulaValue {
     let left = this.parseTerm();
 
@@ -231,13 +231,13 @@ class Parser {
     return left;
   }
 
-  // term = factor ((*|/) factor)*
+  // term = unary ((*|/) unary)*
   private parseTerm(): FormulaValue {
-    let left = this.parseComparison();
+    let left = this.parseUnary();
 
     while (this.peek().type === "OPERATOR" && (this.peek().value === "*" || this.peek().value === "/")) {
       const op = this.advance().value;
-      const right = this.parseComparison();
+      const right = this.parseUnary();
       if (op === "*") {
         left = toNumber(left) * toNumber(right);
       } else {
@@ -249,13 +249,19 @@ class Parser {
     return left;
   }
 
-  // comparison = unary (comp_op unary)?
+  // comparison = expression (comp_op expression)?
+  //
+  // Comparison sits at the OUTERMOST level, so both sides are fully evaluated
+  // arithmetic before they are compared. It used to sit between term and unary,
+  // which bound it tighter than * and +: "2 * 3 = 6" parsed as "2 * (3 = 6)"
+  // and returned 0, and "{a} + {b} = 10" returned a number rather than a
+  // boolean. Every formula comparing an arithmetic result was quietly wrong.
   private parseComparison(): FormulaValue {
-    let left = this.parseUnary();
+    const left = this.parseExpression();
 
     if (this.peek().type === "COMPARISON") {
       const op = this.advance().value;
-      const right = this.parseUnary();
+      const right = this.parseExpression();
 
       const l = left;
       const r = right;
@@ -316,7 +322,7 @@ class Parser {
 
       case "LPAREN": {
         this.advance();
-        const result = this.parseExpression();
+        const result = this.parseComparison();
         this.expect("RPAREN");
         return result;
       }
@@ -344,10 +350,10 @@ class Parser {
 
     const args: FormulaValue[] = [];
     if (this.peek().type !== "RPAREN") {
-      args.push(this.parseExpression());
+      args.push(this.parseComparison());
       while (this.peek().type === "COMMA") {
         this.advance();
-        args.push(this.parseExpression());
+        args.push(this.parseComparison());
       }
     }
     this.expect("RPAREN");
