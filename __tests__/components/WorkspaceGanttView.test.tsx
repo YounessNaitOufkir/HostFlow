@@ -205,8 +205,15 @@ describe("WorkspaceGanttView — portfolio swimlanes", () => {
     expect(screen.getAllByText("Phase 1")).toHaveLength(3);
   });
 
-  it("filters the board list by board or property name", async () => {
-    const user = userEvent.setup();
+  // The only test here that types rather than clicks, and the only one that has
+  // ever flaked. Every keystroke re-renders the whole chart, so "Communication"
+  // then "Studio" is nineteen full renders; with userEvent's default pause
+  // between keys, a loaded machine running the rest of the suite alongside it
+  // crosses the 5s default and fails on a timeout rather than on a wrong result.
+  // The pause simulates a human, which nothing here is asserting about, so it
+  // goes - and the budget is raised to cover the renders that remain.
+  it("filters the board list by board or property name", { timeout: 20_000 }, async () => {
+    const user = userEvent.setup({ delay: null });
     render(<WorkspaceGanttView allBoards={boards} workspaces={workspaces} />);
 
     const search = screen.getByLabelText("Filter boards");
