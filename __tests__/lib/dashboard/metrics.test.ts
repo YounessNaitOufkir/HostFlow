@@ -3,6 +3,7 @@ import {
   computeDashboardMetrics,
   dueDateOf,
   assigneeIdOf,
+  assigneeIdsOf,
   ASSIGNEE_BAR_COLOR,
   ATTENTION_LIMIT,
 } from "@/lib/dashboard/metrics";
@@ -400,5 +401,48 @@ describe("a board with its own vocabulary", () => {
       NOW
     );
     expect(m.overdue).toBe(1);
+  });
+});
+
+describe("reading every assignee off an item", () => {
+  const board = boardWith();
+
+  it("keeps every id in a native array, not just the first", () => {
+    // The regression: only raw[0] was read, so a task shared by two people
+    // counted once and the second person's filter matched nothing.
+    expect(assigneeIdsOf(board, item("a", { who: ["u1", "u2"] }))).toEqual(["u1", "u2"]);
+  });
+
+  it("parses an array still encoded as JSON text", () => {
+    // A spreadsheet round trip leaves the cell as a string; it used to be
+    // returned whole as a single id, which matched nobody.
+    expect(assigneeIdsOf(board, item("b", { who: '["u1","u2"]' }))).toEqual(["u1", "u2"]);
+  });
+
+  it("still reads the single-value encodings", () => {
+    expect(assigneeIdsOf(board, item("c", { who: "u1" }))).toEqual(["u1"]);
+    expect(assigneeIdsOf(board, item("d", { who: { id: "u1" } }))).toEqual(["u1"]);
+    expect(assigneeIdsOf(board, item("e", {}))).toEqual([]);
+  });
+
+  it("does not mistake ordinary text for JSON", () => {
+    expect(assigneeIdsOf(board, item("f", { who: "[not json" }))).toEqual(["[not json"]);
+  });
+
+  it("de-duplicates a person listed twice", () => {
+    expect(assigneeIdsOf(board, item("g", { who: ["u1", "u1"] }))).toEqual(["u1"]);
+  });
+
+  it("counts a shared task for both people", () => {
+    const m = computeDashboardMetrics(
+      board,
+      groups,
+      [item("shared", { who: ["u1", "u2"] })],
+      [{ id: "u1", full_name: "Amina" }, { id: "u2", full_name: "Youness" }] as never,
+      NOW
+    );
+    const counts = Object.fromEntries(m.byAssignee.map((b) => [b.key, b.value]));
+    expect(counts["u1"]).toBe(1);
+    expect(counts["u2"]).toBe(1);
   });
 });

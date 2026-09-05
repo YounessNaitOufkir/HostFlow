@@ -98,20 +98,64 @@ export function dueDateOf(board: Board, item: Item): Date | null {
   return null;
 }
 
-/** The assignee id on an item, tolerating the several shapes a people cell takes. */
-export function assigneeIdOf(board: Board, item: Item): string | null {
+/**
+ * Every assignee on an item, across every people column and every encoding.
+ *
+ * A people cell is stored as an array of ids, but an imported board can hold a
+ * bare string, an object with an `id`, or - from a spreadsheet round trip - the
+ * array still JSON-encoded as text. Reading only the first entry dropped every
+ * secondary assignee, so a task shared by two people counted once and the other
+ * person's filter matched nothing; reading a JSON-encoded array as a bare string
+ * produced one id that matched nobody at all.
+ */
+export function assigneeIdsOf(board: Board, item: Item): string[] {
   const values = item.column_values || {};
+  const ids: string[] = [];
+
+  const take = (raw: unknown): void => {
+    if (!raw) return;
+
+    if (typeof raw === "string") {
+      const text = raw.trim();
+      if (!text) return;
+      // A spreadsheet round trip can leave the array encoded as text.
+      if (text.startsWith("[")) {
+        try {
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(take);
+            return;
+          }
+        } catch {
+          // Not JSON after all; fall through and treat it as a single id.
+        }
+      }
+      ids.push(text);
+      return;
+    }
+
+    if (Array.isArray(raw)) {
+      raw.forEach(take);
+      return;
+    }
+
+    if (typeof raw === "object") {
+      const id = (raw as Record<string, unknown>).id;
+      if (typeof id === "string" && id) ids.push(id);
+    }
+  };
+
   for (const col of board.columns || []) {
     if (col.type !== "people") continue;
-    const raw = values[col.id];
-    if (typeof raw === "string" && raw) return raw;
-    if (Array.isArray(raw) && typeof raw[0] === "string") return raw[0];
-    if (raw && typeof raw === "object") {
-      const id = (raw as Record<string, unknown>).id;
-      if (typeof id === "string") return id;
-    }
+    take(values[col.id]);
   }
-  return null;
+
+  return [...new Set(ids)];
+}
+
+/** The first assignee on an item, or null. Prefer `assigneeIdsOf` for counting. */
+export function assigneeIdOf(board: Board, item: Item): string | null {
+  return assigneeIdsOf(board, item)[0] ?? null;
 }
 
 export function computeDashboardMetrics(
@@ -158,8 +202,13 @@ export function computeDashboardMetrics(
     else if (semantic === "stuck") stuck++;
     else if (semantic === "working") working++;
 
-    const assignee = assigneeIdOf(board, item);
-    if (assignee) assigneeCounts.set(assignee, (assigneeCounts.get(assignee) || 0) + 1);
+    // Counted once per assignee: a task shared by two people belongs to both.
+    const assignees = assigneeIdsOf(board, item);
+    for (const assignee of assignees) {
+      assigneeCounts.set(assignee, (assigneeCounts.get(assignee) || 0) + 1);
+    }
+    // The attention list has one owner column, so it names the first.
+    const assignee = assignees[0] ?? null;
 
     const due = dueDateOf(board, item);
     if (!due) {

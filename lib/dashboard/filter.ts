@@ -9,7 +9,7 @@
 
 import type { Board, Item } from "@/types";
 import { toDateOnly } from "@/lib/gantt/dates";
-import { dueDateOf, assigneeIdOf } from "@/lib/dashboard/metrics";
+import { dueDateOf, assigneeIdsOf } from "@/lib/dashboard/metrics";
 
 // The window presets are the portfolio's, imported rather than restated so the
 // Master Gantt and the dashboard cannot drift on what "this quarter" means.
@@ -55,8 +55,10 @@ export function applyDashboardFilter(
     if (filter.groupIds.length && !filter.groupIds.includes(item.group_id)) return false;
 
     if (filter.assigneeIds.length) {
-      const assignee = assigneeIdOf(board, item);
-      if (!assignee || !filter.assigneeIds.includes(assignee)) return false;
+      // Matches on ANY assignee: filtering by one person must still find the
+      // tasks they share with someone else.
+      const assignees = assigneeIdsOf(board, item);
+      if (!assignees.some((id) => filter.assigneeIds.includes(id))) return false;
     }
 
     if (filter.from || filter.to) {

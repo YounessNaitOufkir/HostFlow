@@ -47,8 +47,13 @@ export function verifyDeepLinkToken(token: string): string | null {
     .digest("hex")
     .slice(0, 16);
 
-  // Timing-safe comparison to prevent timing attacks
-  if (signature.length !== expectedSignature.length) return null;
+  // Timing-safe comparison to prevent timing attacks.
+  //
+  // The shape is checked before decoding, not just the length: "zzzzzzzzzzzzzzzz"
+  // is sixteen characters but decodes to zero bytes, and timingSafeEqual throws
+  // on a length mismatch rather than returning false. A malformed token has to
+  // be rejected, not turned into a 500.
+  if (!/^[0-9a-f]{16}$/i.test(signature)) return null;
 
   const isValid = crypto.timingSafeEqual(
     Buffer.from(signature, "hex"),

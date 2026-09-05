@@ -29,17 +29,19 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailRespons
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
   if (!apiKey) {
-    // Development fallback / simulated email delivery
-    console.log("\n=========================================");
-    console.log(`📧 [EMAIL SIMULATION / FALLBACK]`);
-    console.log(`TO: ${recipients.join(", ")}`);
-    console.log(`SUBJECT: ${options.subject}`);
-    console.log(`CONTENT: ${options.text || "(HTML content provided)"}`);
-    console.log("=========================================\n");
+    // Development fallback / simulated email delivery.
+    //
+    // Deliberately counts recipients rather than naming them, and never prints
+    // the body: this branch runs whenever RESEND_API_KEY is unset, which
+    // includes the client, so addresses and message content would otherwise
+    // land in a shared server log or in the browser console.
+    console.log(
+      `📧 [EMAIL SIMULATION] subject="${options.subject}" recipients=${recipients.length} (RESEND_API_KEY not set)`
+    );
     if (typeof window !== "undefined") {
       try {
         toast.success(`📧 Email Sent: ${options.subject}`, {
-          description: `To: ${recipients.join(", ")}`,
+          description: `${recipients.length} recipient${recipients.length === 1 ? "" : "s"}`,
         });
       } catch (e) {}
     }
@@ -52,6 +54,10 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailRespons
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      // The automations pass awaits sendEmail once per item, in sequence, so a
+      // request that hangs stalls every item behind it. The catch below already
+      // turns an abort into { success: false }.
+      signal: AbortSignal.timeout(10_000),
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",

@@ -54,6 +54,21 @@ const MUTED = "#6b7280";
 const RULE = "#e5e7eb";
 const BAND = "#f3f4f6";
 
+/**
+ * A colour that is safe to drop into an SVG attribute.
+ *
+ * Group colours are free text: the colour picker's hex field writes whatever is
+ * typed straight to the database with no validation, and an import or a direct
+ * API call is not even bound by its maxLength. printGanttSvg writes this markup
+ * into a new window, so an unvalidated value can close the attribute and inject
+ * its own markup. Anything that is not a plain hex or a bare colour keyword is
+ * replaced rather than escaped, because a broken colour should still render.
+ */
+const SAFE_COLOR = /^#[0-9a-fA-F]{3,8}$|^[a-zA-Z]{1,24}$/;
+function safeColor(value: string | null | undefined, fallback: string = MUTED): string {
+  return typeof value === "string" && SAFE_COLOR.test(value) ? value : fallback;
+}
+
 /** Printed output is always light: it ends up on paper or in someone else's deck. */
 export function renderGanttSvg({
   rows,
@@ -181,9 +196,9 @@ export function renderGanttSvg({
 
     if (isSummary) {
       parts.push(
-        `<rect x="${x}" y="${centerY - 4}" width="${w}" height="5" fill="${row.color}"/>`,
-        `<rect x="${x}" y="${centerY - 4}" width="3" height="9" fill="${row.color}"/>`,
-        `<rect x="${x + w - 3}" y="${centerY - 4}" width="3" height="9" fill="${row.color}"/>`
+        `<rect x="${x}" y="${centerY - 4}" width="${w}" height="5" fill="${safeColor(row.color)}"/>`,
+        `<rect x="${x}" y="${centerY - 4}" width="3" height="9" fill="${safeColor(row.color)}"/>`,
+        `<rect x="${x + w - 3}" y="${centerY - 4}" width="3" height="9" fill="${safeColor(row.color)}"/>`
       );
       continue;
     }
@@ -199,12 +214,12 @@ export function renderGanttSvg({
     if (item.isMilestone) {
       const s = 7;
       parts.push(
-        `<polygon points="${x},${centerY - s} ${x + s},${centerY} ${x},${centerY + s} ${x - s},${centerY}" fill="${color}"/>`,
+        `<polygon points="${x},${centerY - s} ${x + s},${centerY} ${x},${centerY + s} ${x - s},${centerY}" fill="${safeColor(color)}"/>`,
         `<text x="${x + s + 4}" y="${centerY + 4}" font-size="9" font-weight="600" fill="${INK}">${escapeXml(item.label)}</text>`
       );
     } else {
       parts.push(
-        `<rect x="${x}" y="${centerY - barHeight / 2}" width="${w}" height="${barHeight}" rx="3" fill="${color}"/>`
+        `<rect x="${x}" y="${centerY - barHeight / 2}" width="${w}" height="${barHeight}" rx="3" fill="${safeColor(color)}"/>`
       );
       // Only label the bar when the text has somewhere to sit.
       if (w > 34) {

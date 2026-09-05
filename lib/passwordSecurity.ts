@@ -15,6 +15,15 @@
 
 const HIBP_RANGE_URL = "https://api.pwnedpasswords.com/range/";
 
+/**
+ * How long to wait on HIBP before giving up.
+ *
+ * This check sits in front of sign-up and password recovery, and a breach
+ * lookup is advisory - failing open costs a warning, whereas hanging costs the
+ * account. Four seconds is well past a normal response.
+ */
+const HIBP_TIMEOUT_MS = 4000;
+
 export interface BreachCheckResult {
   breached: boolean;
   /** How many times the password appears in known breaches. */
@@ -68,10 +77,15 @@ export async function checkPasswordBreached(
     const prefix = hash.slice(0, 5);
     const suffix = hash.slice(5);
 
+    // A stalled connection must not hold up a sign-up or a password reset, so
+    // the caller's own signal is composed with a deadline rather than trusted to
+    // arrive. The catch below already turns an abort into "no answer", which is
+    // the same outcome as HIBP being unreachable.
+    const deadline = AbortSignal.timeout(HIBP_TIMEOUT_MS);
     const response = await fetch(`${HIBP_RANGE_URL}${prefix}`, {
       // Ask HIBP to pad the response with fake entries so its size leaks nothing
       headers: { "Add-Padding": "true" },
-      signal,
+      signal: signal ? AbortSignal.any([signal, deadline]) : deadline,
     });
     if (!response.ok) return null;
 

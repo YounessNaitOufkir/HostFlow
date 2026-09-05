@@ -177,7 +177,20 @@ export async function runWrite(
   userMessage: string,
   meta?: { table?: string; operation?: string; itemId?: string; context?: string }
 ): Promise<boolean> {
-  const { error } = await operation;
+  // A rejection is reported the same way a returned error is. Supabase normally
+  // resolves with { error }, but a network failure or an aborted request rejects
+  // instead - and letting that propagate skipped the caller's rollback, since
+  // the documented `if (!(await runWrite(...)))` branch never runs when the
+  // await throws. The whole point of this helper is that callers can rely on a
+  // boolean.
+  let error: unknown;
+  try {
+    ({ error } = await operation);
+  } catch (thrown) {
+    reportMutationError(thrown, userMessage, meta);
+    return false;
+  }
+
   if (error) {
     reportMutationError(error, userMessage, meta);
     return false;

@@ -82,6 +82,32 @@ function parseIsoDateString(val: any): string | null {
 }
 
 /**
+ * The same read, without the `new Date(...)` coercion.
+ *
+ * Used only when scanning columns that were never declared to hold a date. That
+ * scan looks at every cell on the item, and `new Date` accepts far more than it
+ * should: `new Date("5")` and `new Date("March")` are both valid dates, so a
+ * text or number column could hand the overdue rule a due date the task never
+ * had - which then wrote "Overdue" onto the item and emailed its assignee.
+ *
+ * A declared date column still uses the loose reader above, because "Apr 4,
+ * 2026" is a legitimate thing to find in one.
+ */
+function parseIsoDateStrict(val: any): string | null {
+  if (!val) return null;
+  if (typeof val === "string") {
+    const match = val.match(/(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : null;
+  }
+  if (typeof val === "object") {
+    if (val.end) return parseIsoDateStrict(val.end);
+    if (val.date) return parseIsoDateStrict(val.date);
+    if (val.start) return parseIsoDateStrict(val.start);
+  }
+  return null;
+}
+
+/**
  * Evaluates time-based automations:
  * - SLA Warnings: Due Date == Today AND status not "Working on it" or "Done" -> alert assignee
  * - Overdue Tagging: Due Date passed AND status != "Done" -> set status to Overdue & email & notify
@@ -138,7 +164,7 @@ export async function evaluateTimeAutomations(
     }
     if (!itemDateStr) {
       for (const key of Object.keys(values)) {
-        itemDateStr = parseIsoDateString(values[key]);
+        itemDateStr = parseIsoDateStrict(values[key]);
         if (itemDateStr) break;
       }
     }

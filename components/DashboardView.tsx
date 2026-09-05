@@ -10,7 +10,7 @@ import { StatTile } from "@/components/dashboard/StatTile";
 import { DistributionCard } from "@/components/dashboard/DistributionCard";
 import { AttentionList } from "@/components/dashboard/AttentionList";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
-import { computeDashboardMetrics, assigneeIdOf } from "@/lib/dashboard/metrics";
+import { computeDashboardMetrics, assigneeIdsOf } from "@/lib/dashboard/metrics";
 import {
   applyDashboardFilter,
   EMPTY_DASHBOARD_FILTER,
@@ -52,8 +52,7 @@ export default function DashboardView({
     if (!board) return [];
     const seen = new Set<string>();
     for (const item of items) {
-      const id = assigneeIdOf(board, item);
-      if (id) seen.add(id);
+      for (const id of assigneeIdsOf(board, item)) seen.add(id);
     }
     return [...seen];
   }, [board, items]);
