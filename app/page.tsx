@@ -103,7 +103,9 @@ export default function HostFlowApp() {
   const queryClient = useQueryClient();
 
   const boardHiddenColumns = state.activeBoard ? (state.hiddenColumns[state.activeBoard.id] || []) : [];
-  const allColumns = state.activeBoard ? state.activeBoard.columns : [];
+  // ?? [] because boards.columns is nullable in Postgres even though the type
+  // says otherwise; without it a single null row throws out of the whole render.
+  const allColumns = state.activeBoard?.columns ?? [];
   const visibleColumns = allColumns.filter(c => !boardHiddenColumns.includes(c.id));
 
   const activeColumns = state.activeBoard?.columns || [];

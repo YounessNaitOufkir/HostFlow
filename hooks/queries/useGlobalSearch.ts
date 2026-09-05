@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { queryKeys } from "./queryKeys";
+import { queryKeys, boardScopeKey } from "./queryKeys";
 import { escapeLike, MIN_SEARCH_LENGTH } from "./useDependencySearch";
 import { firstStatusValue } from "@/lib/statusSemantics";
 import { commentSnippet } from "@/lib/searchSnippet";
@@ -111,8 +111,11 @@ export function useGlobalSearch(
   const trimmed = query.trim();
 
   return useQuery({
+    // Board identity belongs in the key: results are matched and labelled against
+    // `boards`, so a search cached before they loaded would be reused after.
     queryKey: queryKeys.globalSearch(
-      `${trimmed.toLowerCase()}${includeDeleted ? "|+trash" : ""}`
+      `${trimmed.toLowerCase()}${includeDeleted ? "|+trash" : ""}`,
+      boardScopeKey(boards)
     ),
     queryFn: async (): Promise<{
       items: SearchHit[];

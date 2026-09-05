@@ -313,7 +313,7 @@ export function useItemMutations({
         }
 
         const colName =
-          activeBoard.columns.find((c) => c.id === columnId)?.title || columnId;
+          activeBoard.columns?.find((c) => c.id === columnId)?.title || columnId;
         const oldValue = existingValues[columnId] || "Empty";
         // The audit trail is only as good as this write; losing it silently is
         // very likely why activity_logs is close to empty.
@@ -349,7 +349,7 @@ export function useItemMutations({
         }
 
         // --- Google Calendar Sync ---
-        const editedColumn = activeBoard.columns.find((c) => c.id === columnId);
+        const editedColumn = activeBoard.columns?.find((c) => c.id === columnId);
         const isDateColumn =
           editedColumn?.type === "date" || editedColumn?.type === "timeline";
         if (isPeopleColumn || isDateColumn || columnId === "name") {

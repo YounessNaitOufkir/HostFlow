@@ -67,8 +67,10 @@ export async function GET(request: Request) {
       .from("boards")
       .select("id, columns, workspace_id");
 
+    // Thrown, not returned: a return here would leave the cron_runs row open
+    // with a fresh started_at and no ok, which the watchdog reads as healthy.
     if (boardsError || !boards) {
-      return NextResponse.json({ error: "Failed to fetch boards" }, { status: 500 });
+      throw new Error("Failed to fetch boards");
     }
 
     // Workspace names disambiguate the digest. A workspace is one property and its
@@ -92,7 +94,7 @@ export async function GET(request: Request) {
       .is("deleted_at", null);
 
     if (itemsError || !items) {
-      return NextResponse.json({ error: "Failed to fetch items" }, { status: 500 });
+      throw new Error("Failed to fetch items");
     }
 
     // 5. Build a mapping of user -> Due Tasks

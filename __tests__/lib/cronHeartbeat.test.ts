@@ -80,3 +80,43 @@ describe("assessJobs", () => {
     expect(Object.keys(CRON_MAX_SILENCE_HOURS).sort()).toEqual(["automations", "daily-digest"]);
   });
 });
+
+describe("a run that starts and never finishes", () => {
+  const HOUR = 3_600_000;
+  const now = new Date("2026-09-05T12:00:00Z");
+  const ago = (h: number) => new Date(now.getTime() - h * HOUR).toISOString();
+
+  it("reports a job that fails every day, rather than calling it healthy", () => {
+    // The regression: the cron routes returned 500 on a fetch error without
+    // closing the run, leaving ok null. `failing` only tested ok === false, and
+    // `stale` only tested age - so a job failing on EVERY run opened a fresh row
+    // daily and looked permanently healthy to the watchdog, to Sentry and to the
+    // owner alert.
+    const [health] = assessJobs(
+      [{ job: "automations", started_at: ago(3), ok: null }],
+      now,
+      { automations: 26 }
+    );
+    expect(health.stale).toBe(false);
+    expect(health.failing).toBe(true);
+  });
+
+  it("leaves a run that is genuinely in flight alone", () => {
+    const [health] = assessJobs(
+      [{ job: "automations", started_at: ago(0.05), ok: null }],
+      now,
+      { automations: 26 }
+    );
+    expect(health.failing).toBe(false);
+  });
+
+  it("still reports an ordinary completed run as healthy", () => {
+    const [health] = assessJobs(
+      [{ job: "automations", started_at: ago(3), ok: true }],
+      now,
+      { automations: 26 }
+    );
+    expect(health.stale).toBe(false);
+    expect(health.failing).toBe(false);
+  });
+});

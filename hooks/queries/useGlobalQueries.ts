@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { queryKeys } from "./queryKeys";
+import { queryKeys, boardScopeKey } from "./queryKeys";
 import {
   OrganizationSettings,
   Team,
@@ -75,7 +75,11 @@ export function useMyWorkQuery(
   enabled = true
 ) {
   return useQuery({
-    queryKey: queryKeys.myWorkItems(profile?.id || ""),
+    // The board list is part of the answer, not just of the fetch: the filter
+    // below drops any item whose board is not in `boards`. Run before the boards
+    // resolve, that returned [] - and cached it under a key that never changed,
+    // so My Work stayed empty until something else invalidated it.
+    queryKey: queryKeys.myWorkItems(profile?.id || "", boardScopeKey(boards)),
     queryFn: async () => {
       if (!profile) return [];
 
@@ -90,7 +94,7 @@ export function useMyWorkQuery(
       return allItems.filter((item) => {
         const board = boards.find((b) => b.id === item.board_id);
         if (!board) return false;
-        const peopleCols = board.columns.filter((c) => c.type === "people");
+        const peopleCols = (board.columns ?? []).filter((c) => c.type === "people");
         return peopleCols.some((col) => {
           let val = item.column_values?.[col.id];
           if (typeof val === 'string') {

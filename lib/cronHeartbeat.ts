@@ -22,6 +22,15 @@ export const CRON_MAX_SILENCE_HOURS: Record<string, number> = {
   automations: 26,
 };
 
+/**
+ * How long a run may stay open before it is treated as having died.
+ *
+ * Both jobs finish in seconds, so an hour is far beyond a slow run and well
+ * inside the daily cadence - a run genuinely in flight when the watchdog looks
+ * is minutes old, not hours.
+ */
+export const ABANDONED_AFTER_HOURS = 1;
+
 export type CronJob = keyof typeof CRON_MAX_SILENCE_HOURS | string;
 
 /** Opens a run. Returns the row id, or null if the trace could not be written. */
@@ -106,13 +115,22 @@ export function assessJobs(
       return { job, lastRunAt: null, hoursSince: null, lastRunOk: null, stale: true, failing: false };
     }
     const hoursSince = (now.getTime() - new Date(last.started_at).getTime()) / 3_600_000;
+    // An abandoned run counts as a failure, not as silence.
+    //
+    // ok is null between startCronRun and finishCronRun. A route that returned
+    // early on an error - or a serverless instance killed mid-run - leaves the
+    // row that way forever, and the next day's run opens another fresh one. So a
+    // job failing EVERY day looked neither stale (it started recently) nor
+    // failing (ok was null rather than false), and the watchdog reported it
+    // healthy indefinitely. A run still open long after it began did not finish.
+    const abandoned = last.ok === null && hoursSince > ABANDONED_AFTER_HOURS;
     return {
       job,
       lastRunAt: last.started_at,
       hoursSince: Math.round(hoursSince * 10) / 10,
       lastRunOk: last.ok,
       stale: hoursSince > limits[job],
-      failing: last.ok === false,
+      failing: last.ok === false || abandoned,
     };
   });
 }

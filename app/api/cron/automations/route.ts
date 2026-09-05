@@ -32,8 +32,10 @@ export async function GET(request: Request) {
       .from("profiles")
       .select("*");
 
+    // Thrown, not returned: a return here would leave the cron_runs row open
+    // with a fresh started_at and no ok, which the watchdog reads as healthy.
     if (profilesError || !profiles) {
-      return NextResponse.json({ error: "Failed to fetch profiles" }, { status: 500 });
+      throw new Error("Failed to fetch profiles");
     }
 
     // 3. Fetch boards
@@ -42,7 +44,7 @@ export async function GET(request: Request) {
       .select("*");
 
     if (boardsError || !boards) {
-      return NextResponse.json({ error: "Failed to fetch boards" }, { status: 500 });
+      throw new Error("Failed to fetch boards");
     }
 
     // 4. Fetch all active items
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
       .is("deleted_at", null);
 
     if (itemsError || !items) {
-      return NextResponse.json({ error: "Failed to fetch items" }, { status: 500 });
+      throw new Error("Failed to fetch items");
     }
 
     // 5. Fetch the configured automations. Without these, evaluateTimeAutomations
@@ -62,7 +64,7 @@ export async function GET(request: Request) {
       .select("*");
 
     if (automationsError || !automations) {
-      return NextResponse.json({ error: "Failed to fetch automations" }, { status: 500 });
+      throw new Error("Failed to fetch automations");
     }
 
     // 6. The company timezone decides what "today" means for overdue and SLA rules.
