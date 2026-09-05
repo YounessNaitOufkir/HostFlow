@@ -1,0 +1,180 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>HostFlow banner</title>
+<!--
+  The source of docs/assets/banner.webp — the image at the top of the README.
+
+  It is the sign-in panel's artwork, re-laid-out wide: the same five streams and
+  the same three bars, which are the logo's own three. The bars are authored at
+  their schedule positions and transformed BACK into the mark, so the compact
+  state is the logo itself rather than a picture of it, and the expansion is one
+  set of objects moving rather than a cross-fade.
+
+  Two things differ from the panel, both because a banner is wide where the panel
+  is tall: the whole schedule sits in the right half, clear of the headline, and
+  every stream duration divides the 13s cycle so the captured loop is seamless.
+
+  Geometry is copied from app/login/page.tsx and the keyframes from the "Sign-in
+  panel" block in app/globals.css. If a bar moves there, it moves here.
+
+  Re-shoot with:  node scripts/capture-readme.mjs banner
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&display=swap" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #0c1226; }
+  body {
+    width: 1280px; height: 400px; overflow: hidden;
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .banner { position: relative; width: 1280px; height: 400px; background: #0c1226; overflow: hidden; }
+  .art { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+
+  .brand { position: absolute; left: 72px; top: 52px; z-index: 2; display: flex; align-items: center; gap: 12px; }
+  .brand svg { width: 34px; height: 34px; display: block; }
+  .brand span { color: #fff; font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
+
+  h1 {
+    position: absolute; left: 72px; top: 128px; z-index: 2;
+    color: #fff; font-size: 58px; font-weight: 800; line-height: 1.13; letter-spacing: -.025em;
+  }
+
+  .sub {
+    position: absolute; left: 74px; top: 302px; z-index: 2;
+    color: #8fa0c4; font-size: 12px; font-weight: 700; letter-spacing: .19em; text-transform: uppercase;
+  }
+
+  /* ── the flow ─────────────────────────────────────────────────────────
+     Every duration divides 13s, so all five streams return to their start
+     exactly when the unfold does and the captured loop has no seam. */
+  @keyframes hfStream { from { stroke-dashoffset: 420; } to { stroke-dashoffset: 0; } }
+  .hf-stream {
+    fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 120 300;
+    animation: hfStream 13s linear infinite;
+  }
+
+  /* ── the unfold ───────────────────────────────────────────────────────
+     Each bar is authored at its SCHEDULE position and transformed back into
+     its place in the logo, so transform-origin is the bar's own left edge:
+     scaleX then grows it rightward out of the mark rather than from centre. */
+  @keyframes hfBar1 {
+    0%, 9%    { transform: translate(156.5px, 12.85px) scaleX(.639); }
+    33%, 72%  { transform: translate(0, 0) scaleX(1); }
+    96%, 100% { transform: translate(156.5px, 12.85px) scaleX(.639); }
+  }
+  @keyframes hfBar2 {
+    0%, 9%    { transform: translate(51.9px, 0) scaleX(.652); }
+    33%, 72%  { transform: translate(0, 0) scaleX(1); }
+    96%, 100% { transform: translate(51.9px, 0) scaleX(.652); }
+  }
+  @keyframes hfBar3 {
+    0%, 9%    { transform: translate(-89.6px, -12.85px) scaleX(.509); }
+    33%, 72%  { transform: translate(0, 0) scaleX(1); }
+    96%, 100% { transform: translate(-89.6px, -12.85px) scaleX(.509); }
+  }
+  .hf-bar1 { animation: hfBar1 13s cubic-bezier(.65, 0, .25, 1) infinite; }
+  .hf-bar2 { animation: hfBar2 13s cubic-bezier(.65, 0, .25, 1) infinite; }
+  .hf-bar3 { animation: hfBar3 13s cubic-bezier(.65, 0, .25, 1) infinite; }
+
+  @keyframes hfCtx { 0%, 15% { opacity: 0; } 34%, 72% { opacity: 1; } 90%, 100% { opacity: 0; } }
+  .hf-ctx { opacity: 0; animation: hfCtx 13s ease-in-out infinite; }
+
+  @keyframes hfLink {
+    0%, 33%   { stroke-dashoffset: 64; opacity: 0; }
+    38%       { opacity: 1; }
+    52%, 72%  { stroke-dashoffset: 0; opacity: 1; }
+    88%, 100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+  .hf-link {
+    stroke: rgba(255,255,255,.42); stroke-width: 1.8; fill: none; stroke-linecap: square;
+    stroke-dasharray: 64; stroke-dashoffset: 64; animation: hfLink 13s ease-out infinite;
+  }
+  @keyframes hfHead { 0%, 50% { opacity: 0; } 56%, 72% { opacity: 1; } 88%, 100% { opacity: 0; } }
+  .hf-head { fill: rgba(255,255,255,.42); opacity: 0; animation: hfHead 13s ease-out infinite; }
+</style>
+
+<div class="banner">
+  <svg class="art" viewBox="0 0 1280 400" aria-hidden="true">
+    <defs>
+      <!-- The streams run off the left of their own coordinate space. A veil in
+           the background colour, painted over that edge, stops them from
+           starting at a hard vertical line halfway across the banner. Drawn on
+           top rather than masked: a mask here resolves its gradient against the
+           masked group's bounding box, which is not the box you think it is. -->
+      <linearGradient id="veil" x1="0" x2="1" y1="0" y2="0">
+        <stop offset="0" stop-color="#0c1226" stop-opacity="1" />
+        <stop offset="1" stop-color="#0c1226" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+
+    <!-- The panel's artwork, scaled to 0.775 and moved into the right half:
+         its own (-40,200) lands at (640,70) and its (760,540) at (1260,333). -->
+    <g transform="translate(671,-85) scale(0.775)">
+
+      <!-- Ghost lanes: what holds the composition together for anyone who has
+           asked their system to stop animations. -->
+      <g stroke="#8fa0c4" stroke-opacity=".12" stroke-width="1.5" fill="none">
+        <path d="M-40 200 C 10 200, 40 282, 70 282 L 570 282 C 640 282, 660 240, 760 240" />
+        <path d="M-40 240 C 10 240, 40 330, 70 330 L 570 330 C 640 330, 660 286, 760 286" />
+        <path d="M-40 452 C 10 452, 40 378, 70 378 L 570 378 C 640 378, 660 344, 760 344" />
+        <path d="M-40 352 C 10 352, 40 426, 70 426 L 570 426 C 640 426, 660 478, 760 478" />
+        <path d="M-40 540 C 10 540, 40 474, 70 474 L 570 474 C 640 474, 660 520, 760 520" />
+      </g>
+
+      <!-- Five streams, negative delays so they are already mid-flow and never
+           fall into step. Two of the five carry no bar: the plan is three rows,
+           the flow is wider than the plan. -->
+      <g>
+        <path class="hf-stream" stroke="#f5a623" stroke-opacity=".5"
+              style="animation-duration:13s"
+              d="M-40 200 C 10 200, 40 282, 70 282 L 570 282 C 640 282, 660 240, 760 240" />
+        <path class="hf-stream" stroke="#5b7fd4" stroke-opacity=".46"
+              style="animation-duration:13s;animation-delay:-4s"
+              d="M-40 240 C 10 240, 40 330, 70 330 L 570 330 C 640 330, 660 286, 760 286" />
+        <path class="hf-stream" stroke="#f5a623" stroke-opacity=".42"
+              style="animation-duration:6.5s;animation-delay:-2.1s"
+              d="M-40 452 C 10 452, 40 378, 70 378 L 570 378 C 640 378, 660 344, 760 344" />
+        <path class="hf-stream" stroke="#5b7fd4" stroke-opacity=".44"
+              style="animation-duration:13s;animation-delay:-9s"
+              d="M-40 352 C 10 352, 40 426, 70 426 L 570 426 C 640 426, 660 478, 760 478" />
+        <path class="hf-stream" stroke="#f5a623" stroke-opacity=".34"
+              style="animation-duration:6.5s;animation-delay:-5.2s"
+              d="M-40 540 C 10 540, 40 474, 70 474 L 570 474 C 640 474, 660 520, 760 520" />
+      </g>
+
+      <!-- The mark's own three bars, authored at their schedule positions.
+           White, amber, white — the logo's own colours. -->
+      <rect class="hf-bar1" x="90" y="317" width="110" height="26" rx="13" fill="#ffffff" fill-opacity=".93" style="transform-origin:90px 330px" />
+      <rect class="hf-bar2" x="216" y="365" width="150" height="26" rx="13" fill="#f5a623" style="transform-origin:216px 378px" />
+      <rect class="hf-bar3" x="382" y="413" width="120" height="26" rx="13" fill="#ffffff" fill-opacity=".93" style="transform-origin:382px 426px" />
+
+      <!-- The chain, across the mark's own bars and only those. Each link is the
+           same shape: out 8 from the predecessor's right edge, down exactly one
+           row, in 8 onto the successor's left edge. -->
+      <g class="hf-ctx">
+        <path class="hf-link" d="M200 330 H208 V378 H210" />
+        <path class="hf-link" d="M366 378 H374 V426 H376" />
+        <polygon class="hf-head" points="216,378 207,373.5 207,382.5" />
+        <polygon class="hf-head" points="382,426 373,421.5 373,430.5" />
+      </g>
+    </g>
+
+    <rect x="600" y="0" width="150" height="400" fill="url(#veil)" />
+  </svg>
+
+  <div class="brand">
+    <svg viewBox="0 0 512 512" aria-hidden="true">
+      <rect x="104" y="130" width="184" height="68" rx="34" fill="#ffffff" />
+      <rect x="160" y="222" width="256" height="68" rx="34" fill="#F5A623" />
+      <rect x="224" y="314" width="160" height="68" rx="34" fill="#ffffff" />
+    </svg>
+    <span>HostFlow</span>
+  </div>
+
+  <h1>Keep the work<br />flowing.</h1>
+
+  <div class="sub">plan · track · automate</div>
+</div>

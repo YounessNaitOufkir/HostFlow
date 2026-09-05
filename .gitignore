@@ -1,0 +1,83 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+# ...except the template, which carries names and no values.
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# disposable admin/recovery scripts (use service_role key, never commit)
+/inspect.ts
+/recover_statuses.ts
+/migrate_imported_board.ts
+
+# Monday.com exports — contain real task data and credentials from the
+# updates sheet (serial keys, passwords, door codes). Never commit.
+/*.xlsx
+/*_Export/
+
+# Seeded by e2e-gantt/seed.js
+e2e-gantt/.fixture.json
+e2e-gantt/.audit.json
+e2e-gantt/.auth.json
+
+# Playwright run output (screenshots, traces)
+test-results/
+
+# Design canvas working files (the canvas itself lives as a published artifact)
+design/
+
+# Local tooling and working notes — useful on a machine, noise in the repo.
+.agents/
+AGENTS.md
+CLAUDE.md
+AUDIT_BRIEF.md
+QA_REPORT.md
+QA_E2E_REPORT.md
+PRODUCTION_READINESS_PLAN.md
+apply-dark-mode.js
+db.sql
+query.js
+test-db.js
+test-policies.mjs
+test-supabase.mjs
+update_widths.js
+
+# Ad-hoc SQL kept on the machine, superseded by supabase/migrations/.
+scratch/
