@@ -372,6 +372,52 @@ async function run() {
     (profs ?? []).length <= 1,
     `sees ${(profs ?? []).length} profile row(s)`);
 
+  // Privilege escalation. "Profiles: Update own" decides which ROW you may write
+  // and never which columns, and there is no trigger on profiles - so the only
+  // thing standing between any signed-in account and `role = 'admin'` is the
+  // column GRANT. The client only offers that button to the platform owner, but
+  // the client is not the boundary. Both flags are set at once because
+  // profiles_admin_implies_staff would otherwise reject the row for the wrong
+  // reason and hide a grant that is still open.
+  const { data: me } = await asExternal.auth.getUser();
+  const externalId = me?.user?.id;
+
+  const escalate = await asExternal
+    .from("profiles")
+    .update({ role: "admin", is_staff: true })
+    .eq("id", externalId);
+  check("an external account cannot make itself an administrator",
+    escalate.error !== null,
+    escalate.error ? escalate.error.code ?? escalate.error.message : "THE UPDATE WAS ACCEPTED");
+
+  const ownerGrab = await asExternal
+    .from("profiles")
+    .update({ is_owner: true })
+    .eq("id", externalId);
+  check("an external account cannot make itself the platform owner",
+    ownerGrab.error !== null,
+    ownerGrab.error ? ownerGrab.error.code ?? ownerGrab.error.message : "THE UPDATE WAS ACCEPTED");
+
+  // The escalation must fail because the column is ungranted, not because the
+  // row was already what it claimed. Read it back through the service role.
+  const { data: after } = await admin
+    .from("profiles")
+    .select("role, is_staff, is_owner")
+    .eq("id", externalId)
+    .single();
+  check("the external account is still an ordinary member",
+    after?.role !== "admin" && after?.is_owner !== true,
+    `role=${after?.role} is_staff=${after?.is_staff} is_owner=${after?.is_owner}`);
+
+  // Closing the hole must not take ordinary profile editing with it.
+  const rename = await asExternal
+    .from("profiles")
+    .update({ full_name: "ZZ RLS External" })
+    .eq("id", externalId);
+  check("an account can still edit its own name",
+    rename.error === null,
+    rename.error ? rename.error.message : "accepted");
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
   if (failed.length) {
