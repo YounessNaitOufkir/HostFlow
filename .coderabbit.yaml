@@ -11,6 +11,13 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
+    # Auto-review only fires on PRs targeting the default branch by default.
+    # coderabbit/empty-base is the disposable base used to get CodeRabbit to
+    # look at a whole directory at once (diffing against an empty tree) rather
+    # than only what changed recently — see review/* branches, none of which
+    # are meant to be merged.
+    base_branches:
+      - "coderabbit/empty-base"
   path_filters:
     # Generated README screenshots and clips — binary, and re-shot by
     # scripts/capture-readme.mjs rather than hand-edited.
