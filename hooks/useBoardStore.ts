@@ -15,6 +15,7 @@
 import { useReducer, useEffect, useCallback } from "react";
 import { usePromptModal } from "@/hooks/usePromptModal";
 import { useWorkspaceDialog } from "@/hooks/useWorkspaceDialog";
+import { STORAGE_KEYS, migrateLegacyStorageKeys } from "@/lib/storageKeys";
 import { boardReducer, initialBoardStoreState } from "./store/boardReducer";
 import { useWorkspaceMutations } from "./store/useWorkspaceMutations";
 import { useBoardMutations } from "./store/useBoardMutations";
@@ -33,9 +34,11 @@ export function useBoardStore() {
   // --- Hydrate from localStorage on mount ---
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedCollapsed = localStorage.getItem(
-        "monday_clone_collapsed_groups"
-      );
+      // Anything still stored under the old `monday_clone_*` names moves across
+      // first, so an existing browser keeps its preferences through the rename.
+      migrateLegacyStorageKeys();
+
+      const savedCollapsed = localStorage.getItem(STORAGE_KEYS.collapsedGroups);
       if (savedCollapsed) {
         try {
           const parsed = JSON.parse(savedCollapsed);
@@ -47,7 +50,7 @@ export function useBoardStore() {
         } catch (e) {}
       }
 
-      const savedHidden = localStorage.getItem("monday_clone_hidden_columns");
+      const savedHidden = localStorage.getItem(STORAGE_KEYS.hiddenColumns);
       if (savedHidden) {
         try {
           const parsed = JSON.parse(savedHidden);
@@ -56,7 +59,7 @@ export function useBoardStore() {
           }
         } catch (e) {}
       }
-      const savedSidebar = localStorage.getItem("monday_clone_sidebar");
+      const savedSidebar = localStorage.getItem(STORAGE_KEYS.sidebar);
       if (savedSidebar !== null) {
         dispatch({
           type: "SET_SHOW_SIDEBAR",
@@ -77,10 +80,7 @@ export function useBoardStore() {
       // Sidebar visibility stays per-browser: it is a display preference, not a
       // location, and it is the same whoever is signed in. The location itself
       // is persisted per user in app/page.tsx.
-      localStorage.setItem(
-        "monday_clone_sidebar",
-        String(state.showWorkspaceSidebar)
-      );
+      localStorage.setItem(STORAGE_KEYS.sidebar, String(state.showWorkspaceSidebar));
     }
   }, [
     state.showWorkspaceSidebar,
