@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-// Host'Lik PM — Main Application Page (Refactored Orchestrator)
+// HostFlow — main application page (orchestrator)
 // ============================================================
 //
 // This file is now a thin orchestrator (~250 lines) that composes:
@@ -78,7 +78,7 @@ import TaskCreateModal from "@/components/TaskCreateModal";
 
 import type { ColumnType } from "@/types";
 
-export default function MondayClone() {
+export default function HostFlowApp() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
 
   // Mirrors the language chosen in this browser onto the profile, so the cron

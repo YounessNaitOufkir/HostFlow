@@ -1,4 +1,5 @@
 import type { BoardStoreState, BoardAction } from "./types";
+import { STORAGE_KEYS } from "@/lib/storageKeys";
 
 export const initialBoardStoreState: BoardStoreState = {
   loading: true,
@@ -238,7 +239,7 @@ export function boardReducer(
       };
       if (typeof window !== "undefined") {
         localStorage.setItem(
-          "monday_clone_hidden_columns",
+          STORAGE_KEYS.hiddenColumns,
           JSON.stringify(newHiddenColumns)
         );
       }
