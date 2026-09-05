@@ -11,12 +11,7 @@
 
 import type { Board, Group, Item, Profile, StatusOption } from "@/types";
 import { STATUS_OPTIONS } from "@/types";
-import {
-  firstStatusValue,
-  isDoneStatusValue,
-  isStuckStatusValue,
-  isWorkingStatusValue,
-} from "@/lib/statusSemantics";
+import { firstStatusValue, itemStatusSemantic } from "@/lib/statusSemantics";
 import { endDateOf, toDateOnly, addDaysOnly, daysBetween } from "@/lib/gantt/dates";
 import { statusHex, NEUTRAL_STATUS_COLOR } from "@/lib/statusColor";
 
@@ -155,10 +150,13 @@ export function computeDashboardMetrics(
     const label = status && status.trim() ? status : "Not Started";
     statusCounts.set(label, (statusCounts.get(label) || 0) + 1);
 
-    const finished = isDoneStatusValue(status);
+    // Read through the board's own labels, not just the words: a board that
+    // declares "On site" as working must not count as nothing in progress.
+    const semantic = itemStatusSemantic(board.columns || [], item.column_values);
+    const finished = semantic === "done";
     if (finished) done++;
-    else if (isStuckStatusValue(status)) stuck++;
-    else if (isWorkingStatusValue(status)) working++;
+    else if (semantic === "stuck") stuck++;
+    else if (semantic === "working") working++;
 
     const assignee = assigneeIdOf(board, item);
     if (assignee) assigneeCounts.set(assignee, (assigneeCounts.get(assignee) || 0) + 1);

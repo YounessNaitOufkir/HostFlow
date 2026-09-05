@@ -4,7 +4,7 @@ import { isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { createAdminClient } from "@/lib/supabase/server";
 import { notifyUsersViaTelegram } from "@/app/actions/telegram-notifications";
 import { buildDigestMessage } from "@/lib/digestMessage";
-import { firstStatusValue, isDoneStatusValue } from "@/lib/statusSemantics";
+import { itemIsDone } from "@/lib/statusSemantics";
 
 // Helper to get due state of a date string
 function getDueState(dateString: string): "today" | "overdue" | "future" | "none" {
@@ -139,11 +139,11 @@ export async function GET(request: Request) {
       // majority were done. The overdue automation has always applied this test
       // (!isDoneStatus); the digest simply never did.
       //
-      // firstStatusValue mirrors the engine's choice of column, so the two agree
-      // about an item, and the pattern covers boards whose done label is not the
-      // English word — the imported French board's is "Fait".
-      const status = firstStatusValue(board.columns || [], item.column_values);
-      if (isDoneStatusValue(status)) return;
+      // itemIsDone mirrors the engine's choice of column, so the two agree about
+      // an item, and it reads the board's own declared labels before falling back
+      // to matching words — so a board whose done label is "Fait", or one that
+      // simply declares "Signed off" as finished, both answer correctly.
+      if (itemIsDone(board.columns || [], item.column_values)) return;
 
       // Check who is assigned
       for (const colId of peopleCols) {

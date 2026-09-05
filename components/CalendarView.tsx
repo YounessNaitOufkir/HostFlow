@@ -77,7 +77,11 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
           const val = item.column_values[statusColumn.id];
           if (val) {
             statusLabel = val;
-            const opt = STATUS_OPTIONS.find(o => o.label === val);
+            // The board's own labels first. Searching only STATUS_OPTIONS meant a
+            // board with its own vocabulary drew every bar grey except the ones
+            // whose label happened to coincide with a built-in default.
+            const options = statusColumn.settings?.statusLabels || STATUS_OPTIONS;
+            const opt = options.find(o => o.label === val);
             if (opt) {
               statusColor = statusHexOr(opt.color);
             }

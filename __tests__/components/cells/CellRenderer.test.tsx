@@ -90,3 +90,62 @@ describe("CellRenderer Dispatcher — Batch 2", () => {
     expect(container.firstChild).toHaveClass("shrink-0");
   });
 });
+
+describe("a timeline pill on work that is already finished", () => {
+  const columns: Column[] = [
+    {
+      id: "state",
+      title: "Status",
+      type: "status",
+      settings: {
+        statusLabels: [
+          { label: "Signed off", color: "bg-[#00c875]", semantic: "done" },
+          { label: "On site", color: "bg-[#fdab3d]", semantic: "working" },
+        ],
+      },
+    },
+    { id: "when", title: "Timeline", type: "timeline" },
+  ];
+
+  const past = { start: "2020-03-01", end: "2020-03-06" };
+
+  const renderPill = (state: string) =>
+    render(
+      <CellRenderer
+        item={
+          {
+            id: "i1",
+            board_id: "b1",
+            group_id: "g1",
+            name: "Strip out",
+            position: 0,
+            column_values: { state, when: past },
+          } as Item
+        }
+        column={columns[1]}
+        columns={columns}
+        activeStatusId={null}
+        setActiveStatusId={vi.fn()}
+        onUpdate={vi.fn()}
+      />
+    );
+
+  /** The pill carries the colour as a Tailwind class on the element holding the dates. */
+  const pillClasses = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll("*"))
+      .map((el) => el.className)
+      .filter((c) => typeof c === "string" && c.includes("bg-["))
+      .join(" ");
+
+  it("does not paint a past date red once the board says the work is done", () => {
+    // "Signed off" matches no done-pattern in either language, so this only
+    // passes if the board's declared labels are being read.
+    const { container } = renderPill("Signed off");
+    expect(pillClasses(container)).not.toContain("#e44258");
+  });
+
+  it("still paints a past date red while the work is unfinished", () => {
+    const { container } = renderPill("On site");
+    expect(pillClasses(container)).toContain("#e44258");
+  });
+});

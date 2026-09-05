@@ -6,6 +6,7 @@ import { DayPicker, DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import "react-day-picker/dist/style.css"; // Default styles for the calendar
 import { useLanguage } from "@/components/LanguageProvider";
+import { itemIsDone } from "@/lib/statusSemantics";
 
 interface TimelineCellProps {
   item: Item;
@@ -13,9 +14,11 @@ interface TimelineCellProps {
   onUpdate: (itemId: string, columnId: string, value: any) => void;
   activeStatusId?: string | null;
   setActiveStatusId?: (id: string | null) => void;
+  /** Every column on the board, so the pill can read the item's status. */
+  columns?: Column[];
 }
 
-export default function TimelineCell({ item, column, onUpdate, activeStatusId, setActiveStatusId }: TimelineCellProps) {
+export default function TimelineCell({ item, column, onUpdate, activeStatusId, setActiveStatusId, columns }: TimelineCellProps) {
   const { dateLocale } = useLanguage();
   const value = item.column_values?.[column.id] || null;
   const isEditing = activeStatusId === item.id + column.id;
@@ -90,6 +93,11 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
   let pillText = "";
   let isOverdue = false;
 
+  // A date in the past is only late if the work is not already finished.
+  // Without this, every completed task on the board is painted overdue red.
+  const finished = itemIsDone(columns ?? [], item.column_values);
+  const PAST_DONE = { bg: "bg-[#9aa4b8]", text: "text-white" };
+
   if (value && value.start && value.end) {
     const s = new Date(value.start);
     const e = new Date(value.end);
@@ -115,10 +123,10 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
     endDateOnly.setHours(0, 0, 0, 0);
 
     if (endDateOnly < now) {
-      // Overdue — bold red like Monday.com
-      pillBg = "bg-[#e44258]";
+      // Overdue — bold red like Monday.com. Finished work reads as history instead.
+      pillBg = finished ? PAST_DONE.bg : "bg-[#e44258]";
       pillText = "text-white";
-      isOverdue = true;
+      isOverdue = !finished;
     } else if (s <= now && e >= now) {
       // Active — vivid blue
       pillBg = "bg-[#579bfc]";
@@ -137,9 +145,9 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
     startDate.setHours(0, 0, 0, 0);
     
     if (startDate < now) {
-      pillBg = "bg-[#e44258]";
+      pillBg = finished ? PAST_DONE.bg : "bg-[#e44258]";
       pillText = "text-white";
-      isOverdue = true;
+      isOverdue = !finished;
     } else {
       pillBg = "bg-[#579bfc]";
       pillText = "text-white";
