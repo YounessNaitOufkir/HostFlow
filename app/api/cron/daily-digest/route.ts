@@ -4,6 +4,8 @@ import { isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 import { createAdminClient } from "@/lib/supabase/server";
 import { notifyUsersViaTelegram, type TelegramFanOut } from "@/app/actions/telegram-notifications";
 import { buildDigestMessage } from "@/lib/digestMessage";
+import { buildDigestEmail } from "@/lib/digestEmail";
+import { sendEmail } from "@/lib/email";
 import { itemIsDone } from "@/lib/statusSemantics";
 import { todayInTimezone, dueStateIn } from "@/lib/orgTime";
 
@@ -30,13 +32,21 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient();
 
-    // 2. Fetch profiles with Telegram enabled AND Daily Digest enabled
+    // 2. Everyone who asked for a digest.
+    //
+    // This used to additionally require telegram_notifications_enabled and a
+    // chat id, which made the digest silently Telegram-only: the setting says
+    // "a morning summary of what is due today" and names no channel, so anyone
+    // who switched it on without connecting Telegram got nothing, every
+    // morning, with nothing to tell them why. Eight of nine accounts were in
+    // exactly that state. The channel is now chosen per profile below, from
+    // what each one actually has.
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, telegram_chat_id, telegram_notifications_enabled, daily_digest_enabled, language")
-      .eq("telegram_notifications_enabled", true)
-      .eq("daily_digest_enabled", true)
-      .not("telegram_chat_id", "is", null);
+      .select(
+        "id, email, full_name, telegram_chat_id, telegram_notifications_enabled, daily_digest_enabled, language"
+      )
+      .eq("daily_digest_enabled", true);
 
     if (profilesError || !profiles || profiles.length === 0) {
       await finishCronRun(runId, true, { eligibleProfiles: 0 });
@@ -46,6 +56,7 @@ export async function GET(request: Request) {
     const activeUserIds = profiles.map(p => p.id);
     // Each digest is written to one reader, in the language they chose.
     const languageOf = new Map(profiles.map((p) => [p.id, p.language]));
+    const profileOf = new Map(profiles.map((p) => [p.id, p]));
 
     // 3. Fetch boards to map column IDs to types (we need to find 'people' and 'date' columns)
     const { data: boards, error: boardsError } = await supabase
@@ -168,32 +179,49 @@ export async function GET(request: Request) {
     // already awaits for exactly this reason, which is why task-assignment alerts
     // arrive and the digest did not.
     const sends: Promise<TelegramFanOut>[] = [];
+    const emailSends: Promise<{ ok: boolean }>[] = [];
     let sentCount = 0;
+    let emailedCount = 0;
     for (const userId of Object.keys(userTasks)) {
       const tasks = userTasks[userId];
-      if (tasks.length > 0) {
+      if (tasks.length === 0) continue;
+
+      const profile = profileOf.get(userId);
+      const locale = isLocale(languageOf.get(userId))
+        ? (languageOf.get(userId) as Locale)
+        : DEFAULT_LOCALE;
+
+      const asDigestTask = (t: TaskEntry) => ({
+        name: t.item.name,
+        workspace: workspaceNameForBoard(t.item.board_id),
+      });
+      const dueToday = tasks.filter((t) => t.state === "today").map(asDigestTask);
+      const overdue = tasks.filter((t) => t.state === "overdue").map(asDigestTask);
+
+      // Telegram, for anyone who connected it.
+      if (profile?.telegram_notifications_enabled && profile.telegram_chat_id) {
         // Capped, escaped and HTML-formatted. Built inline before, in Markdown and
         // uncapped: a user with 201 due/overdue tasks produced roughly 6,300
         // characters and Telegram rejected the whole message as too long.
-        const message = buildDigestMessage(
-          tasks
-            .filter((t) => t.state === "today")
-            .map((t) => ({
-              name: t.item.name,
-              workspace: workspaceNameForBoard(t.item.board_id),
-            })),
-          tasks
-            .filter((t) => t.state === "overdue")
-            .map((t) => ({
-              name: t.item.name,
-              workspace: workspaceNameForBoard(t.item.board_id),
-            })),
-          isLocale(languageOf.get(userId)) ? (languageOf.get(userId) as Locale) : DEFAULT_LOCALE
-        );
-
-        // Already filtered for activeUserIds above, so each of these is eligible.
+        const message = buildDigestMessage(dueToday, overdue, locale);
         sends.push(notifyUsersViaTelegram([userId], message));
         sentCount++;
+      }
+
+      // Email, for anyone with an address. Same content, same order, same caps —
+      // a reader with both channels should see one digest twice, not two
+      // different digests.
+      if (profile?.email) {
+        const mail = buildDigestEmail(dueToday, overdue, locale, profile.full_name);
+        emailSends.push(
+          sendEmail({
+            to: profile.email,
+            subject: mail.subject,
+            html: mail.html,
+            text: mail.text,
+          }).then((r) => ({ ok: r.success }))
+        );
+        emailedCount++;
       }
     }
 
@@ -213,10 +241,26 @@ export async function GET(request: Request) {
       console.error(`[Daily Digest Cron] ${failed} of ${sends.length} sends failed.`);
     }
 
+    // Counted the same way and for the same reason: sendEmail reports a refusal
+    // as { success: false } rather than throwing, so counting rejections alone
+    // would report emailFailed: 0 on a morning when Resend accepted nothing.
+    const emailResults = await Promise.allSettled(emailSends);
+    const emailFailed = emailResults.reduce(
+      (n, r) => n + (r.status === "fulfilled" && r.value.ok ? 0 : 1),
+      0
+    );
+    if (emailFailed > 0) {
+      console.error(
+        `[Daily Digest Cron] ${emailFailed} of ${emailSends.length} digest emails failed.`
+      );
+    }
+
     await finishCronRun(runId, true, {
       eligibleProfiles: profiles.length,
       withTasks: sentCount,
       failed,
+      emailed: emailedCount,
+      emailFailed,
     });
 
     return NextResponse.json({
@@ -224,7 +268,11 @@ export async function GET(request: Request) {
       eligibleProfiles: profiles.length,
       withTasks: sentCount,
       failed,
-      message: `Daily digest sent to ${sentCount - failed} of ${sentCount} users with due work.`,
+      emailed: emailedCount,
+      emailFailed,
+      message:
+        `Daily digest: ${sentCount - failed} of ${sentCount} Telegram, ` +
+        `${emailedCount - emailFailed} of ${emailedCount} email.`,
     });
 
   } catch (error) {

@@ -44,6 +44,21 @@ export interface EmailDetail {
   value: string;
 }
 
+/**
+ * A titled list of lines — "Overdue (3)" over the three task names.
+ *
+ * The overdue and SLA emails each concern one task, so `details` (a label/value
+ * block) was all this template needed. The digest concerns many, and a repeated
+ * label down the left of every row reads as a table with one column wasted. This
+ * is optional and additive: the two existing emails pass nothing and render
+ * exactly as before.
+ */
+export interface EmailSection {
+  title: string;
+  lines: string[];
+  accent?: EmailAccent;
+}
+
 export interface EmailOptions {
   /** Sits under the subject in the inbox list. Never rendered in the body. */
   preheader: string;
@@ -52,6 +67,8 @@ export interface EmailOptions {
   greeting?: string;
   /** Sentences of the message. Plain text; markup is escaped. */
   paragraphs: string[];
+  /** Grouped lists, rendered above the label/value block. */
+  sections?: EmailSection[];
   /** The label/value block — board, due date, status. */
   details?: EmailDetail[];
   accent?: EmailAccent;
@@ -125,6 +142,31 @@ export function renderEmail(options: EmailOptions): { html: string; text: string
     )
     .join("");
 
+  // One block per section: a title, then a row per line. Tables and inline
+  // styles rather than <ul>, for the same reason the CTA is a table — Outlook.
+  const sections = options.sections?.length
+    ? options.sections
+        .filter((s) => s.lines.length > 0)
+        .map((s) => {
+          const rule = ACCENTS[s.accent ?? options.accent ?? "amber"];
+          return `<p style="margin:20px 0 8px;font:700 14px/1.4 ${FONT};color:${INK};">${escapeHtml(
+            s.title
+          )}</p>
+       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+              style="border-left:3px solid ${rule};background:${GROUND};border-radius:4px;">
+         ${s.lines
+           .map(
+             (line) =>
+               `<tr><td style="padding:8px 14px;font:400 14px/1.5 ${FONT};color:${INK};">${escapeHtml(
+                 line
+               )}</td></tr>`
+           )
+           .join("")}
+       </table>`;
+        })
+        .join("")
+    : "";
+
   const details = options.details?.length
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
               style="margin:20px 0;border-left:3px solid ${accent};background:${GROUND};border-radius:4px;">
@@ -186,7 +228,7 @@ export function renderEmail(options: EmailOptions): { html: string; text: string
           <h1 style="margin:0 0 16px;font:700 20px/1.3 ${FONT};color:${INK};">${escapeHtml(
             options.heading
           )}</h1>
-          ${greeting}${body}${details}${cta}
+          ${greeting}${body}${sections}${details}${cta}
         </td></tr>
         <tr><td style="padding:16px 24px;border-top:1px solid ${HAIRLINE};background:#fafbfc;border-radius:0 0 8px 8px;">
           ${footer}
@@ -202,6 +244,9 @@ export function renderEmail(options: EmailOptions): { html: string; text: string
     options.greeting ?? "",
     ...options.paragraphs,
     "",
+    ...(options.sections ?? [])
+      .filter((s) => s.lines.length > 0)
+      .flatMap((s) => [s.title, ...s.lines.map((line) => `- ${line}`), ""]),
     ...(options.details ?? []).map((d) => `${d.label}: ${d.value}`),
     "",
     options.cta ? `${options.cta.label}: ${options.cta.href}` : "",
