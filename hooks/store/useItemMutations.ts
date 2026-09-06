@@ -425,7 +425,20 @@ export function useItemMutations({
                     boardName: activeBoard.name,
                   }
                 })
-              }).catch(console.error);
+})
+              .then(async (r) => {
+                // A dead Google grant is the one calendar failure the reader
+                // can fix, and it used to be invisible: the sync swallowed it,
+                // the route reported success, and the settings screen went on
+                // saying "Connected" while nothing was written for weeks.
+                const body = await r.json().catch(() => null);
+                if (body?.reauthRequired > 0) {
+                  toast.error(
+                    "Google Calendar needs reconnecting - open Profile Settings to sign in again."
+                  );
+                }
+              })
+              .catch(console.error);
             }
           }
         }
@@ -702,7 +715,20 @@ export function useItemMutations({
                       boardName: board.title,
                     }
                   })
-                }).catch(console.error);
+})
+                .then(async (r) => {
+                  // A dead Google grant is the one calendar failure the reader
+                  // can fix, and it used to be invisible: the sync swallowed it,
+                  // the route reported success, and the settings screen went on
+                  // saying "Connected" while nothing was written for weeks.
+                  const body = await r.json().catch(() => null);
+                  if (body?.reauthRequired > 0) {
+                    toast.error(
+                      "Google Calendar needs reconnecting - open Profile Settings to sign in again."
+                    );
+                  }
+                })
+                .catch(console.error);
               }
             }
           }

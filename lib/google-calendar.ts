@@ -29,8 +29,45 @@ export function googleEventIdFor(taskId: string): string {
   return `hf${taskId.replace(/-/g, "").toLowerCase()}`;
 }
 
-export async function syncTaskToGoogleCalendar(userId: string, task: { id: string, name: string, start?: string, end?: string, boardName?: string }) {
-  if (!task.start) return; // Need at least a start date
+/**
+ * What a sync actually did. It used to return nothing at all.
+ *
+ * Every failure was caught and turned into a console.error, so the route above
+ * answered `{ success: true, synced: N }` whether or not a single event had been
+ * written. A refresh token that Google had stopped accepting looked exactly like
+ * a working one, for weeks.
+ */
+export type SyncOutcome =
+  | { ok: true }
+  | { ok: false; reason: "no-date" | "not-connected" }
+  /** The stored grant is dead. The tokens have been cleared; the user must reconnect. */
+  | { ok: false; reason: "reauth-required" }
+  | { ok: false; reason: "failed"; message: string };
+
+/**
+ * Whether Google is refusing the grant itself rather than having a bad moment.
+ *
+ * This is the one error worth acting on: invalid_grant means the refresh token
+ * will never work again — revoked, expired, or issued by a different client — so
+ * retrying is pointless and the stored copy is worse than useless, because
+ * google_connected is `google_refresh_token is not null` and a dead token
+ * therefore still reads as "Connected".
+ *
+ * Deliberately narrow. A timeout or a 5xx must NOT disconnect anybody.
+ */
+function isInvalidGrant(error: unknown): boolean {
+  const e = error as { message?: string; response?: { data?: { error?: string } } };
+  return (
+    e?.response?.data?.error === "invalid_grant" ||
+    (typeof e?.message === "string" && e.message.includes("invalid_grant"))
+  );
+}
+
+export async function syncTaskToGoogleCalendar(
+  userId: string,
+  task: { id: string, name: string, start?: string, end?: string, boardName?: string }
+): Promise<SyncOutcome> {
+  if (!task.start) return { ok: false, reason: "no-date" }; // Need at least a start date
 
   const supabase = createAdminClient();
   const { data: integration } = await supabase
@@ -40,7 +77,7 @@ export async function syncTaskToGoogleCalendar(userId: string, task: { id: strin
     .single();
 
   if (!integration || !integration.google_refresh_token) {
-    return; // User has not connected Google Calendar
+    return { ok: false, reason: "not-connected" };
   }
 
   const oauth2Client = getGoogleOAuthClient();
@@ -111,7 +148,7 @@ export async function syncTaskToGoogleCalendar(userId: string, task: { id: strin
         eventId: previous.id!,
         requestBody: body,
       });
-      return;
+      return { ok: true };
     }
 
     // The id is derived from the task, so the insert is the lock.
@@ -138,7 +175,29 @@ export async function syncTaskToGoogleCalendar(userId: string, task: { id: strin
         requestBody: body,
       });
     }
+
+    return { ok: true };
   } catch (error) {
+    if (isInvalidGrant(error)) {
+      // Say so in the only place the app can: the stored connection. Leaving a
+      // dead token in place is what let the settings screen show "Connected to
+      // Google Calendar" for weeks while nothing was written.
+      console.error(
+        `[Google Calendar Sync] the grant for ${userId} is no longer valid; clearing it so the UI stops claiming a connection.`
+      );
+      await supabase
+        .from('user_integrations')
+        .update({
+          google_access_token: null,
+          google_refresh_token: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+      return { ok: false, reason: "reauth-required" };
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
     console.error(`[Google Calendar Sync] Failed for user ${userId}:`, error);
+    return { ok: false, reason: "failed", message };
   }
 }

@@ -58,11 +58,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, synced: 0 });
     }
 
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       targets.map((userId: string) => syncTaskToGoogleCalendar(userId, task))
     );
 
-    return NextResponse.json({ success: true, synced: targets.length });
+    // Report what happened rather than the number of people asked.
+    //
+    // This returned `synced: targets.length` unconditionally, because the sync
+    // swallowed its own errors and returned nothing. A calendar that had not
+    // accepted a single event for weeks reported a clean success on every edit.
+    let synced = 0;
+    let failed = 0;
+    let reauthRequired = 0;
+    for (const result of results) {
+      if (result.status !== "fulfilled") { failed++; continue; }
+      if (result.value.ok) { synced++; continue; }
+      if (result.value.reason === "reauth-required") reauthRequired++;
+      else failed++;
+    }
+
+    return NextResponse.json({
+      success: failed === 0 && reauthRequired === 0,
+      synced,
+      failed,
+      // The client can tell the reader their calendar needs reconnecting, which
+      // is the one failure they can actually do something about.
+      reauthRequired,
+    });
   } catch (error) {
     console.error('[Google Sync API] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
