@@ -149,7 +149,14 @@ export function SearchPalette({
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
             placeholder={t("search.placeholderDeep")}
-            className="flex-1 bg-transparent border-0 outline-none text-[15px] text-gray-900 dark:text-white placeholder-gray-400"
+            // min-w-0 is load-bearing. A flex item's min-width defaults to auto,
+            // which for an input is its intrinsic size rather than zero, so this
+            // refused to shrink past the placeholder and pushed the badge beyond
+            // the dialog's overflow-hidden edge — "ALL WORKSPACES" arrived as
+            // "ALL WO". It clipped below 414px, which is most phones, and by
+            // 77px at 320px. The badge is shrink-0, so the input is what has to
+            // give.
+            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[15px] text-gray-900 dark:text-white placeholder-gray-400"
           />
           {isFetching && <Loader2 size={15} className="animate-spin text-gray-400 shrink-0" />}
           <span className="shrink-0 text-[10px] font-semibold tracking-[0.09em] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 rounded-full px-2 py-[3px]">
