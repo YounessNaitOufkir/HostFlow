@@ -127,6 +127,8 @@ export interface Profile {
   telegram_notifications_enabled?: boolean;
   email_notifications_enabled?: boolean;
   daily_digest_enabled?: boolean;
+  /** Which single channel the daily digest goes to. See lib/digestChannel.ts. */
+  digest_channel?: "email" | "telegram";
   in_app_alerts_enabled?: boolean;
   /** Interface language, mirrored from the browser so the cron can match it. */
   language?: Locale;

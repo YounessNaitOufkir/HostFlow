@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { useT } from "@/components/LanguageProvider";
+import { isDigestChannel, telegramIsUsable, type DigestChannel } from "@/lib/digestChannel";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { X, Upload, Loader2, Camera, Shield, User, Bell } from "lucide-react";
@@ -21,6 +22,11 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
   const [fullName, setFullName] = useState(profile.full_name);
   const [emailNotifications, setEmailNotifications] = useState(profile.email_notifications_enabled ?? true);
   const [dailyDigest, setDailyDigest] = useState(profile.daily_digest_enabled ?? true);
+  const [digestChannel, setDigestChannel] = useState<DigestChannel>(
+    isDigestChannel(profile.digest_channel) ? profile.digest_channel : "email"
+  );
+  // Telegram needs both halves: the bot connected, and /stop not pressed.
+  const telegramReady = telegramIsUsable(profile);
   const [inAppAlerts, setInAppAlerts] = useState(profile.in_app_alerts_enabled ?? true);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -75,10 +81,18 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
     const hasNameChanged = fullName !== profile.full_name;
     const hasEmailChanged = emailNotifications !== (profile.email_notifications_enabled ?? true);
     const hasDailyDigestChanged = dailyDigest !== (profile.daily_digest_enabled ?? true);
+    const hasDigestChannelChanged =
+      digestChannel !== (isDigestChannel(profile.digest_channel) ? profile.digest_channel : "email");
     const hasInAppAlertsChanged = inAppAlerts !== (profile.in_app_alerts_enabled ?? true);
     
     // If nothing changed, just close the modal
-    if (!hasNameChanged && !hasEmailChanged && !hasDailyDigestChanged && !hasInAppAlertsChanged) {
+    if (
+      !hasNameChanged &&
+      !hasEmailChanged &&
+      !hasDailyDigestChanged &&
+      !hasDigestChannelChanged &&
+      !hasInAppAlertsChanged
+    ) {
       onClose();
       return;
     }
@@ -93,6 +107,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
           full_name: fullName,
           email_notifications_enabled: emailNotifications,
           daily_digest_enabled: dailyDigest,
+          digest_channel: digestChannel,
           in_app_alerts_enabled: inAppAlerts
         })
         .eq('id', profile.id);
@@ -261,12 +276,52 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
                   </div>
                   <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">{t("profile.digest")}</h4>
-                    <p className="text-xs text-gray-500">{t("profile.digestBody")}</p>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white text-sm">{t("profile.digest")}</h4>
+                      <p className="text-xs text-gray-500">{t("profile.digestBody")}</p>
+                    </div>
+                    <input type="checkbox" checked={dailyDigest} onChange={(e) => setDailyDigest(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
                   </div>
-                  <input type="checkbox" checked={dailyDigest} onChange={(e) => setDailyDigest(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
+
+                  {/* The digest goes to ONE channel. Shown only when it is on,
+                      because a channel for a thing you do not receive is noise. */}
+                  {dailyDigest && (
+                    <div className="mt-3 pl-0">
+                      <div
+                        role="radiogroup"
+                        aria-label={t("profile.digestChannel")}
+                        className="inline-flex rounded-lg border border-gray-200 dark:border-slate-700 p-0.5 bg-gray-50 dark:bg-slate-800"
+                      >
+                        {(["email", "telegram"] as const).map((channel) => (
+                          <button
+                            key={channel}
+                            type="button"
+                            role="radio"
+                            aria-checked={digestChannel === channel}
+                            onClick={() => setDigestChannel(channel)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                              digestChannel === channel
+                                ? "bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                            }`}
+                          >
+                            {t(channel === "email" ? "profile.digestViaEmail" : "profile.digestViaTelegram")}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Telegram chosen but unusable. Saying so is the whole
+                          point: the digest was silently Telegram-only once, and
+                          nobody could tell why nothing arrived. */}
+                      {digestChannel === "telegram" && !telegramReady && (
+                        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                          {t("profile.digestTelegramMissing")}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
                   <div>

@@ -418,6 +418,28 @@ async function run() {
     rename.error === null,
     rename.error ? rename.error.message : "accepted");
 
+  // The other half of that trade-off, and the one that fails in silence.
+  //
+  // Every user-editable column has to be named in the grant that replaced the
+  // table-wide one. A column left out is not an error: PostgREST accepts the
+  // request, updates nothing, and reports success - so the settings screen
+  // looks like it saved and the preference simply never persists. Read back
+  // rather than trusting the absent error.
+  const wanted =
+    (await admin.from("profiles").select("digest_channel").eq("id", externalId).single())
+      .data?.digest_channel === "telegram" ? "email" : "telegram";
+  await asExternal.from("profiles").update({ digest_channel: wanted }).eq("id", externalId);
+  const { data: channel } = await admin
+    .from("profiles")
+    .select("digest_channel")
+    .eq("id", externalId)
+    .single();
+  check("an account can still set its own digest channel",
+    channel?.digest_channel === wanted,
+    channel?.digest_channel === wanted
+      ? `saved as ${wanted}`
+      : `WROTE ${wanted} BUT READ BACK ${channel?.digest_channel} - column not granted`);
+
   console.log("\nOAuth tokens");
   // The connect button used to select google_refresh_token just to test it for
   // null. A refresh token does not expire the way an access token does, so it

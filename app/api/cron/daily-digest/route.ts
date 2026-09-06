@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { notifyUsersViaTelegram, type TelegramFanOut } from "@/app/actions/telegram-notifications";
 import { buildDigestMessage } from "@/lib/digestMessage";
 import { buildDigestEmail } from "@/lib/digestEmail";
+import { digestDeliveryFor } from "@/lib/digestChannel";
 import { sendEmail } from "@/lib/email";
 import { itemIsDone } from "@/lib/statusSemantics";
 import { todayInTimezone, dueStateIn } from "@/lib/orgTime";
@@ -43,9 +44,9 @@ export async function GET(request: Request) {
     // what each one actually has.
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select(
-        "id, email, full_name, telegram_chat_id, telegram_notifications_enabled, daily_digest_enabled, language"
-      )
+      // One string literal, not a concatenation: supabase-js infers the row type
+      // from this text, and a `+` here collapses every field to an error type.
+      .select("id, email, full_name, telegram_chat_id, telegram_notifications_enabled, daily_digest_enabled, digest_channel, language")
       .eq("daily_digest_enabled", true);
 
     if (profilesError || !profiles || profiles.length === 0) {
@@ -182,6 +183,8 @@ export async function GET(request: Request) {
     const emailSends: Promise<{ ok: boolean }>[] = [];
     let sentCount = 0;
     let emailedCount = 0;
+    let fellBackToEmail = 0;
+    let unreachable = 0;
     for (const userId of Object.keys(userTasks)) {
       const tasks = userTasks[userId];
       if (tasks.length === 0) continue;
@@ -198,30 +201,42 @@ export async function GET(request: Request) {
       const dueToday = tasks.filter((t) => t.state === "today").map(asDigestTask);
       const overdue = tasks.filter((t) => t.state === "overdue").map(asDigestTask);
 
-      // Telegram, for anyone who connected it.
-      if (profile?.telegram_notifications_enabled && profile.telegram_chat_id) {
+      // ONE channel, the reader's own choice.
+      //
+      // This sent to every channel a profile had for exactly one morning, which
+      // meant anyone with Telegram connected got the same digest twice. The two
+      // builders produce the same content on purpose, so a duplicate is pure
+      // noise rather than extra information.
+      const delivery = digestDeliveryFor(profile ?? {});
+
+      if (delivery.via === "telegram") {
         // Capped, escaped and HTML-formatted. Built inline before, in Markdown and
         // uncapped: a user with 201 due/overdue tasks produced roughly 6,300
         // characters and Telegram rejected the whole message as too long.
         const message = buildDigestMessage(dueToday, overdue, locale);
         sends.push(notifyUsersViaTelegram([userId], message));
         sentCount++;
-      }
-
-      // Email, for anyone with an address. Same content, same order, same caps —
-      // a reader with both channels should see one digest twice, not two
-      // different digests.
-      if (profile?.email) {
-        const mail = buildDigestEmail(dueToday, overdue, locale, profile.full_name);
+      } else if (delivery.via === "email") {
+        const mail = buildDigestEmail(dueToday, overdue, locale, profile?.full_name);
         emailSends.push(
           sendEmail({
-            to: profile.email,
+            to: profile!.email!,
             subject: mail.subject,
             html: mail.html,
             text: mail.text,
           }).then((r) => ({ ok: r.success }))
         );
         emailedCount++;
+        // Worth a line in the log: they asked for Telegram and are getting
+        // email, which is a state the settings screen also tells them about.
+        if (delivery.fallback) fellBackToEmail++;
+      } else {
+        // Neither channel is reachable, which is the silence this whole change
+        // exists to stop being invisible.
+        console.warn(
+          `[Daily Digest Cron] no channel for ${userId}: ${delivery.reason}`
+        );
+        unreachable++;
       }
     }
 
@@ -261,6 +276,8 @@ export async function GET(request: Request) {
       failed,
       emailed: emailedCount,
       emailFailed,
+      fellBackToEmail,
+      unreachable,
     });
 
     return NextResponse.json({
@@ -270,6 +287,8 @@ export async function GET(request: Request) {
       failed,
       emailed: emailedCount,
       emailFailed,
+      fellBackToEmail,
+      unreachable,
       message:
         `Daily digest: ${sentCount - failed} of ${sentCount} Telegram, ` +
         `${emailedCount - emailFailed} of ${emailedCount} email.`,
