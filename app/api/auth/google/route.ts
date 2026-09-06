@@ -29,10 +29,17 @@ export async function GET(request: Request) {
 
     const oauth2Client = getGoogleOAuthClient();
 
-    const scopes = [
-      'https://www.googleapis.com/auth/calendar.events',
-      'https://www.googleapis.com/auth/calendar.readonly'
-    ];
+    // calendar.events alone, deliberately.
+    //
+    // calendar.readonly used to sit alongside it and granted nothing this app
+    // uses: calendar.events already covers reading and writing events, which is
+    // all the sync does — it lists events carrying our own private extended
+    // property, then inserts or updates one. readonly additionally exposed every
+    // calendar the person can see, including ones HostFlow has no business
+    // reading, and it is a sensitive scope that has to be justified to Google
+    // like any other. Asking for less is both easier to consent to and easier
+    // to defend.
+    const scopes = ['https://www.googleapis.com/auth/calendar.events'];
 
     // A random, single-use state held in an HttpOnly cookie.
     //

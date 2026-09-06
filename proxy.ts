@@ -58,15 +58,23 @@ export default async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If there is no user and the route is not /login, /auth, /update-password, or an
-  // API route, redirect to /login. /auth must stay open to signed-out visitors: that
-  // is where the OAuth code is exchanged for a session, so by definition there is no
-  // user yet when the request arrives.
+  // If there is no user and the route is not /login, /auth, /update-password, the
+  // public legal pages, or an API route, redirect to /login. /auth must stay open
+  // to signed-out visitors: that is where the OAuth code is exchanged for a
+  // session, so by definition there is no user yet when the request arrives.
+  //
+  // /privacy and /terms must stay open for a different reason. Google's OAuth
+  // consent screen links to them, and both its reviewers and anyone deciding
+  // whether to grant access read them BEFORE they have an account. Behind the
+  // redirect they would answer 307 to /login, which fails the consent-screen
+  // configuration and tells a prospective user nothing.
   if (
-    !user && 
-    !request.nextUrl.pathname.startsWith("/login") && 
+    !user &&
+    !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth/") &&
     !request.nextUrl.pathname.startsWith("/update-password") &&
+    !request.nextUrl.pathname.startsWith("/privacy") &&
+    !request.nextUrl.pathname.startsWith("/terms") &&
     !request.nextUrl.pathname.startsWith("/api/")
   ) {
     const url = request.nextUrl.clone();
