@@ -401,7 +401,7 @@ export const fr: Dictionary = {
   "auto.ruleShift": "Quand {column} est reportée, décaler tous les éléments dépendants",
   "auto.ruleShiftNote": "— plus nécessaire : les dates dépendantes se décalent désormais toujours. Vous pouvez la supprimer.",
   "auto.ruleMove": "Quand {column} passe à {value}, déplacer l'élément vers {group}",
-  "auto.colFallback": "Colonne",
+  "auto.anyDateColumn": "toute colonne de date ou de chronologie",
   "auto.groupFallback": "Groupe",
   "auto.timingDaily": "Chaque jour à {time}",
   "auto.timingInstant": "Instantané",

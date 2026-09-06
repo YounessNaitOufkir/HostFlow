@@ -11,6 +11,8 @@ import { addDaysOnly, dayIndex, toDateOnly } from "@/lib/gantt/dates";
 import { plotItemDates } from "@/lib/gantt/rows";
 import { collectDependencies } from "@/lib/gantt/dependencies";
 import { rescheduleFrom } from "@/lib/gantt/reschedule";
+import { resolveMoveTargetGroup } from "@/lib/automations/moveTarget";
+import { queryKeys } from "@/hooks/queries/queryKeys";
 
 
 interface UseItemMutationsProps {
@@ -189,10 +191,41 @@ export function useItemMutations({
         );
 
         if (eventAutomation.targetGroupId) {
-          targetGroupId = eventAutomation.targetGroupId;
-          const movedItem = { ...updatedItem, group_id: targetGroupId };
-          dispatch({ type: "UPDATE_ITEM", payload: movedItem });
+          // Check the group is really there before writing it.
+          //
+          // The rule stores an id chosen when it was created. Deleting that
+          // group leaves the rule enabled and pointing at nothing, so the next
+          // status change wrote a group_id the foreign key refused — and the
+          // reader was shown "a required related record could not be found"
+          // about an edit they made deliberately, naming a record they never
+          // saw. A missing Completed group is re-made, exactly as switching the
+          // automation on would have.
+          const resolution = await resolveMoveTargetGroup(supabase, {
+            boardId: activeBoard.id,
+            targetGroupId: eventAutomation.targetGroupId,
+            automationId: eventAutomation.matchedRuleId,
+          });
 
+          if (resolution.status === "ok") {
+            targetGroupId = resolution.groupId;
+            if (resolution.healed) {
+              // The board list in memory predates the group that was just made,
+              // so the row would otherwise move into a group nothing can render.
+              queryClient.invalidateQueries({ queryKey: queryKeys.boardData(activeBoard.id) });
+              queryClient.invalidateQueries({ queryKey: queryKeys.automations(activeBoard.id) });
+            }
+            const movedItem = { ...updatedItem, group_id: targetGroupId };
+            dispatch({ type: "UPDATE_ITEM", payload: movedItem });
+          } else {
+            // Better a saved status in the wrong group than a failed edit: the
+            // change the person actually made still lands.
+            toast.warning(
+              "Saved, but this task could not be filed automatically - its Completed group is missing."
+            );
+          }
+        }
+
+        {
           if (targetGroupId !== itemToUpdate.group_id) {
             const targetGroupName = "new group";
             const originalGroupId = itemToUpdate.group_id;

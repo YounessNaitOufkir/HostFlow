@@ -672,14 +672,19 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/20 z-40 panel-overlay-fade"
+        className="fixed inset-0 bg-black/20 z-[104] panel-overlay-fade"
         onClick={onClose}
       />
 
       {/* Panel */}
       <div 
         ref={panelRef}
-        className="fixed top-0 right-0 h-full max-w-[90vw] bg-white dark:bg-slate-900 shadow-2xl z-50 flex flex-col panel-slide-in"
+        // z-[105], not z-50. The Gantt toolbar is z-[100], so at z-50 this drawer
+        // opened UNDERNEATH it and the Today/Day/Week/Month controls drew straight
+        // through the updates panel. Above page chrome, below every real modal
+        // (ReadabilityModal 110, SearchPalette 120, settings 200) so those still
+        // open on top of it.
+        className="fixed top-0 right-0 h-full max-w-[90vw] bg-white dark:bg-slate-900 shadow-2xl z-[105] flex flex-col panel-slide-in"
         style={{ width: panelWidth }}
       >
         {/* Resize Handle */}

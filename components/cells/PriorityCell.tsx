@@ -21,7 +21,7 @@ const PRIORITY_OPTIONS = [
   { label: "High", color: "bg-[#e2445c] text-white" },
   { label: "Medium", color: "bg-[#a25ddc] text-white" },
   { label: "Low", color: "bg-[#579bfc] text-white" },
-  { label: "Empty", color: "bg-[#c4c4c4] text-white" },
+  { label: "Empty", color: "bg-[#c4c4c4] dark:bg-[#3e4157] text-white" },
 ];
 
 export default function PriorityCell({ item, column, activeStatusId, setActiveStatusId, onUpdate }: PriorityCellProps) {

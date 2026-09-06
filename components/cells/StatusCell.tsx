@@ -30,7 +30,11 @@ export default function StatusCell({
   const isOverdue = value === "Overdue" || value === "En retard";
   const currentOptions = column.settings?.statusLabels || STATUS_OPTIONS;
   const option = currentOptions.find((opt: any) => opt.label === value);
-  const bgColor = option ? option.color : (isOverdue ? "bg-gradient-to-r from-red-600 to-rose-600" : "bg-[#c4c4c4]");
+  // The empty chip needs a dark variant. #c4c4c4 is the neutral for the light
+  // theme and was applied unconditionally, so an unset Status rendered as a
+  // near-white bar in dark mode - which is what it looked like: a loading
+  // skeleton that never resolved.
+  const bgColor = option ? option.color : (isOverdue ? "bg-gradient-to-r from-red-600 to-rose-600" : "bg-[#c4c4c4] dark:bg-[#3e4157]");
 
   const isOpen = activeStatusId === cellKey;
   const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });

@@ -426,8 +426,21 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
     }
   };
 
+  /**
+   * What to call the column a rule watches.
+   *
+   * A workspace-wide rule stores the column id of whichever board it was created
+   * on, and every board names its columns differently — so on any OTHER board in
+   * the workspace the lookup missed and the sentence read "When Column arrives",
+   * which tells the reader nothing.
+   *
+   * The engine does not use that id for the time rules anyway: it scans every
+   * date and timeline column on whatever board it is evaluating. So when the id
+   * does not resolve here, the honest label is what the engine actually does,
+   * not a placeholder noun.
+   */
   const getColName = (id: string) =>
-    board.columns.find((c) => c.id === id)?.title || t("auto.colFallback");
+    board.columns.find((c) => c.id === id)?.title || t("auto.anyDateColumn");
   const getGroupName = (id: string) =>
     groups.find((g) => g.id === id)?.title || t("auto.groupFallback");
 

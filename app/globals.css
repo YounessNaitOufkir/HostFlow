@@ -4,6 +4,13 @@
    Design System — CSS Custom Properties
    ============================================================ */
 :root {
+  /* Tells the browser which palette to paint its OWN widgets in: the popup a
+     <select> opens, date pickers, scrollbars, spinners. Those are drawn by the
+     operating system and no Tailwind class reaches inside them, which is why a
+     status or group dropdown in the task panel opened white with grey text
+     while everything around it was dark. */
+  color-scheme: light;
+
   /* Surfaces — Clean, slightly cool off-white from Host'lik */
   --surface-primary: #ffffff;
   --surface-secondary: #F4F6F8;
@@ -68,6 +75,8 @@
 
 /* Dark mode variable overrides */
 .dark {
+  color-scheme: dark;
+
   --surface-primary: #181b34;
   --surface-secondary: #1e2140;
   --surface-tertiary: #252849;

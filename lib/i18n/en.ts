@@ -399,7 +399,7 @@ export const en = {
   "auto.ruleShift": "When {column} is postponed, shift every dependent item",
   "auto.ruleShiftNote": "— no longer needed: dependent dates now always shift. Safe to delete.",
   "auto.ruleMove": "When {column} changes to {value}, move the item to {group}",
-  "auto.colFallback": "Column",
+  "auto.anyDateColumn": "any date or timeline column",
   "auto.groupFallback": "Group",
   "auto.timingDaily": "Daily {time}",
   "auto.timingInstant": "Instant",
