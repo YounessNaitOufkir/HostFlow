@@ -13,9 +13,15 @@ import type { TranslationKey } from "@/lib/i18n/types";
  * knows, and the previous contract let any signed-in user post arbitrary HTML
  * to any other user's Telegram.
  */
-const KINDS: Record<string, TranslationKey> = {
-  "mention.update": "tg.mentionUpdate",
-  "mention.reply": "tg.mentionReply",
+export const KINDS: Record<string, { title: TranslationKey; body: TranslationKey }> = {
+  "mention.update": { title: "tg.mentionTitle", body: "tg.mentionUpdate" },
+  "mention.reply": { title: "tg.mentionTitle", body: "tg.mentionReply" },
+  // Missing until now, which is what silently killed assignment alerts: the
+  // caller in useItemMutations was never moved onto this contract when the
+  // route stopped accepting caller-written text, so it kept posting `message`
+  // and got a 400 every time. A 400 is a resolved fetch, so its .catch() never
+  // ran and nothing was logged on either side.
+  assignment: { title: "tg.assignmentTitle", body: "tg.assignment" },
 };
 
 /** Values a caller may interpolate. Escaped, and capped so a name cannot flood a chat. */
@@ -40,8 +46,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const messageKey = KINDS[kind];
-    if (!messageKey) {
+    const template = KINDS[kind];
+    if (!template) {
       return NextResponse.json({ error: "Unknown notification kind" }, { status: 400 });
     }
 
@@ -85,8 +91,9 @@ export async function POST(request: Request) {
     // Built per recipient, so a French colleague mentioning an English one
     // sends English - the reader's language decides, not the writer's.
     await notifyUsersViaTelegram(allowedIds, (locale: Locale) => {
-      const title = translate(locale, "tg.mentionTitle");
-      return `💬 <b>${title}</b>\n${translate(locale, messageKey, safeVars)}`;
+      const title = translate(locale, template.title);
+      const icon = kind === "assignment" ? "🔔" : "💬";
+      return `${icon} <b>${title}</b>\n${translate(locale, template.body, safeVars)}`;
     });
 
     return NextResponse.json({ success: true, notified: allowedIds.length });

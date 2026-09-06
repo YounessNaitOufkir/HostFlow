@@ -7,7 +7,6 @@ import { reportMutationError, runWrite } from "@/lib/errorReporting";
 import { evaluateEventAutomations } from "@/lib/automations/engine";
 import { notifyTabSync } from "@/hooks/useRealtimeSync";
 import { toast } from "sonner";
-import { escapeHtml } from "@/lib/escapeHtml";
 import { addDaysOnly, dayIndex, toDateOnly } from "@/lib/gantt/dates";
 import { plotItemDates } from "@/lib/gantt/rows";
 import { collectDependencies } from "@/lib/gantt/dependencies";
@@ -353,15 +352,34 @@ export function useItemMutations({
             item_id: itemToUpdate.id,
           });
           
-          // Send Telegram alert asynchronously
+          // Send the Telegram alert.
+          //
+          // This posted `message` with the sentence written here until now. The
+          // route stopped accepting caller-written text — so that it could write
+          // each alert in the RECIPIENT's language, and so that a signed-in user
+          // could not post arbitrary HTML to someone else's phone — and this
+          // call site was not moved over with the two in ItemPanel. It has been
+          // answering 400 ever since, in complete silence: a 400 resolves the
+          // fetch, so the .catch() below never saw it.
           fetch('/api/telegram/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userIds: newlyAssigned,
-              message: `🔔 <b>New Assignment</b>\n${escapeHtml(profile.full_name)} assigned you to the task <b>${escapeHtml(itemToUpdate.name)}</b>`,
+              kind: "assignment",
+              // Escaped by the route, which is why nothing is escaped here.
+              vars: { actor: profile.full_name, item: itemToUpdate.name },
             })
-          }).catch(console.error);
+          })
+            .then((r) => {
+              if (!r.ok) {
+                console.error(
+                  `[assignment] Telegram alert refused: ${r.status}. ` +
+                    `Check the kind is still in the route's allowlist.`
+                );
+              }
+            })
+            .catch(console.error);
         }
 
         // --- Google Calendar Sync ---
