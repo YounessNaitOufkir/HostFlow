@@ -193,7 +193,7 @@ correctness and clarity at that size, not for horizontal scale.
 | One access rule, parameterized by user | Applied (`20260819000002`) |
 | Team grants nothing by itself; admin-only blanket access | Applied (`20260820000000`) |
 | Leaked-password protection | Done — `lib/passwordSecurity.ts`, wired into signup and reset |
-| Per-workspace automations | Not started |
+| Per-workspace automations | Applied — Automations tab in the workspace's Manage Access dialog |
 | Audit trail | Applied (`20260908000000`) — DB layer and board-level Activity tab both shipped |
 | Trash purge job | Applied — `/api/cron/purge-trash`, daily at 09:00 UTC alongside the other cron jobs |
 

@@ -15,6 +15,7 @@ export const queryKeys = {
   trashUpdates: (itemIds: string[]) => ["trashUpdates", itemIds] as const,
   adminData: () => ["adminData"] as const,
   automations: (boardId: string) => ["automations", boardId] as const,
+  workspaceAutomations: (workspaceId: string) => ["workspaceAutomations", workspaceId] as const,
   dependencySearch: (query: string) => ["dependencySearch", query] as const,
   itemsByIds: (ids: string[]) => ["itemsByIds", [...ids].sort()] as const,
 };

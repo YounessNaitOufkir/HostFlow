@@ -536,6 +536,7 @@ export default function Sidebar({
         <WorkspaceMembersModal
           workspace={membersModalWs}
           currentUserId={profile.id}
+          profile={profile}
           onClose={() => setMembersModalWs(null)}
         />
       )}

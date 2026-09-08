@@ -6,10 +6,12 @@ import { createPortal } from "react-dom";
 import { X, Lock, Globe, Check, Loader2, UserPlus, Ban } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Workspace } from "@/types";
+import { Profile, Workspace } from "@/types";
 import { reportMutationError } from "@/lib/errorReporting";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { queryKeys } from "@/hooks/queries/queryKeys";
+import { useT } from "@/components/LanguageProvider";
+import WorkspaceAutomations from "@/components/WorkspaceAutomations";
 
 interface DirectoryUser {
   id: string;
@@ -24,6 +26,9 @@ interface DirectoryUser {
 interface WorkspaceMembersModalProps {
   workspace: Workspace;
   currentUserId: string;
+  /** Used only to gate the Automations tab against `role === "admin"`; the
+   * member-list behavior below never depended on it and does not start now. */
+  profile?: Profile | null;
   onClose: () => void;
 }
 
@@ -38,11 +43,14 @@ interface WorkspaceMembersModalProps {
 export default function WorkspaceMembersModal({
   workspace,
   currentUserId,
+  profile,
   onClose,
 }: WorkspaceMembersModalProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [memberIds, setMemberIds] = useState<Set<string>>(new Set());
+  const [memberRoles, setMemberRoles] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +58,19 @@ export default function WorkspaceMembersModal({
   // catches up when the workspaces query is invalidated below.
   const [isPrivate, setIsPrivate] = useState(!!workspace.is_private);
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
+  const [activeTab, setActiveTab] = useState<"members" | "automations">("members");
+
+  // Mirrors can_manage_workspace(): every branch that can succeed already
+  // implies staff (a non-staff user cannot create a non-private workspace,
+  // and role='admin' implies is_staff via profiles_admin_implies_staff), so
+  // the DB function's outer "private OR staff" gate is redundant to restate
+  // client-side.
+  const myMembershipRole = memberRoles.get(currentUserId);
+  const canManageWorkspace =
+    workspace.created_by === currentUserId ||
+    myMembershipRole === "admin" ||
+    myMembershipRole === "manager" ||
+    (!isPrivate && profile?.role === "admin");
 
   const togglePrivacy = async () => {
     const next = !isPrivate;
@@ -97,15 +118,15 @@ export default function WorkspaceMembersModal({
         .order("full_name"),
       supabase
         .from("workspace_members")
-        .select("user_id")
+        .select("user_id, role")
         .eq("workspace_id", workspace.id),
     ]);
 
     if (dirRes.error) setError("Could not load the people list.");
     setUsers((dirRes.data as DirectoryUser[]) || []);
-    setMemberIds(
-      new Set((memberRes.data || []).map((m: { user_id: string }) => m.user_id))
-    );
+    const rows = (memberRes.data || []) as { user_id: string; role: string | null }[];
+    setMemberIds(new Set(rows.map((m) => m.user_id)));
+    setMemberRoles(new Map(rows.map((m) => [m.user_id, m.role || "member"])));
     setLoading(false);
   }, [workspace.id]);
 
@@ -202,12 +223,42 @@ export default function WorkspaceMembersModal({
           </button>
         </div>
 
+        {canManageWorkspace && (
+          <div className="flex items-center gap-1 px-3 pt-3 shrink-0">
+            <button
+              onClick={() => setActiveTab("members")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeTab === "members"
+                  ? "bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
+            >
+              {t("workspace.membersTab")}
+            </button>
+            <button
+              onClick={() => setActiveTab("automations")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeTab === "automations"
+                  ? "bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
+            >
+              {t("auto.title")}
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="mx-5 mt-4 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-300 text-xs">
             {error}
           </div>
         )}
 
+        {activeTab === "automations" ? (
+          <div className="p-4 overflow-y-auto">
+            <WorkspaceAutomations workspace={workspace} canManage={canManageWorkspace} />
+          </div>
+        ) : (
         <div className="p-3 overflow-y-auto">
           {!isPrivate && !loading && (
             <p className="px-2 pb-3 text-xs text-gray-500 dark:text-gray-400">
@@ -313,6 +364,7 @@ export default function WorkspaceMembersModal({
             })
           )}
         </div>
+        )}
 
         <div className="p-4 border-t border-gray-100 dark:border-slate-800 flex justify-end bg-gray-50 dark:bg-slate-800/30 rounded-b-xl">
           <button
