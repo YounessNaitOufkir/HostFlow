@@ -674,11 +674,13 @@ export function useItemMutations({
           .select()
           .single();
         if (error) throw error;
-        if (data)
+        if (data) {
           dispatch({
             type: "REPLACE_TEMP_ITEM",
             payload: { tempId, item: data },
           });
+          notifyTabSync(data.board_id);
+        }
       } catch {
         dispatch({ type: "REMOVE_ITEM", payload: tempId });
       }
@@ -703,6 +705,7 @@ export function useItemMutations({
           .eq("id", item.id);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["myWorkItems"] });
+        notifyTabSync(item.board_id);
 
         // Google Calendar Sync on Rename
         if (item.column_values) {
@@ -831,6 +834,7 @@ export function useItemMutations({
           .eq("id", itemId);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["myWorkItems"] });
+        if (itemToRestore) notifyTabSync(itemToRestore.board_id);
       } catch (err) {
         reportMutationError(err, "Failed to restore item", {
           table: "items",
@@ -847,6 +851,7 @@ export function useItemMutations({
 
   const permanentlyDeleteItem = useCallback(
     async (itemId: string) => {
+      const itemToDelete = trashItems.find((i) => i.id === itemId);
       dispatch({ type: "REMOVE_TRASH_ITEM", payload: itemId });
       try {
         const { error } = await supabase
@@ -855,6 +860,7 @@ export function useItemMutations({
           .eq("id", itemId);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["myWorkItems"] });
+        if (itemToDelete) notifyTabSync(itemToDelete.board_id);
         toast.success("Item permanently deleted");
       } catch (err) {
         reportMutationError(err, "Failed to permanently delete item", {
@@ -864,7 +870,7 @@ export function useItemMutations({
         toast.error("Failed to permanently delete item");
       }
     },
-    [dispatch, queryClient]
+    [dispatch, queryClient, trashItems]
   );
 
   const addLink = useCallback(
@@ -904,6 +910,8 @@ export function useItemMutations({
         if (!error && data) {
           dispatch({ type: "REMOVE_ITEM_LINK", payload: tempId });
           dispatch({ type: "ADD_ITEM_LINK", payload: data });
+          const boardId = items.find((i) => i.id === sourceItemId)?.board_id;
+          if (boardId) notifyTabSync(boardId);
         } else if (error) {
           // Take the optimistic link back off the chart: leaving it there shows
           // an arrow the database does not have.
@@ -921,7 +929,7 @@ export function useItemMutations({
         });
       }
     },
-    [dispatch]
+    [dispatch, items]
   );
 
   /** Change an existing dependency's type or lag. */
@@ -956,20 +964,28 @@ export function useItemMutations({
           operation: "update",
         });
         toast.error("Could not change that dependency.");
+      } else {
+        const boardId = items.find((i) => i.id === existing.source_item_id)?.board_id;
+        if (boardId) notifyTabSync(boardId);
       }
     },
-    [dispatch]
+    [dispatch, items]
   );
 
   const removeLink = useCallback(
     async (linkId: string) => {
       try {
+        const link = itemLinks.find((l) => l.id === linkId);
         dispatch({ type: "REMOVE_ITEM_LINK", payload: linkId });
-        await runWrite(
+        const ok = await runWrite(
           supabase.from("item_links").delete().eq("id", linkId),
           "Failed to remove link",
           { table: "item_links", operation: "delete" }
         );
+        if (ok && link) {
+          const boardId = items.find((i) => i.id === link.source_item_id)?.board_id;
+          if (boardId) notifyTabSync(boardId);
+        }
       } catch (err) {
         reportMutationError(err, "Failed to remove link", {
           table: "item_links",
@@ -977,7 +993,7 @@ export function useItemMutations({
         });
       }
     },
-    [dispatch]
+    [dispatch, items, itemLinks]
   );
 
   const handleDragEnd = useCallback(
@@ -1108,6 +1124,8 @@ export function useItemMutations({
           const failed = results.find((r) => r.error);
           if (failed?.error) throw failed.error;
         }
+
+        notifyTabSync(movedItem.board_id);
       } catch (err) {
         // Put the item back where it came from, so the board never shows a
         // position that is not in the database.

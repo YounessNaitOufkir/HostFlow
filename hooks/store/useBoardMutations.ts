@@ -5,6 +5,7 @@ import type { BoardStoreDispatch } from "./types";
 import { reportMutationError, runWrite } from "@/lib/errorReporting";
 import { getQueryClient } from "@/components/QueryProvider";
 import { queryKeys } from "@/hooks/queries/queryKeys";
+import { notifyTabSyncBoards } from "@/hooks/useRealtimeSync";
 
 interface UseBoardMutationsProps {
   dispatch: BoardStoreDispatch;
@@ -89,6 +90,7 @@ export function useBoardMutations({
           getQueryClient().invalidateQueries({
             queryKey: queryKeys.boards(),
           });
+          notifyTabSyncBoards();
           switchBoard(data);
         }
       } catch (err) {
@@ -121,6 +123,7 @@ export function useBoardMutations({
           payload: { ...board, name: newName },
         });
         getQueryClient().invalidateQueries({ queryKey: queryKeys.boards() });
+        notifyTabSyncBoards();
       }
     },
     [dispatch, requestPrompt]
@@ -142,6 +145,7 @@ export function useBoardMutations({
 
         dispatch({ type: "REMOVE_BOARD", payload: board.id });
         getQueryClient().invalidateQueries({ queryKey: queryKeys.boards() });
+        notifyTabSyncBoards();
       }
     },
     [dispatch]
@@ -164,6 +168,7 @@ export function useBoardMutations({
           getQueryClient().invalidateQueries({
             queryKey: queryKeys.boards(),
           });
+          notifyTabSyncBoards();
         } catch (err) {
           reportMutationError(err, "Failed to update column name", {
             table: "boards",

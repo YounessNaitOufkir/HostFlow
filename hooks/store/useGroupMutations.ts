@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import type { Board, Group, Item } from "@/types";
 import type { BoardStoreDispatch } from "./types";
 import { reportMutationError, runWrite } from "@/lib/errorReporting";
+import { notifyTabSync } from "@/hooks/useRealtimeSync";
 
 interface UseGroupMutationsProps {
   dispatch: BoardStoreDispatch;
@@ -29,13 +30,15 @@ export function useGroupMutations({
         payload: groups.map((g) => (g.id === groupId ? { ...g, title } : g)),
       });
       dispatch({ type: "SET_EDITING_GROUP", payload: { id: null, title: "" } });
-      await runWrite(
+      const boardId = groups.find((g) => g.id === groupId)?.board_id;
+      const ok = await runWrite(
         supabase.from("groups").update({ title }).eq("id", groupId),
         "Failed to rename group", {
           table: "groups",
           operation: "update",
         }
       );
+      if (ok && boardId) notifyTabSync(boardId);
     },
     [dispatch, groups]
   );
@@ -46,13 +49,15 @@ export function useGroupMutations({
         type: "SET_GROUPS",
         payload: groups.map((g) => (g.id === groupId ? { ...g, color } : g)),
       });
-      await runWrite(
+      const boardId = groups.find((g) => g.id === groupId)?.board_id;
+      const ok = await runWrite(
         supabase.from("groups").update({ color }).eq("id", groupId),
         "Failed to update group color", {
           table: "groups",
           operation: "update",
         }
       );
+      if (ok && boardId) notifyTabSync(boardId);
     },
     [dispatch, groups]
   );
@@ -89,11 +94,13 @@ export function useGroupMutations({
           .select()
           .single();
         if (error) throw error;
-        if (data)
+        if (data) {
           dispatch({
             type: "REPLACE_TEMP_GROUP",
             payload: { tempId, group: data },
           });
+          notifyTabSync(activeBoard.id);
+        }
       } catch {
         dispatch({ type: "REMOVE_GROUP", payload: tempId });
       }
@@ -122,6 +129,7 @@ export function useGroupMutations({
           .delete()
           .eq("id", groupId);
         if (groupError) throw groupError;
+        if (groupToDelete) notifyTabSync(groupToDelete.board_id);
       } catch (err) {
         reportMutationError(err, "Failed to delete group", {
           table: "groups",
@@ -167,6 +175,7 @@ export function useGroupMutations({
             supabase.from("groups").update({ position: g.position }).eq("id", g.id)
           )
         );
+        if (updated[0]) notifyTabSync(updated[0].board_id);
       } catch (err) {
         reportMutationError(err, "Failed to reorder groups", {
           table: "groups",

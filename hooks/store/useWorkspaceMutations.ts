@@ -5,6 +5,7 @@ import type { BoardStoreDispatch } from "./types";
 import { reportMutationError } from "@/lib/errorReporting";
 import { getQueryClient } from "@/components/QueryProvider";
 import { queryKeys } from "@/hooks/queries/queryKeys";
+import { notifyTabSyncWorkspaces } from "@/hooks/useRealtimeSync";
 
 interface UseWorkspaceMutationsProps {
   dispatch: BoardStoreDispatch;
@@ -49,6 +50,7 @@ export function useWorkspaceMutations({
           getQueryClient().invalidateQueries({
             queryKey: queryKeys.workspaces(),
           });
+          notifyTabSyncWorkspaces();
         }
       }
     },
@@ -84,6 +86,7 @@ export function useWorkspaceMutations({
           getQueryClient().invalidateQueries({
             queryKey: queryKeys.workspaces(),
           });
+          notifyTabSyncWorkspaces();
         } catch (err) {
           reportMutationError(err, "Failed to rename workspace", {
             table: "workspaces",
@@ -124,6 +127,7 @@ export function useWorkspaceMutations({
           getQueryClient().invalidateQueries({
             queryKey: queryKeys.workspaces(),
           });
+          notifyTabSyncWorkspaces();
         } catch (err) {
           reportMutationError(err, "Failed to delete workspace", {
             table: "workspaces",

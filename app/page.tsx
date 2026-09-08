@@ -449,6 +449,13 @@ export default function HostFlowApp() {
     [queryClient]
   );
 
+  const handleWorkspacesChanged = useCallback(
+    () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() });
+    },
+    [queryClient]
+  );
+
   const handleGlobalSettingsChanged = useCallback(
     () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.globalSettings() });
@@ -460,6 +467,7 @@ export default function HostFlowApp() {
     activeBoard: state.activeBoard,
     onBoardDataChanged: handleBoardDataChanged,
     onBoardsChanged: handleBoardsChanged,
+    onWorkspacesChanged: handleWorkspacesChanged,
     onGlobalSettingsChanged: handleGlobalSettingsChanged,
   });
 

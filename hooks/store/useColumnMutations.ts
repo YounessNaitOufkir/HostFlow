@@ -4,6 +4,7 @@ import type { Board, Column, ColumnType } from "@/types";
 import type { BoardStoreDispatch } from "./types";
 import { getDefaultTitle } from "@/lib/columnRegistry";
 import { runWrite } from "@/lib/errorReporting";
+import { notifyTabSyncBoards } from "@/hooks/useRealtimeSync";
 
 interface UseColumnMutationsProps {
   dispatch: BoardStoreDispatch;
@@ -20,7 +21,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
       const updatedColumns = [...currentColumns, newColumn];
       const updatedBoard = { ...activeBoard, columns: updatedColumns };
       dispatch({ type: "UPDATE_BOARD", payload: updatedBoard });
-      await runWrite(
+      const ok = await runWrite(
         supabase
           .from("boards")
           .update({ columns: updatedColumns })
@@ -30,6 +31,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
           operation: "update",
         }
       );
+      if (ok) notifyTabSyncBoards();
     },
     [dispatch]
   );
@@ -43,7 +45,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
         type: "UPDATE_BOARD",
         payload: { ...activeBoard, columns: updatedColumns },
       });
-      await runWrite(
+      const ok = await runWrite(
         supabase
           .from("boards")
           .update({ columns: updatedColumns })
@@ -53,6 +55,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
           operation: "update",
         }
       );
+      if (ok) notifyTabSyncBoards();
     },
     [dispatch]
   );
@@ -66,7 +69,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
         type: "UPDATE_BOARD",
         payload: { ...activeBoard, columns: updatedColumns },
       });
-      await runWrite(
+      const ok = await runWrite(
         supabase
           .from("boards")
           .update({ columns: updatedColumns })
@@ -76,6 +79,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
           operation: "update",
         }
       );
+      if (ok) notifyTabSyncBoards();
     },
     [dispatch]
   );
@@ -91,7 +95,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
         type: "UPDATE_BOARD",
         payload: { ...activeBoard, columns: updatedColumns },
       });
-      await runWrite(
+      const ok = await runWrite(
         supabase
           .from("boards")
           .update({ columns: updatedColumns })
@@ -101,6 +105,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
           operation: "update",
         }
       );
+      if (ok) notifyTabSyncBoards();
     },
     [dispatch]
   );
@@ -114,7 +119,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
         type: "UPDATE_BOARD",
         payload: { ...activeBoard, columns: cols },
       });
-      await runWrite(
+      const ok = await runWrite(
         supabase
           .from("boards")
           .update({ columns: cols })
@@ -124,6 +129,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
           operation: "update",
         }
       );
+      if (ok) notifyTabSyncBoards();
     },
     [dispatch]
   );
