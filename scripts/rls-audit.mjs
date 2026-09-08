@@ -171,11 +171,19 @@ async function seed() {
   if (!privWs?.length) throw new Error("member has no private workspace - did handle_new_user run?");
   const privateWs = privWs[0].id;
 
+  const openBoardColumns = [
+    { id: "status", title: "Status", type: "status" },
+    { id: "people", title: "Assignee", type: "people" },
+  ];
   const openBoard = await ensureRow(
     "boards",
     { name: `${TAG} Open` },
-    { name: `${TAG} Open`, workspace_id: companyWs, created_by: users.admin.id, columns: [] }
+    { name: `${TAG} Open`, workspace_id: companyWs, created_by: users.admin.id, columns: openBoardColumns }
   );
+  // ensureRow only inserts on first run; a fixture from before the audit
+  // trigger existed would otherwise keep columns: [] forever, and the
+  // status_changed check below needs a real status column to resolve against.
+  await admin.from("boards").update({ columns: openBoardColumns }).eq("id", openBoard);
   const secretBoard = await ensureRow(
     "boards",
     { name: `${TAG} Secret` },
@@ -210,6 +218,13 @@ async function seed() {
       author_id: users.member.id,
       author_name: "ZZ RLS Member",
     });
+
+    // Trips the items_audit_update trigger: a real old->new diff on a column
+    // of type "status", which the trigger resolves via boards.columns rather
+    // than a fixed schema column. Run every time (not just on first seed) so
+    // the audit_logs checks below always have a status_changed row to find.
+    await admin.from("items").update({ column_values: { status: "Working on it" } }).eq("id", openItem.id);
+    await admin.from("items").update({ column_values: { status: "Done" } }).eq("id", openItem.id);
   }
 
   // The member is a member of the company workspace; the external is not.
@@ -348,6 +363,49 @@ async function run() {
   );
   const extActivity = await asExternal.from("activity_logs").select("id", { count: "exact", head: true });
   check("an external account reads no activity at all", (extActivity.count ?? 0) === 0);
+
+  console.log("\nAudit trail");
+  // audit_logs is deliberately stricter than activity_logs above: not "the
+  // author or anyone who can reach the board", but administrators only - and
+  // never even they for a board they cannot reach. can_access_board_as()
+  // already refuses private boards to admins, so reusing it here (rather than
+  // restating the rule) carries that guarantee for free.
+  const adminAuditOpen = await asAdmin.from("audit_logs").select("id, action_type").eq("board_id", fx.openBoard);
+  check(
+    "an administrator reads the audit trail for a board they can reach",
+    (adminAuditOpen.data ?? []).length > 0,
+    `sees ${(adminAuditOpen.data ?? []).length} row(s)`
+  );
+  check(
+    "a jsonb column_values diff resolved to a status_changed row",
+    (adminAuditOpen.data ?? []).some((r) => r.action_type === "status_changed"),
+    "proves the trigger reads boards.columns rather than a fixed column list"
+  );
+  const adminAuditSecret = await asAdmin.from("audit_logs").select("id").eq("board_id", fx.secretBoard);
+  check(
+    "an administrator reads NO audit trail from someone else's private board",
+    (adminAuditSecret.data ?? []).length === 0,
+    "admins reach company boards by role, never private ones"
+  );
+  const memberAudit = await asMember.from("audit_logs").select("id").eq("board_id", fx.openBoard);
+  check(
+    "a non-admin staff member reads NO audit trail, even for a board they fully access",
+    (memberAudit.data ?? []).length === 0,
+    "audit_logs is admin-only; activity_logs is the one board members read"
+  );
+  const extAudit = await asExternal.from("audit_logs").select("id", { count: "exact", head: true });
+  check("an external account reads no audit trail at all", (extAudit.count ?? 0) === 0);
+
+  const forgeAttempt = await asAdmin.from("audit_logs").insert({
+    board_id: fx.openBoard,
+    action_type: "item_created",
+    new_value: { name: "forged" },
+  });
+  check(
+    "not even an administrator can write an audit_logs row directly",
+    forgeAttempt.error !== null,
+    forgeAttempt.error ? forgeAttempt.error.code ?? forgeAttempt.error.message : "THE INSERT SUCCEEDED"
+  );
 
   console.log("\nAttachments");
   // storage.objects had a SELECT policy of just `bucket_id = 'attachments'`
