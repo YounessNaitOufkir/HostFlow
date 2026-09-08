@@ -194,7 +194,7 @@ correctness and clarity at that size, not for horizontal scale.
 | Team grants nothing by itself; admin-only blanket access | Applied (`20260820000000`) |
 | Leaked-password protection | Done — `lib/passwordSecurity.ts`, wired into signup and reset |
 | Per-workspace automations | Not started |
-| Audit trail | Applied (`20260908000000`) — DB layer only, no UI yet |
+| Audit trail | Applied (`20260908000000`) — DB layer and board-level Activity tab both shipped |
 | Trash purge job | Not started |
 
 ### Notes for whoever picks this up

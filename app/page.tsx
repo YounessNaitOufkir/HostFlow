@@ -61,6 +61,7 @@ import SearchView from "@/components/views/SearchView";
 import SearchPalette from "@/components/search/SearchPalette";
 import TrashView from "@/components/views/TrashView";
 import BoardCardsView from "@/components/views/BoardCardsView";
+import ActivityLog from "@/components/views/ActivityLog";
 import WorkspaceOverview from "@/components/WorkspaceOverview";
 import WorkspaceGanttView, { type WorkspaceGanttUpdate } from "@/components/WorkspaceGanttView";
 
@@ -845,6 +846,7 @@ export default function HostFlowApp() {
                 columns={allColumns}
                 profiles={state.profiles}
                 searchQuery={filters.searchQuery}
+                isAdmin={profile?.role === "admin"}
                 filters={filters}
                 onSetMainView={(view) => dispatch({ type: "SET_MAIN_VIEW", payload: view })}
                 onSetSearchQuery={filters.setSearchQuery}
@@ -975,6 +977,13 @@ export default function HostFlowApp() {
                   onAddItem={handleAddItem}
                   onDeleteItem={store.deleteItem}
                   onDuplicateItem={store.duplicateItem}
+                />
+              )}
+
+              {state.mainView === "activity" && (
+                <ActivityLog
+                  board={state.activeBoard}
+                  onOpenItem={(itemId) => navigateToItem(state.activeBoard?.id, itemId)}
                 />
               )}
 

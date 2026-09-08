@@ -72,6 +72,22 @@ export const en = {
   "board.mainTable": "Main Table",
   "board.viewCards": "Cards",
   "board.cardsTooltip": "Mobile-friendly touch cards view",
+  "board.viewActivity": "Activity",
+
+  // ── Audit trail (admin-only) ───────────────────────────────
+  "audit.title": "Activity Feed",
+  "audit.subtitle": "Admin-only history of what changed on this board.",
+  "audit.empty": "No activity recorded yet.",
+  "audit.adminOnly": "Only administrators can view the activity feed.",
+  "audit.loadError": "Could not load the activity feed.",
+  "audit.system": "System",
+  "audit.someone": "someone",
+  "audit.nobody": "nobody",
+  "audit.deletedItem": "a deleted item",
+  "audit.itemCreated": "{actor} created \"{item}\"",
+  "audit.itemDeleted": "{actor} deleted \"{item}\"",
+  "audit.itemRestored": "{actor} restored \"{item}\"",
+  "audit.fieldChanged": "{actor} changed {column} on \"{item}\" from {oldValue} to {newValue}",
 
   // ── Profile menu ───────────────────────────────────────────
   "profile.myProfile": "My Profile",

@@ -12,13 +12,14 @@ import {
   Zap,
   MoreHorizontal,
   Smartphone,
+  History,
 } from "lucide-react";
 import type { Column, Profile } from "@/types";
 import { Tooltip } from "@/components/ui/Tooltip";
 import FilterBar from "@/components/board/FilterBar";
 import { useT } from "@/components/LanguageProvider";
 
-export type MainView = "board" | "kanban" | "dashboard" | "calendar" | "gantt" | "cards" | "my_work" | "trash" | "workspace_overview" | "workspace_gantt";
+export type MainView = "board" | "kanban" | "dashboard" | "calendar" | "gantt" | "cards" | "my_work" | "trash" | "workspace_overview" | "workspace_gantt" | "activity";
 
 interface BoardHeaderProps {
   boardName: string;
@@ -26,6 +27,8 @@ interface BoardHeaderProps {
   columns: Column[];
   profiles: Profile[];
   searchQuery: string;
+  /** Gates the Activity tab: audit_logs is admin-only, so non-admins never see the tab exists. */
+  isAdmin?: boolean;
 
   filters: any; // Using any for simplicity instead of importing UseFiltersReturn to avoid circular deps if any
 
@@ -45,6 +48,7 @@ export default function BoardHeader({
   columns,
   profiles,
   searchQuery,
+  isAdmin = false,
   filters,
   onSetMainView,
   onSetSearchQuery,
@@ -158,6 +162,14 @@ export default function BoardHeader({
           >
             <Smartphone size={14} /> {t("board.viewCards")}
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => onSetMainView("activity")}
+              className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "activity" ? "active" : "text-gray-600 dark:text-gray-400"}`}
+            >
+              <History size={14} /> {t("board.viewActivity")}
+            </button>
+          )}
         </div>
       </div>
 

@@ -74,6 +74,22 @@ export const fr: Dictionary = {
   "board.mainTable": "Tableau principal",
   "board.viewCards": "Cartes",
   "board.cardsTooltip": "Vue en cartes, adaptée au tactile",
+  "board.viewActivity": "Activité",
+
+  // ── Journal d'audit (admin uniquement) ─────────────────────
+  "audit.title": "Journal d'activité",
+  "audit.subtitle": "Historique des modifications de ce tableau, réservé aux administrateurs.",
+  "audit.empty": "Aucune activité enregistrée pour le moment.",
+  "audit.adminOnly": "Seuls les administrateurs peuvent consulter le journal d'activité.",
+  "audit.loadError": "Impossible de charger le journal d'activité.",
+  "audit.system": "Système",
+  "audit.someone": "quelqu'un",
+  "audit.nobody": "personne",
+  "audit.deletedItem": "un élément supprimé",
+  "audit.itemCreated": "{actor} a créé « {item} »",
+  "audit.itemDeleted": "{actor} a supprimé « {item} »",
+  "audit.itemRestored": "{actor} a restauré « {item} »",
+  "audit.fieldChanged": "{actor} a changé {column} sur « {item} » de {oldValue} à {newValue}",
 
   // ── Profile menu ───────────────────────────────────────────
   "profile.myProfile": "Mon profil",

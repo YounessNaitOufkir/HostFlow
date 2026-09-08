@@ -297,6 +297,34 @@ export interface ActivityLog {
   created_at: string;
 }
 
+/**
+ * Admin-only oversight trail — distinct from `ActivityLog` above, which is the
+ * board-member-visible "Updates" feed. See supabase/migrations/20260908000000_create_audit_log.sql.
+ */
+export type AuditActionType =
+  | "item_created"
+  | "item_deleted"
+  | "item_restored"
+  | "status_changed"
+  | "assignee_changed"
+  | "priority_changed"
+  | "due_date_changed"
+  | "description_changed";
+
+export interface AuditLog {
+  id: string;
+  board_id: string;
+  item_id: string | null;
+  user_id: string | null;
+  action_type: AuditActionType;
+  /** Shape is { name } for item_created/deleted/restored, { column, value } for a field change. */
+  old_value: Record<string, any> | null;
+  new_value: Record<string, any> | null;
+  created_at: string;
+  /** Embedded via the items(name) foreign-table select; null once the item has been purged. */
+  items?: { name: string } | null;
+}
+
 // ============================================================
 // Filter & Sort Types
 // ============================================================

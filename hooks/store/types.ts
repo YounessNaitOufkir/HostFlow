@@ -46,7 +46,8 @@ export interface BoardStoreState {
     | "trash"
     | "workspace_overview"
     | "workspace_gantt"
-    | "search";
+    | "search"
+    | "activity";
   showWorkspaceSidebar: boolean;
   showAutomations: boolean;
   showAdminModal: boolean;
