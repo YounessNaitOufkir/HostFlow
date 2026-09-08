@@ -195,7 +195,7 @@ correctness and clarity at that size, not for horizontal scale.
 | Leaked-password protection | Done — `lib/passwordSecurity.ts`, wired into signup and reset |
 | Per-workspace automations | Not started |
 | Audit trail | Applied (`20260908000000`) — DB layer and board-level Activity tab both shipped |
-| Trash purge job | Not started |
+| Trash purge job | Applied — `/api/cron/purge-trash`, daily at 09:00 UTC alongside the other cron jobs |
 
 ### Notes for whoever picks this up
 

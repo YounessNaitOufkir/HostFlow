@@ -76,8 +76,12 @@ describe("assessJobs", () => {
     );
   });
 
-  it("watches both scheduled jobs by default", () => {
-    expect(Object.keys(CRON_MAX_SILENCE_HOURS).sort()).toEqual(["automations", "daily-digest"]);
+  it("watches all three scheduled jobs by default", () => {
+    expect(Object.keys(CRON_MAX_SILENCE_HOURS).sort()).toEqual([
+      "automations",
+      "daily-digest",
+      "purge-trash",
+    ]);
   });
 });
 
