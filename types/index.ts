@@ -109,6 +109,18 @@ export interface Workspace {
   created_by?: string | null;
 }
 
+/** An email invite not yet redeemed — see supabase/migrations/20260909000000_pending_invitations.sql. */
+export interface PendingInvitation {
+  id: string;
+  workspace_id: string;
+  email: string;
+  invited_by: string | null;
+  role: UserRole;
+  is_staff_invite: boolean;
+  token: string;
+  created_at: string;
+}
+
 export interface Profile {
   id: string;
   email: string;

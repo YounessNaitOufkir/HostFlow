@@ -3,14 +3,15 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { createPortal } from "react-dom";
-import { X, Lock, Globe, Check, Loader2, UserPlus, Ban } from "lucide-react";
+import { X, Lock, Globe, Check, Loader2, UserPlus, Ban, Mail, Send } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Profile, Workspace } from "@/types";
+import { Profile, Workspace, PendingInvitation } from "@/types";
 import { reportMutationError } from "@/lib/errorReporting";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { useT } from "@/components/LanguageProvider";
+import { toast } from "sonner";
 import WorkspaceAutomations from "@/components/WorkspaceAutomations";
 
 interface DirectoryUser {
@@ -59,6 +60,10 @@ export default function WorkspaceMembersModal({
   const [isPrivate, setIsPrivate] = useState(!!workspace.is_private);
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
   const [activeTab, setActiveTab] = useState<"members" | "automations">("members");
+  const [pendingInvites, setPendingInvites] = useState<PendingInvitation[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   // Mirrors can_manage_workspace(): every branch that can succeed already
   // implies staff (a non-staff user cannot create a non-private workspace,
@@ -71,6 +76,12 @@ export default function WorkspaceMembersModal({
     myMembershipRole === "admin" ||
     myMembershipRole === "manager" ||
     (!isPrivate && profile?.role === "admin");
+
+  // An external inviting into their own private workspace should not see the
+  // company's staff directory at all — that leaks who works there into a
+  // space the whole point of which is to be theirs. They get the email input
+  // only; a staff member sees both.
+  const isStaffInviter = profile?.is_staff !== false;
 
   const togglePrivacy = async () => {
     const next = !isPrivate;
@@ -111,7 +122,7 @@ export default function WorkspaceMembersModal({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [dirRes, memberRes] = await Promise.all([
+    const [dirRes, memberRes, inviteRes] = await Promise.all([
       supabase
         .from("user_directory")
         .select("id, full_name, avatar_initials, avatar_url, color, is_staff")
@@ -120,6 +131,13 @@ export default function WorkspaceMembersModal({
         .from("workspace_members")
         .select("user_id, role")
         .eq("workspace_id", workspace.id),
+      // RLS gates this on can_manage_workspace, same as everything else here —
+      // someone who cannot manage the workspace just reads an empty list.
+      supabase
+        .from("pending_invitations")
+        .select("*")
+        .eq("workspace_id", workspace.id)
+        .order("created_at", { ascending: false }),
     ]);
 
     if (dirRes.error) setError("Could not load the people list.");
@@ -127,6 +145,7 @@ export default function WorkspaceMembersModal({
     const rows = (memberRes.data || []) as { user_id: string; role: string | null }[];
     setMemberIds(new Set(rows.map((m) => m.user_id)));
     setMemberRoles(new Map(rows.map((m) => [m.user_id, m.role || "member"])));
+    setPendingInvites((inviteRes.data as PendingInvitation[]) || []);
     setLoading(false);
   }, [workspace.id]);
 
@@ -165,6 +184,62 @@ export default function WorkspaceMembersModal({
       setError("Could not change access. You may not have permission on this workspace.");
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const target = inviteEmail.trim();
+    if (!target) return;
+    setInviting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/workspaces/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId: workspace.id, email: target }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error || "Could not send the invitation");
+      toast.success(t("invite.sent"));
+      setInviteEmail("");
+      load();
+    } catch (err: unknown) {
+      reportMutationError(err, "Could not send the invitation", {
+        table: "pending_invitations",
+        operation: "insert",
+      });
+      setError(err instanceof Error ? err.message : "Could not send the invitation");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleRevoke = async (inviteId: string) => {
+    setRevokingId(inviteId);
+    setError(null);
+    try {
+      // Read back for the same reason every other write in this file does:
+      // an RLS-blocked delete matches no row and returns no error.
+      const { data, error } = await supabase
+        .from("pending_invitations")
+        .delete()
+        .eq("id", inviteId)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("The invitation was not revoked.");
+      }
+      setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+      toast.success(t("invite.revoked"));
+    } catch (err: unknown) {
+      reportMutationError(err, "Could not revoke the invitation", {
+        table: "pending_invitations",
+        operation: "delete",
+      });
+      setError("Could not revoke the invitation.");
+    } finally {
+      setRevokingId(null);
     }
   };
 
@@ -260,14 +335,68 @@ export default function WorkspaceMembersModal({
           </div>
         ) : (
         <div className="p-3 overflow-y-auto">
-          {!isPrivate && !loading && (
+          <form onSubmit={handleInvite} className="flex items-center gap-1.5 px-2 pb-3">
+            <div className="relative flex-1">
+              <Mail size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder={t("invite.placeholder")}
+                aria-label={t("invite.title")}
+                className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={inviting || !inviteEmail.trim()}
+              className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-white bg-[#1A2C5B] hover:bg-[#24396f] rounded-md transition-colors disabled:opacity-50"
+            >
+              {inviting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+              {t("invite.send")}
+            </button>
+          </form>
+
+          {pendingInvites.length > 0 && (
+            <div className="px-2 pb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
+                {t("invite.pendingTitle")}
+              </p>
+              <div className="space-y-1">
+                {pendingInvites.map((invite) => (
+                  <div
+                    key={invite.id}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/60"
+                  >
+                    <Mail size={13} className="text-gray-400 shrink-0" />
+                    <TruncatedText className="truncate flex-1 text-xs text-gray-600 dark:text-gray-300">
+                      {invite.email}
+                    </TruncatedText>
+                    <button
+                      disabled={revokingId === invite.id}
+                      onClick={() => handleRevoke(invite.id)}
+                      className="text-[11px] font-medium px-2 py-0.5 rounded-md border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shrink-0 disabled:opacity-50"
+                    >
+                      {revokingId === invite.id ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : (
+                        t("invite.revoke")
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isStaffInviter ? null : !isPrivate && !loading && (
             <p className="px-2 pb-3 text-xs text-gray-500 dark:text-gray-400">
               Everyone on the team can already open this workspace. External
               people are not listed - shared workspaces are staff-only. Switch
               it to private if you want to choose who sees it.
             </p>
           )}
-          {loading ? (
+          {isStaffInviter && (loading ? (
             <div className="flex items-center justify-center py-10 text-gray-400">
               <Loader2 size={18} className="animate-spin" />
             </div>
@@ -362,7 +491,7 @@ export default function WorkspaceMembersModal({
                 </div>
               );
             })
-          )}
+          ))}
         </div>
         )}
 

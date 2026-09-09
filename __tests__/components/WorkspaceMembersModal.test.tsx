@@ -13,16 +13,29 @@ const DIRECTORY = [
   { id: "u-ext", full_name: "E2E Test User", avatar_initials: "E2", color: "#3b82f6", is_staff: false },
 ];
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: vi.fn((table: string) => {
-      if (table === "user_directory") {
-        return { select: () => ({ order: () => Promise.resolve({ data: DIRECTORY, error: null }) }) };
-      }
-      return { select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) };
-    }),
-  },
-}));
+vi.mock("@/lib/supabase", () => {
+  // Chainable AND directly awaitable: workspace_members stops at .eq(), while
+  // pending_invitations chains .eq().order() — a plain Promise has no .order,
+  // so both need to resolve the same way regardless of how far they're chained.
+  const emptyChain = () => {
+    const result = { data: [], error: null };
+    const chain = Promise.resolve(result) as Promise<typeof result> & {
+      order: () => Promise<typeof result>;
+    };
+    chain.order = () => Promise.resolve(result);
+    return chain;
+  };
+  return {
+    supabase: {
+      from: vi.fn((table: string) => {
+        if (table === "user_directory") {
+          return { select: () => ({ order: () => Promise.resolve({ data: DIRECTORY, error: null }) }) };
+        }
+        return { select: () => ({ eq: emptyChain }) };
+      }),
+    },
+  };
+});
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>

@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [isVerificationPending, setIsVerificationPending] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isPasswordResetPending, setIsPasswordResetPending] = useState(false);
+  const [isInvited, setIsInvited] = useState(false);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
@@ -46,6 +47,19 @@ export default function LoginPage() {
       router.replace("/login");
     }
   }, [router]);
+
+  // The invite link itself carries no auth — redemption happens server-side,
+  // matched by email, the moment redeem_pending_invitations() sees a profile
+  // row created with that address (see the pending_invitations migration).
+  // This only has to get the right person to the signup form.
+  useEffect(() => {
+    const invited = new URLSearchParams(window.location.search).get("invite");
+    if (invited) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsInvited(true);
+      setIsSignUp(true);
+    }
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,6 +332,12 @@ export default function LoginPage() {
               </div>
 
               <form onSubmit={handleAuth} className="space-y-4">
+                {isInvited && !error && (
+                  <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-300 text-sm animate-in fade-in slide-in-from-top-2 flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                    You&apos;ve been invited to collaborate on HostFlow. Sign up or sign in to accept.
+                  </div>
+                )}
                 {error && (
                   <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm animate-in fade-in slide-in-from-top-2 flex items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />

@@ -407,6 +407,58 @@ async function run() {
     forgeAttempt.error ? forgeAttempt.error.code ?? forgeAttempt.error.message : "THE INSERT SUCCEEDED"
   );
 
+  console.log("\nPending invitations");
+  // Same gate as workspace_members/board_members writes: can_manage_workspace().
+  // The member fixture created privateWs, so they can invite into it; the
+  // admin fixture manages companyWs by role. Neither can touch the other's.
+  const memberInvite = await asMember.from("pending_invitations").insert({
+    workspace_id: fx.privateWs,
+    email: "zz-rls-invite-probe@example.com",
+    role: "member",
+    is_staff_invite: false,
+  }).select("id").single();
+  check(
+    "the creator of a private workspace can invite into it",
+    !memberInvite.error && !!memberInvite.data,
+    memberInvite.error ? memberInvite.error.code ?? memberInvite.error.message : "ok"
+  );
+
+  const adminInviteSecret = await asAdmin.from("pending_invitations").insert({
+    workspace_id: fx.privateWs,
+    email: "zz-rls-invite-probe-2@example.com",
+    role: "member",
+    is_staff_invite: false,
+  });
+  check(
+    "an administrator cannot invite into someone else's private workspace",
+    adminInviteSecret.error !== null,
+    adminInviteSecret.error ? adminInviteSecret.error.code ?? adminInviteSecret.error.message : "INSERT SUCCEEDED"
+  );
+
+  const extInviteCompany = await asExternal.from("pending_invitations").insert({
+    workspace_id: fx.companyWs,
+    email: "zz-rls-invite-probe-3@example.com",
+    role: "member",
+    is_staff_invite: true,
+  });
+  check(
+    "an external account cannot invite into the company workspace",
+    extInviteCompany.error !== null,
+    extInviteCompany.error ? extInviteCompany.error.code ?? extInviteCompany.error.message : "INSERT SUCCEEDED"
+  );
+
+  const extSeesInvites = await asExternal.from("pending_invitations").select("id", { count: "exact", head: true });
+  check("an external account reads no pending invitation at all", (extSeesInvites.count ?? 0) === 0);
+
+  if (memberInvite.data) {
+    const revoke = await asMember.from("pending_invitations").delete().eq("id", memberInvite.data.id).select("id");
+    check(
+      "the same person can revoke the invite they created",
+      (revoke.data ?? []).length === 1,
+      revoke.error ? revoke.error.message : undefined
+    );
+  }
+
   console.log("\nAttachments");
   // storage.objects had a SELECT policy of just `bucket_id = 'attachments'`
   // beside an owner-scoped one. Permissive policies are ORed, so every
