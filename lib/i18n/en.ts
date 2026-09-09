@@ -358,6 +358,15 @@ export const en = {
   "panel.addEmoji": "Add emoji",
   "panel.deleteUpdate": "Delete update",
   "panel.deleteReply": "Delete reply",
+
+  // ── Assignee access guard (shared workspaces only) ─────────
+  "assignGuard.noAccess": "No access to this board — won't see the task or be notified.",
+  "assignGuard.cannotGrant": "You can't grant access here — ask an admin or workspace manager.",
+  "assignGuard.grantAndAssign": "Grant & assign",
+  "assignGuard.assignAnyway": "Assign anyway",
+  "assignGuard.granted": "Access granted",
+  "assignGuard.grantedBody": "{name} can now open this board.",
+  "assignGuard.errGrant": "Could not grant board access",
   "table.itemCount": "{count} items",
   "table.itemCountOne": "1 item",
   "table.itemNamePlaceholder": "Item name…",

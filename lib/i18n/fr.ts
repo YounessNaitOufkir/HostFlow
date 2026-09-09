@@ -360,6 +360,15 @@ export const fr: Dictionary = {
   "panel.addEmoji": "Ajouter un emoji",
   "panel.deleteUpdate": "Supprimer la publication",
   "panel.deleteReply": "Supprimer la réponse",
+
+  // ── Garde-fou d'accès pour les assignations (espaces partagés) ──
+  "assignGuard.noAccess": "N'a pas accès à ce tableau — ne verra pas la tâche et ne sera pas notifié·e.",
+  "assignGuard.cannotGrant": "Vous ne pouvez pas accorder l'accès ici — demandez à un administrateur ou gestionnaire.",
+  "assignGuard.grantAndAssign": "Accorder l'accès et assigner",
+  "assignGuard.assignAnyway": "Assigner quand même",
+  "assignGuard.granted": "Accès accordé",
+  "assignGuard.grantedBody": "{name} peut désormais ouvrir ce tableau.",
+  "assignGuard.errGrant": "Impossible d'accorder l'accès au tableau",
   "table.itemCount": "{count} tâches",
   "table.itemCountOne": "1 tâche",
   "table.itemNamePlaceholder": "Nom de la tâche…",

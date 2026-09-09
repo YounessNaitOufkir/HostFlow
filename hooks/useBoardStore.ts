@@ -164,6 +164,7 @@ export function useBoardStore() {
     renameBoard: boardMutations.renameBoard,
     deleteBoard: boardMutations.deleteBoard,
     updateBoardItemNameColumn: boardMutations.updateBoardItemNameColumn,
+    grantBoardAccess: boardMutations.grantBoardAccess,
     // Group operations
     renameGroup: groupMutations.renameGroup,
     changeGroupColor: groupMutations.changeGroupColor,

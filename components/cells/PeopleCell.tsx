@@ -3,10 +3,15 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useAssignablePeople } from "@/components/AssignablePeopleContext";
+import { useBoardAccess } from "@/components/BoardAccessContext";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
+import { useAuth } from "@/components/AuthProvider";
 import { Item, Column, Profile } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Plus, X } from "lucide-react";
+import AssigneeAccessPrompt from "@/components/ui/AssigneeAccessPrompt";
+import { useT } from "@/components/LanguageProvider";
+import { toast } from "sonner";
 
 interface PeopleCellProps {
   item: Item;
@@ -18,9 +23,10 @@ interface PeopleCellProps {
 }
 
 export default function PeopleCell({ item, column, onUpdate, profiles, activeStatusId, setActiveStatusId }: PeopleCellProps) {
+  const t = useT();
 
   const isOpen = activeStatusId === item.id + column.id;
-  
+
   const setIsOpen = (open: boolean) => {
     if (setActiveStatusId) {
       setActiveStatusId(open ? item.id + column.id : null);
@@ -28,6 +34,20 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
   };
 
   const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });
+
+  // Someone assigned who can't actually reach this board — see
+  // components/BoardAccessContext.tsx. Shared workspaces only: a private
+  // workspace's picker (below) is pre-filtered to people who trivially have
+  // access, so this never has anything to fire on there. null when no
+  // candidate is pending.
+  const [guardPerson, setGuardPerson] = useState<Profile | null>(null);
+  const [granting, setGranting] = useState(false);
+  const boardAccess = useBoardAccess();
+  const {
+    anchorRef: guardAnchorRef,
+    menuRef: guardMenuRef,
+    menuStyle: guardMenuStyle,
+  } = useAnchoredMenu(!!guardPerson, { align: "left", onDismiss: () => setGuardPerson(null) });
 
   const rawValue = item.column_values[column.id];
   const selectedIds: string[] = Array.isArray(rawValue) ? rawValue : [];
@@ -43,11 +63,64 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
+  const assign = (userId: string) => {
+    onUpdate(item.id, column.id, [...selectedIds, userId]);
+  };
+
+  // The picker offers only people who can actually reach this workspace, but
+  // still lists anyone already assigned so a wrong assignment can be undone.
+  const assignable = useAssignablePeople();
+  const { profile: currentProfile } = useAuth();
+  // null means a private workspace: assignablePeopleIds only restricts shared
+  // ones. A private workspace's own directory is not the app's whole staff
+  // list to leak into — the picker offers just yourself and whoever is
+  // already on the task. Inviting anyone else happens in the Workspace
+  // Members modal, not from this dropdown. A shared workspace still shows the
+  // team directory, so picking a colleague who lacks real board access goes
+  // through the guard below instead of assigning silently.
+  const isPrivateWorkspace = assignable === null;
+  const pickable = assignable
+    ? profiles.filter((u) => assignable.has(u.id) || selectedIds.includes(u.id))
+    : profiles.filter((u) => u.id === currentProfile?.id || selectedIds.includes(u.id));
+  const selectedUsers = profiles.filter((u) => selectedIds.includes(u.id));
+
   const toggleUser = (userId: string) => {
-    const newIds = selectedIds.includes(userId)
-      ? selectedIds.filter((id) => id !== userId)
-      : [...selectedIds, userId];
-    onUpdate(item.id, column.id, newIds);
+    if (selectedIds.includes(userId)) {
+      onUpdate(item.id, column.id, selectedIds.filter((id) => id !== userId));
+      return;
+    }
+    // A private workspace's pickable list already contains only yourself
+    // (who must have board access to be seeing this picker at all) and
+    // people already assigned — nothing it can offer here needs the guard.
+    if (!isPrivateWorkspace) {
+      const person = profiles.find((p) => p.id === userId);
+      if (person && boardAccess && !boardAccess.hasAccess(userId)) {
+        setIsOpen(false);
+        setGuardPerson(person);
+        return;
+      }
+    }
+    assign(userId);
+  };
+
+  const handleGrantAndAssign = async () => {
+    if (!guardPerson || !boardAccess) return;
+    setGranting(true);
+    const ok = await boardAccess.grant(guardPerson.id);
+    setGranting(false);
+    if (ok) {
+      assign(guardPerson.id);
+      toast.success(t("assignGuard.granted"), {
+        description: t("assignGuard.grantedBody", { name: guardPerson.full_name }),
+      });
+      setGuardPerson(null);
+    }
+  };
+
+  const handleAssignAnyway = () => {
+    if (!guardPerson) return;
+    assign(guardPerson.id);
+    setGuardPerson(null);
   };
 
   const removeUser = (userId: string, e: React.MouseEvent) => {
@@ -55,13 +128,6 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
     onUpdate(item.id, column.id, selectedIds.filter((id) => id !== userId));
   };
 
-  // The picker offers only people who can actually reach this workspace, but
-  // still lists anyone already assigned so a wrong assignment can be undone.
-  const assignable = useAssignablePeople();
-  const pickable = assignable
-    ? profiles.filter((u) => assignable.has(u.id) || selectedIds.includes(u.id))
-    : profiles;
-  const selectedUsers = profiles.filter((u) => selectedIds.includes(u.id));
   // Assignees outside your directory — an external, or someone whose workspace
   // you cannot reach. Without this the cell would render them as unassigned,
   // which reads as "nobody is on this" for work that is in fact assigned.
@@ -69,7 +135,11 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
   const hiddenCount = selectedIds.filter((id) => !knownIds.has(id)).length;
 
   return (
-    <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 flex items-center justify-center px-1 shrink-0 relative`} style={{ width: column.width ? `${column.width}px` : undefined }} ref={anchorRef}>
+    <div
+      className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 flex items-center justify-center px-1 shrink-0 relative`}
+      style={{ width: column.width ? `${column.width}px` : undefined }}
+      ref={(el) => { anchorRef.current = el; guardAnchorRef.current = el; }}
+    >
       {/* Cell display */}
       <div
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
@@ -167,6 +237,18 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
             );
           })}
         </div>
+      )}
+
+      {guardPerson && boardAccess && (
+        <AssigneeAccessPrompt
+          person={guardPerson}
+          canGrant={boardAccess.canGrant}
+          busy={granting}
+          menuRef={guardMenuRef}
+          menuStyle={guardMenuStyle}
+          onGrantAndAssign={handleGrantAndAssign}
+          onAssignAnyway={handleAssignAnyway}
+        />
       )}
     </div>
   );

@@ -43,6 +43,9 @@ import { duplicateBoard, duplicateWorkspace } from "@/lib/templateUtils";
 import { executeImport } from "@/lib/importUtils";
 import ImportModal, { ImportConfig } from "@/components/ImportModal";
 import { AssignablePeopleContext } from "@/components/AssignablePeopleContext";
+import { BoardAccessContext, type BoardAccessValue } from "@/components/BoardAccessContext";
+import { useBoardAccessQuery } from "@/hooks/queries/useBoardAccessQuery";
+import { hasBoardAccess, canGrantBoardAccess } from "@/lib/boardAccess";
 import { reportMutationError } from "@/lib/errorReporting";
 import { toast } from "sonner";
 
@@ -673,6 +676,43 @@ export default function HostFlowApp() {
       state.profiles.filter((p) => p.is_staff !== false).map((p) => p.id)
     );
   }, [state.activeWorkspace, state.profiles]);
+
+  // Whether a candidate assignee can actually reach the board being edited —
+  // looked up against the board's OWN workspace, not whichever workspace the
+  // sidebar happens to have selected (those can differ, e.g. after a search
+  // navigation), unlike assignablePeopleIds above. Only consulted by
+  // PeopleCell on shared workspaces; a private one's picker is already
+  // pre-filtered to people who trivially have access.
+  const activeBoardWorkspace = React.useMemo(
+    () => state.workspaces.find((w) => w.id === state.activeBoard?.workspace_id),
+    [state.workspaces, state.activeBoard?.workspace_id]
+  );
+  const { data: boardAccessData } = useBoardAccessQuery(
+    state.activeBoard?.id ?? null,
+    activeBoardWorkspace?.id
+  );
+  const boardAccessValue: BoardAccessValue | null = React.useMemo(() => {
+    if (!state.activeBoard || !profile) return null;
+    const board = state.activeBoard;
+    const boardMemberIds = boardAccessData?.boardMemberIds ?? new Set<string>();
+    const workspaceMemberRoles = boardAccessData?.workspaceMemberRoles ?? new Map<string, string>();
+    return {
+      hasAccess: (userId: string) => {
+        const candidate = state.profiles.find((p) => p.id === userId);
+        if (!candidate) return false;
+        return hasBoardAccess(candidate, board, activeBoardWorkspace, boardMemberIds, workspaceMemberRoles);
+      },
+      canGrant: canGrantBoardAccess(
+        profile.id,
+        profile,
+        board,
+        activeBoardWorkspace,
+        workspaceMemberRoles.get(profile.id)
+      ),
+      grant: (userId: string) => store.grantBoardAccess(board, userId),
+    };
+  }, [state.activeBoard, activeBoardWorkspace, state.profiles, boardAccessData, profile, store.grantBoardAccess]);
+
   if (!state.mounted) return null;
 
   if (state.loading || authLoading) {
@@ -719,6 +759,7 @@ export default function HostFlowApp() {
 
   return (
     <AssignablePeopleContext.Provider value={assignablePeopleIds}>
+    <BoardAccessContext.Provider value={boardAccessValue}>
     <div className="flex h-screen w-screen overflow-visible bg-[#F4F6F8] dark:bg-[#181b34]">
       {/* Sidebar */}
       {workspacesLoading && state.workspaces.length === 0 ? (
@@ -1134,6 +1175,7 @@ export default function HostFlowApp() {
       {store.PromptComponent}
       {store.WorkspaceDialogComponent}
     </div>
+    </BoardAccessContext.Provider>
     </AssignablePeopleContext.Provider>
   );
 }

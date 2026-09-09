@@ -6,6 +6,7 @@ export const queryKeys = {
   profiles: () => ["profiles"] as const,
   boards: (workspaceId?: string) => ["boards", { workspaceId }] as const,
   boardData: (boardId: string) => ["boardData", boardId] as const,
+  boardAccess: (boardId: string) => ["boardAccess", boardId] as const,
   myWorkItems: (profileId: string, boardScope = "") =>
     ["myWorkItems", profileId, boardScope] as const,
   itemUpdates: (itemId: string) => ["updates", itemId] as const,

@@ -165,6 +165,9 @@ export interface Board {
   name: string;
   description: string;
   workspace_id?: string;
+  /** NULL means "inherit from the workspace" — see boards.is_private in ACCESS_MODEL.md. */
+  is_private?: boolean | null;
+  created_by?: string | null;
   columns: Column[];
   items?: Item[];
   automations?: Automation[];

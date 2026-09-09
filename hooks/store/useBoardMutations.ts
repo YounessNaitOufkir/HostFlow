@@ -181,11 +181,37 @@ export function useBoardMutations({
     [dispatch]
   );
 
+  /**
+   * Grants one person access to a board, for the assignee access guard.
+   *
+   * `.select("id")` matters here exactly as it does everywhere else in this
+   * file: RLS (`BoardMembers: Insert`, gated by can_manage_board()) rejects a
+   * disallowed insert by matching no row, not by returning an error, so
+   * checking `error` alone would report success for a grant that never
+   * happened.
+   */
+  const grantBoardAccess = useCallback(async (board: Board, userId: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from("board_members")
+      .insert({ board_id: board.id, user_id: userId, role: "member" })
+      .select("id");
+    if (error || !data || data.length === 0) {
+      reportMutationError(error, "Could not grant access to this board", {
+        table: "board_members",
+        operation: "insert",
+      });
+      return false;
+    }
+    getQueryClient().invalidateQueries({ queryKey: queryKeys.boardAccess(board.id) });
+    return true;
+  }, []);
+
   return {
     switchBoard,
     createBoard,
     renameBoard,
     deleteBoard,
     updateBoardItemNameColumn,
+    grantBoardAccess,
   };
 }
