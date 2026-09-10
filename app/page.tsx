@@ -680,9 +680,9 @@ export default function HostFlowApp() {
   // Whether a candidate assignee can actually reach the board being edited —
   // looked up against the board's OWN workspace, not whichever workspace the
   // sidebar happens to have selected (those can differ, e.g. after a search
-  // navigation), unlike assignablePeopleIds above. Only consulted by
-  // PeopleCell on shared workspaces; a private one's picker is already
-  // pre-filtered to people who trivially have access.
+  // navigation), unlike assignablePeopleIds above. hasAccess/canGrant/grant
+  // drive PeopleCell's guard on shared workspaces; workspaceMemberRoles
+  // widens the picker on private ones to everyone actually invited there.
   const activeBoardWorkspace = React.useMemo(
     () => state.workspaces.find((w) => w.id === state.activeBoard?.workspace_id),
     [state.workspaces, state.activeBoard?.workspace_id]
@@ -710,6 +710,7 @@ export default function HostFlowApp() {
         workspaceMemberRoles.get(profile.id)
       ),
       grant: (userId: string) => store.grantBoardAccess(board, userId),
+      workspaceMemberRoles,
     };
   }, [state.activeBoard, activeBoardWorkspace, state.profiles, boardAccessData, profile, store.grantBoardAccess]);
 

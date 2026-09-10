@@ -73,15 +73,22 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
   const { profile: currentProfile } = useAuth();
   // null means a private workspace: assignablePeopleIds only restricts shared
   // ones. A private workspace's own directory is not the app's whole staff
-  // list to leak into — the picker offers just yourself and whoever is
-  // already on the task. Inviting anyone else happens in the Workspace
-  // Members modal, not from this dropdown. A shared workspace still shows the
-  // team directory, so picking a colleague who lacks real board access goes
-  // through the guard below instead of assigning silently.
+  // list to leak into — the picker offers yourself, whoever is already on
+  // the task, and anyone explicitly invited to that workspace (they have
+  // real access to it, unlike the wider staff directory). Inviting someone
+  // new still happens in the Workspace Members modal, not from this
+  // dropdown. A shared workspace still shows the team directory, so picking
+  // a colleague who lacks real board access goes through the guard below
+  // instead of assigning silently.
   const isPrivateWorkspace = assignable === null;
   const pickable = assignable
     ? profiles.filter((u) => assignable.has(u.id) || selectedIds.includes(u.id))
-    : profiles.filter((u) => u.id === currentProfile?.id || selectedIds.includes(u.id));
+    : profiles.filter(
+        (u) =>
+          u.id === currentProfile?.id ||
+          selectedIds.includes(u.id) ||
+          boardAccess?.workspaceMemberRoles.has(u.id)
+      );
   const selectedUsers = profiles.filter((u) => selectedIds.includes(u.id));
 
   const toggleUser = (userId: string) => {

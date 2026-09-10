@@ -187,6 +187,35 @@ describe("PeopleCell - who can be assigned", () => {
     renderOpen([external.id], null);
     expect(screen.getAllByText('Sister Externe').length).toBeGreaterThan(0);
   });
+
+  it('offers someone explicitly invited to a private workspace, not just yourself', () => {
+    // Bug: the picker on a private workspace only ever showed the signed-in
+    // user, even for someone the owner had genuinely invited to that
+    // workspace via workspace_members — workspaceMemberRoles is that grant.
+    render(
+      <AssignablePeopleContext.Provider value={null}>
+        <BoardAccessContext.Provider
+          value={{
+            hasAccess: () => true,
+            canGrant: false,
+            grant: vi.fn(),
+            workspaceMemberRoles: new Map([[external.id, 'member']]),
+          }}
+        >
+          <PeopleCell
+            item={mkItem([])}
+            column={col}
+            onUpdate={vi.fn()}
+            profiles={[staff, external]}
+            activeStatusId={OPEN}
+            setActiveStatusId={vi.fn()}
+          />
+        </BoardAccessContext.Provider>
+      </AssignablePeopleContext.Provider>
+    );
+    expect(screen.getByText('Amine ABOUTALIB')).toBeInTheDocument();
+    expect(screen.getByText('Sister Externe')).toBeInTheDocument();
+  });
 });
 
 /**
@@ -210,10 +239,10 @@ describe("PeopleCell - the assignee access guard (shared workspaces)", () => {
   };
   const OPEN = "item-1people_col";
 
-  const renderShared = (boardAccess: BoardAccessValue, onUpdate = vi.fn()) =>
+  const renderShared = (boardAccess: Omit<BoardAccessValue, "workspaceMemberRoles">, onUpdate = vi.fn()) =>
     render(
       <AssignablePeopleContext.Provider value={new Set([staff.id, colleague.id])}>
-        <BoardAccessContext.Provider value={boardAccess}>
+        <BoardAccessContext.Provider value={{ ...boardAccess, workspaceMemberRoles: new Map() }}>
           <PeopleCell
             item={item}
             column={col}

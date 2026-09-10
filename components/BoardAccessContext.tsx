@@ -11,6 +11,10 @@ export interface BoardAccessValue {
   canGrant: boolean;
   /** Inserts a board_members row for userId on the current board. */
   grant: (userId: string) => Promise<boolean>;
+  /** Every profile explicitly granted access to the active board's workspace,
+   * keyed by user id. Used on private workspaces to widen the picker beyond
+   * "just yourself" to everyone actually invited there. */
+  workspaceMemberRoles: Map<string, string>;
 }
 
 /**
@@ -22,9 +26,9 @@ export interface BoardAccessValue {
  * board would mean a fresh board_members/workspace_members read on every
  * render.
  *
- * Only consulted on shared workspaces — a private workspace's picker is
- * pre-filtered to just yourself and existing assignees, so nothing it offers
- * can ever lack access. See PeopleCell.tsx.
+ * On shared workspaces, hasAccess/canGrant/grant drive the assignee guard.
+ * On private workspaces the picker instead widens to workspaceMemberRoles,
+ * since staff-by-ceiling doesn't apply there. See PeopleCell.tsx.
  */
 export const BoardAccessContext = createContext<BoardAccessValue | null>(null);
 
