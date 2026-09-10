@@ -20,6 +20,7 @@ import {
   CalendarClock,
   FileText,
   ShieldAlert,
+  Type,
   LucideIcon,
 } from "lucide-react";
 import { TruncatedText } from "@/components/ui/TruncatedText";
@@ -41,6 +42,7 @@ const ACTION_ICONS: Record<AuditActionType, LucideIcon> = {
   priority_changed: Flag,
   due_date_changed: CalendarClock,
   description_changed: FileText,
+  name_changed: Type,
 };
 
 const ACTION_TONE: Record<AuditActionType, string> = {
@@ -52,6 +54,7 @@ const ACTION_TONE: Record<AuditActionType, string> = {
   priority_changed: "text-orange-500",
   due_date_changed: "text-cyan-500",
   description_changed: "text-gray-500",
+  name_changed: "text-indigo-500",
 };
 
 type TFunc = (key: TranslationKey, vars?: TranslateVars) => string;

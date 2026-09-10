@@ -324,7 +324,8 @@ export type AuditActionType =
   | "assignee_changed"
   | "priority_changed"
   | "due_date_changed"
-  | "description_changed";
+  | "description_changed"
+  | "name_changed";
 
 export interface AuditLog {
   id: string;
