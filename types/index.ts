@@ -337,8 +337,9 @@ export interface AuditLog {
   old_value: Record<string, any> | null;
   new_value: Record<string, any> | null;
   created_at: string;
-  /** Embedded via the items(name) foreign-table select; null once the item has been purged. */
-  items?: { name: string } | null;
+  /** The item's name captured by the trigger at write time, so the trail
+   * still reads correctly after the item is purged. */
+  item_name_snapshot: string | null;
 }
 
 // ============================================================

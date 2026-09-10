@@ -90,6 +90,7 @@ export const fr: Dictionary = {
   "audit.itemDeleted": "{actor} a supprimé « {item} »",
   "audit.itemRestored": "{actor} a restauré « {item} »",
   "audit.fieldChanged": "{actor} a changé {column} sur « {item} » de {oldValue} à {newValue}",
+  "audit.nameChanged": "{actor} a renommé « {oldValue} » en « {newValue} »",
 
   // ── Profile menu ───────────────────────────────────────────
   "profile.myProfile": "Mon profil",

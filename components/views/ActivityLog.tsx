@@ -96,7 +96,7 @@ function formatChangedValue(
 
 function describeLog(log: AuditLog, profileMap: Map<string, Profile>, t: TFunc) {
   const actor = actorName(log.user_id, profileMap, t);
-  const itemName = log.items?.name || log.old_value?.name || log.new_value?.name || t("audit.deletedItem");
+  const itemName = log.item_name_snapshot || t("audit.deletedItem");
   const Icon = ACTION_ICONS[log.action_type] ?? History;
   const tone = ACTION_TONE[log.action_type] ?? "text-gray-500";
 
@@ -110,9 +110,14 @@ function describeLog(log: AuditLog, profileMap: Map<string, Profile>, t: TFunc) 
     return { Icon, tone, text: t("audit.itemRestored", { actor, item: itemName }) };
   }
 
-  const column = log.old_value?.column || log.new_value?.column || "";
   const oldValue = formatChangedValue(log.action_type, log.old_value?.value, profileMap, t);
   const newValue = formatChangedValue(log.action_type, log.new_value?.value, profileMap, t);
+
+  if (log.action_type === "name_changed") {
+    return { Icon, tone, text: t("audit.nameChanged", { actor, oldValue, newValue }) };
+  }
+
+  const column = log.old_value?.column || log.new_value?.column || "";
   return {
     Icon,
     tone,
@@ -137,7 +142,7 @@ export default function ActivityLog({ board, onOpenItem }: ActivityLogProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("audit_logs")
-        .select("*, items(name)")
+        .select("*")
         .eq("board_id", board.id)
         .order("created_at", { ascending: false })
         .limit(500);

@@ -23,6 +23,8 @@ interface RealtimeSyncOptions {
   onWorkspacesChanged?: () => void;
   /** Callback when global settings should be refreshed */
   onGlobalSettingsChanged?: () => void;
+  /** Callback when a new audit-log row lands on the active board */
+  onAuditLogChanged?: (boardId: string) => void;
 }
 
 /**
@@ -35,6 +37,7 @@ export function useRealtimeSync({
   onBoardsChanged,
   onWorkspacesChanged,
   onGlobalSettingsChanged,
+  onAuditLogChanged,
 }: RealtimeSyncOptions) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const globalChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -155,6 +158,11 @@ export function useRealtimeSync({
         { event: "*", schema: "public", table: "item_links" },
         debouncedRefresh
       )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "audit_logs", filter: `board_id=eq.${boardId}` },
+        () => onAuditLogChanged?.(boardId)
+      )
       .subscribe();
 
     channelRef.current = channel;
@@ -166,7 +174,7 @@ export function useRealtimeSync({
         channelRef.current = null;
       }
     };
-  }, [activeBoard?.id, onBoardDataChanged, onBoardsChanged]);
+  }, [activeBoard?.id, onBoardDataChanged, onBoardsChanged, onAuditLogChanged]);
 }
 
 /**

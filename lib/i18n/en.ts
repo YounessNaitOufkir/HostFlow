@@ -88,6 +88,7 @@ export const en = {
   "audit.itemDeleted": "{actor} deleted \"{item}\"",
   "audit.itemRestored": "{actor} restored \"{item}\"",
   "audit.fieldChanged": "{actor} changed {column} on \"{item}\" from {oldValue} to {newValue}",
+  "audit.nameChanged": "{actor} changed the name from \"{oldValue}\" to \"{newValue}\"",
 
   // ── Profile menu ───────────────────────────────────────────
   "profile.myProfile": "My Profile",

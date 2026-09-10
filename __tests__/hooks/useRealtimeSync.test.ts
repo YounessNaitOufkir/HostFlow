@@ -75,6 +75,32 @@ describe("useRealtimeSync — Batch 4.2", () => {
     );
   });
 
+  it("invalidates the audit-log query when a new audit_logs row is inserted for the board", () => {
+    const onAuditLogChanged = vi.fn();
+
+    renderHook(() =>
+      useRealtimeSync({
+        activeBoard: mockBoard,
+        onBoardDataChanged: vi.fn(),
+        onBoardsChanged: vi.fn(),
+        onAuditLogChanged,
+      })
+    );
+
+    const auditCall = mockOn.mock.calls.find(
+      (call: any[]) => call[1]?.table === "audit_logs"
+    );
+    expect(auditCall).toBeDefined();
+    expect(auditCall![1]).toMatchObject({
+      event: "INSERT",
+      table: "audit_logs",
+      filter: "board_id=eq.board-rt-1",
+    });
+
+    auditCall![2]();
+    expect(onAuditLogChanged).toHaveBeenCalledWith("board-rt-1");
+  });
+
   it("debounces rapid onBoardDataChanged updates (150ms)", () => {
     const onBoardDataChanged = vi.fn();
     const onBoardsChanged = vi.fn();

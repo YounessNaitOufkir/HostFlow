@@ -466,12 +466,20 @@ export default function HostFlowApp() {
     [queryClient]
   );
 
+  const handleAuditLogChanged = useCallback(
+    (boardId: string) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auditLogs(boardId) });
+    },
+    [queryClient]
+  );
+
   useRealtimeSync({
     activeBoard: state.activeBoard,
     onBoardDataChanged: handleBoardDataChanged,
     onBoardsChanged: handleBoardsChanged,
     onWorkspacesChanged: handleWorkspacesChanged,
     onGlobalSettingsChanged: handleGlobalSettingsChanged,
+    onAuditLogChanged: handleAuditLogChanged,
   });
 
   // ============================================================
