@@ -47,14 +47,13 @@ export default function GoogleCalendarConnectButton({ profile }: GoogleCalendarC
   const handleDisconnect = async () => {
     try {
       setLoading(true);
-      await supabase
-        .from("user_integrations")
-        .update({
-          google_access_token: null,
-          google_refresh_token: null,
-        })
-        .eq("user_id", profile.id);
-      
+      // Goes through the server rather than nulling the tokens directly: the
+      // client never holds them (see the RLS migration hiding them from
+      // SELECT), and disconnecting needs a live grant to also delete every
+      // event this app synced - nulling first would strand those events.
+      const res = await fetch("/api/integrations/google/disconnect", { method: "POST" });
+      if (!res.ok) throw new Error(`Disconnect failed: ${res.status}`);
+
       setIsConnected(false);
     } catch (err) {
       console.error("Failed to disconnect", err);

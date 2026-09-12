@@ -794,6 +794,17 @@ export function useItemMutations({
         });
       }
 
+      // Best-effort, and deliberately before the soft-delete write below: the
+      // route re-reads the item's column_values through RLS to find who it
+      // was synced to, which only works while the item is still live. A
+      // failure here must not block the delete itself - it just means a
+      // calendar event lingers until it's cleaned up by hand.
+      fetch('/api/integrations/google/delete-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: itemId }),
+      }).catch((err) => console.error('[Google Calendar] delete-task cleanup failed:', err));
+
       try {
         const { error } = await supabase
           .from("items")
