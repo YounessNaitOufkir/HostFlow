@@ -170,45 +170,58 @@ export function useFilters(items: Item[], columns: Column[]): UseFiltersReturn {
 
 function matchesRule(item: Item, rule: FilterRule): boolean {
   const rawVal = item.column_values?.[rule.columnId];
+  const isArrayVal = Array.isArray(rawVal);
+  const isTimelineVal = typeof rawVal === 'object' && rawVal !== null && !isArrayVal && ("start" in rawVal || "end" in rawVal);
+  const isLinkVal = typeof rawVal === 'object' && rawVal !== null && !isArrayVal && !isTimelineVal && "url" in rawVal;
 
   switch (rule.operator) {
     case "is_empty":
-      if (typeof rawVal === 'object' && rawVal !== null && "start" in rawVal) return !rawVal.start && !rawVal.end;
-      return rawVal === null || rawVal === undefined || rawVal === "" || (Array.isArray(rawVal) && rawVal.length === 0);
+      if (isTimelineVal) return !rawVal.start && !rawVal.end;
+      if (isLinkVal) return !rawVal.url;
+      if (isArrayVal) return rawVal.length === 0;
+      return rawVal === null || rawVal === undefined || rawVal === "";
     case "is_not_empty":
-      if (typeof rawVal === 'object' && rawVal !== null && "start" in rawVal) return !!rawVal.start || !!rawVal.end;
-      return rawVal !== null && rawVal !== undefined && rawVal !== "" && !(Array.isArray(rawVal) && rawVal.length === 0);
+      if (isTimelineVal) return !!rawVal.start || !!rawVal.end;
+      if (isLinkVal) return !!rawVal.url;
+      if (isArrayVal) return rawVal.length > 0;
+      return rawVal !== null && rawVal !== undefined && rawVal !== "";
+    case "is_checked":
+      return rawVal === true;
+    case "is_not_checked":
+      return rawVal !== true;
     case "equals":
-      if (typeof rawVal === 'object' && rawVal !== null && "start" in rawVal) {
+      if (isTimelineVal) {
         const startStr = rawVal.start ? new Date(rawVal.start).toISOString().split('T')[0] : "";
         const endStr = rawVal.end ? new Date(rawVal.end).toISOString().split('T')[0] : "";
         return startStr === rule.value || endStr === rule.value;
       }
+      if (isArrayVal) return rawVal.some((v) => String(v).toLowerCase().includes(String(rule.value).toLowerCase()));
       return String(rawVal ?? "").toLowerCase() === String(rule.value).toLowerCase();
     case "not_equals":
-      if (typeof rawVal === 'object' && rawVal !== null && "start" in rawVal) {
+      if (isTimelineVal) {
         const startStr = rawVal.start ? new Date(rawVal.start).toISOString().split('T')[0] : "";
         const endStr = rawVal.end ? new Date(rawVal.end).toISOString().split('T')[0] : "";
         return startStr !== rule.value && endStr !== rule.value;
       }
+      if (isArrayVal) return !rawVal.some((v) => String(v).toLowerCase().includes(String(rule.value).toLowerCase()));
       return String(rawVal ?? "").toLowerCase() !== String(rule.value).toLowerCase();
     case "contains": {
       let valStr = String(rawVal ?? "");
-      if (typeof rawVal === 'object' && rawVal !== null && "start" in rawVal) {
-        valStr = `${rawVal.start} ${rawVal.end}`;
-      }
+      if (isTimelineVal) valStr = `${rawVal.start} ${rawVal.end}`;
+      if (isLinkVal) valStr = `${rawVal.url} ${rawVal.label ?? ""}`;
+      if (isArrayVal) valStr = rawVal.join(" ");
       return valStr.toLowerCase().includes(String(rule.value).toLowerCase());
     }
     case "not_contains": {
       let valStr = String(rawVal ?? "");
-      if (typeof rawVal === 'object' && rawVal !== null && "start" in rawVal) {
-        valStr = `${rawVal.start} ${rawVal.end}`;
-      }
+      if (isTimelineVal) valStr = `${rawVal.start} ${rawVal.end}`;
+      if (isLinkVal) valStr = `${rawVal.url} ${rawVal.label ?? ""}`;
+      if (isArrayVal) valStr = rawVal.join(" ");
       return !valStr.toLowerCase().includes(String(rule.value).toLowerCase());
     }
     case "is_before": {
       if (!rule.value) return true;
-      if (typeof rawVal === 'object' && rawVal !== null && "start" in rawVal) {
+      if (isTimelineVal) {
         if (!rawVal.end && !rawVal.start) return false;
         return new Date(rawVal.end || rawVal.start) < new Date(String(rule.value));
       }
@@ -216,7 +229,7 @@ function matchesRule(item: Item, rule: FilterRule): boolean {
     }
     case "is_after": {
       if (!rule.value) return true;
-      if (typeof rawVal === 'object' && rawVal !== null && "start" in rawVal) {
+      if (isTimelineVal) {
         if (!rawVal.start && !rawVal.end) return false;
         return new Date(rawVal.start || rawVal.end) > new Date(String(rule.value));
       }
@@ -226,27 +239,51 @@ function matchesRule(item: Item, rule: FilterRule): boolean {
       return parseFloat(String(rawVal ?? 0)) > parseFloat(String(rule.value));
     case "less_than":
       return parseFloat(String(rawVal ?? 0)) < parseFloat(String(rule.value));
+    case "is_between": {
+      const [rangeStart, rangeEnd] = Array.isArray(rule.value) ? rule.value : [];
+      if (!rangeStart || !rangeEnd) return true;
+      if (isTimelineVal) {
+        if (!rawVal.start && !rawVal.end) return false;
+        const d = new Date(rawVal.start || rawVal.end);
+        return d >= new Date(String(rangeStart)) && d <= new Date(String(rangeEnd));
+      }
+      if (typeof rawVal === "number") {
+        return rawVal >= parseFloat(String(rangeStart)) && rawVal <= parseFloat(String(rangeEnd));
+      }
+      if (typeof rawVal === "string" && rawVal) {
+        const d = new Date(rawVal);
+        return d >= new Date(String(rangeStart)) && d <= new Date(String(rangeEnd));
+      }
+      return false;
+    }
     default:
       return true;
   }
 }
 
-function getCellSortValue(item: Item, columnId: string): string | number {
+type SortValue = string | number | { start: number; end: number };
+
+function getCellSortValue(item: Item, columnId: string): SortValue {
   if (columnId === "__name__") return item.name || "";
   const val = item.column_values?.[columnId];
   if (val === null || val === undefined) return "";
   if (typeof val === "number") return val;
-  
+
   if (typeof val === "object") {
-    // Handle timeline/date objects
-    if ("start" in val && val.start) return new Date(val.start).getTime();
-    if ("end" in val && val.end) return new Date(val.end).getTime();
+    // Timeline: sort by start date, tie-broken by end date (two items starting
+    // the same day but ending on different ones must not compare equal).
+    if ("start" in val || "end" in val) {
+      if (!val.start && !val.end) return "";
+      const start = val.start ? new Date(val.start).getTime() : new Date(val.end).getTime();
+      const end = val.end ? new Date(val.end).getTime() : start;
+      return { start, end };
+    }
     return "";
   }
-  
+
   if (typeof val === "string") {
     // Don't auto-parse all strings to floats if they look like strings with numbers in them,
-    // but try to parse pure numeric strings. Wait, parseFloat("2024-01-01") returns 2024, 
+    // but try to parse pure numeric strings. Wait, parseFloat("2024-01-01") returns 2024,
     // which messes up string sorts for dates.
     // Let's just return lowercase string for strings.
     return val.toLowerCase();
@@ -255,7 +292,10 @@ function getCellSortValue(item: Item, columnId: string): string | number {
   return String(val);
 }
 
-function compareSortValues(a: string | number, b: string | number): number {
+function compareSortValues(a: SortValue, b: SortValue): number {
+  if (typeof a === "object" && typeof b === "object") {
+    return a.start - b.start || a.end - b.end;
+  }
   if (typeof a === "number" && typeof b === "number") return a - b;
   return String(a).localeCompare(String(b));
 }

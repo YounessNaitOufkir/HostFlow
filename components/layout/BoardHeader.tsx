@@ -175,20 +175,23 @@ export default function BoardHeader({
 
       {/* Filter Bar */}
       {(mainView === "board" ||
-        mainView === "kanban" ||
         mainView === "cards" ||
         mainView === "gantt") && (
         <FilterBar
           // The Gantt has its own field picker and ignores hidden board
-          // columns, so this one would be a dead control beside it.
+          // columns, so this one would be a dead control beside it. It also
+          // orders bars by date itself and has no add-task entry point of
+          // its own, so Sort and New Task are dropped there too.
           showColumnPicker={mainView !== "gantt"}
+          showSortButton={mainView !== "gantt"}
           searchQuery={searchQuery}
           setSearchQuery={onSetSearchQuery}
           columns={columns}
           filters={filters}
+          profiles={profiles}
           hiddenColumns={hiddenColumns}
           onToggleColumnVisibility={onToggleColumnVisibility}
-          onAddTask={onAddTask}
+          onAddTask={mainView === "gantt" ? undefined : onAddTask}
         />
       )}
     </>

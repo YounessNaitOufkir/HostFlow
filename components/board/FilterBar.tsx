@@ -5,7 +5,107 @@ import { displayColumnTitle, displayCellLabel } from "@/lib/i18n/labels";
 import { useT } from "@/components/LanguageProvider";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Search, Filter, X, Plus, Trash2, ArrowUpDown, Eye, EyeOff } from "lucide-react";
-import { Column, STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/types";
+import { Column, ColumnType, Profile, STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/types";
+import type { TranslationKey } from "@/lib/i18n";
+
+/** Column types with no stored, filterable value (see hooks/useFilters.ts's matchesRule). */
+const UNFILTERABLE_COLUMN_TYPES: ColumnType[] = ["formula", "relation", "button"];
+
+interface OperatorOption {
+  value: string;
+  labelKey: TranslationKey;
+}
+
+/** Which filter conditions make sense for a column's stored value shape. */
+function getOperatorOptions(colType: ColumnType | undefined): OperatorOption[] {
+  switch (colType) {
+    case "timeline":
+      return [
+        { value: "equals", labelKey: "filter.is" },
+        { value: "not_equals", labelKey: "filter.isNot" },
+        { value: "is_before", labelKey: "filter.isBefore" },
+        { value: "is_after", labelKey: "filter.isAfter" },
+        { value: "is_between", labelKey: "filter.isBetween" },
+      ];
+    case "date":
+      return [
+        { value: "equals", labelKey: "filter.is" },
+        { value: "not_equals", labelKey: "filter.isNot" },
+        { value: "is_before", labelKey: "filter.isBefore" },
+        { value: "is_after", labelKey: "filter.isAfter" },
+        { value: "is_between", labelKey: "filter.isBetween" },
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+        { value: "is_not_empty", labelKey: "filter.isNotEmpty" },
+      ];
+    case "numbers":
+      return [
+        { value: "equals", labelKey: "filter.is" },
+        { value: "not_equals", labelKey: "filter.isNot" },
+        { value: "greater_than", labelKey: "filter.greaterThan" },
+        { value: "less_than", labelKey: "filter.lessThan" },
+        { value: "is_between", labelKey: "filter.isBetween" },
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+        { value: "is_not_empty", labelKey: "filter.isNotEmpty" },
+      ];
+    case "rating":
+      return [
+        { value: "equals", labelKey: "filter.is" },
+        { value: "greater_than", labelKey: "filter.greaterThan" },
+        { value: "less_than", labelKey: "filter.lessThan" },
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+      ];
+    case "checkbox":
+      return [
+        { value: "is_checked", labelKey: "filter.isChecked" },
+        { value: "is_not_checked", labelKey: "filter.isNotChecked" },
+      ];
+    case "people":
+      return [
+        { value: "equals", labelKey: "filter.is" },
+        { value: "not_equals", labelKey: "filter.isNot" },
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+      ];
+    case "tags":
+      return [
+        { value: "equals", labelKey: "filter.is" },
+        { value: "not_equals", labelKey: "filter.isNot" },
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+        { value: "is_not_empty", labelKey: "filter.isNotEmpty" },
+      ];
+    case "files":
+    case "dependency":
+      return [
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+        { value: "is_not_empty", labelKey: "filter.isNotEmpty" },
+      ];
+    case "link":
+      return [
+        { value: "contains", labelKey: "filter.contains" },
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+        { value: "is_not_empty", labelKey: "filter.isNotEmpty" },
+      ];
+    case "status":
+    case "priority":
+      return [
+        { value: "equals", labelKey: "filter.is" },
+        { value: "not_equals", labelKey: "filter.isNot" },
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+        { value: "is_not_empty", labelKey: "filter.isNotEmpty" },
+      ];
+    default:
+      // text and anything unrecognized
+      return [
+        { value: "equals", labelKey: "filter.is" },
+        { value: "not_equals", labelKey: "filter.isNot" },
+        { value: "contains", labelKey: "filter.contains" },
+        { value: "not_contains", labelKey: "filter.doesNotContain" },
+        { value: "is_empty", labelKey: "filter.isEmpty" },
+        { value: "is_not_empty", labelKey: "filter.isNotEmpty" },
+      ];
+  }
+}
+
+const VALUELESS_OPERATORS = new Set(["is_empty", "is_not_empty", "is_checked", "is_not_checked"]);
 
 interface FilterBarProps {
   searchQuery: string;
@@ -15,6 +115,8 @@ interface FilterBarProps {
   hiddenColumns?: string[];
   onToggleColumnVisibility?: (columnId: string) => void;
   onAddTask?: () => void;
+  /** Needed to offer a person picker as the filter value for People columns. */
+  profiles?: Profile[];
   /**
    * Hides the column show/hide control.
    *
@@ -23,20 +125,32 @@ interface FilterBarProps {
    * nothing there but sit next to a second button also called "Columns".
    */
   showColumnPicker?: boolean;
+  /** The Gantt orders bars by date internally and has no use for the generic sort menu. */
+  showSortButton?: boolean;
 }
 
-export default function FilterBar({ searchQuery, setSearchQuery, columns, filters, hiddenColumns = [], onToggleColumnVisibility, onAddTask, showColumnPicker = true }: FilterBarProps) {
+export default function FilterBar({ searchQuery, setSearchQuery, columns, filters, hiddenColumns = [], onToggleColumnVisibility, onAddTask, profiles = [], showColumnPicker = true, showSortButton = true }: FilterBarProps) {
   const t = useT();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [newColumnId, setNewColumnId] = useState("");
   const [newOperator, setNewOperator] = useState("equals");
   const [newValue, setNewValue] = useState("");
+  const [newValueEnd, setNewValueEnd] = useState("");
 
   const handleAddFilter = () => {
-    if (!newColumnId || !newValue) return;
-    filters.addFilter(newColumnId, newOperator, newValue);
+    if (!newColumnId) return;
+    if (VALUELESS_OPERATORS.has(newOperator)) {
+      filters.addFilter(newColumnId, newOperator, "");
+    } else if (newOperator === "is_between") {
+      if (!newValue || !newValueEnd) return;
+      filters.addFilter(newColumnId, newOperator, [newValue, newValueEnd]);
+    } else {
+      if (!newValue) return;
+      filters.addFilter(newColumnId, newOperator, newValue);
+    }
     setNewColumnId("");
     setNewValue("");
+    setNewValueEnd("");
     setShowAdvanced(false);
   };
 
@@ -49,9 +163,13 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
   const [newSortColumnId, setNewSortColumnId] = useState("");
   const [newSortDirection, setNewSortDirection] = useState<"asc" | "desc">("asc");
 
+  const sortableColumns = columns.filter((c) => c.type === "timeline");
+  const singleSortColumn = sortableColumns.length === 1 ? sortableColumns[0] : null;
+  const effectiveSortColumnId = singleSortColumn?.id || newSortColumnId;
+
   const handleAddSort = () => {
-    if (!newSortColumnId) return;
-    filters.addSort(newSortColumnId, newSortDirection);
+    if (!effectiveSortColumnId) return;
+    filters.addSort(effectiveSortColumnId, newSortDirection);
     setNewSortColumnId("");
     setNewSortDirection("asc");
     setShowSortMenu(false);
@@ -59,6 +177,13 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
 
   const activeRules = filters.filterRules || [];
   const activeSorts = filters.sortRules || [];
+
+  const filterableColumns = columns.filter((c) => !UNFILTERABLE_COLUMN_TYPES.includes(c.type));
+  const newFilterColumn = filterableColumns.find((c) => c.id === newColumnId);
+  const newOperatorOptions = getOperatorOptions(newFilterColumn?.type);
+
+  const newSortColumn = sortableColumns.find((c) => c.id === effectiveSortColumnId);
+  const isNewSortByDate = newSortColumn?.type === "timeline" || newSortColumn?.type === "date";
 
   return (
     <div className="flex flex-col border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-[#181b34] shrink-0">
@@ -86,6 +211,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
 
         <div className="relative flex items-center gap-2">
           {/* Sort Button */}
+          {showSortButton && (
           <div className="relative" ref={sortMenuAnchor}>
             <button
               onClick={() => { setShowSortMenu(!showSortMenu); setShowAdvanced(false); setShowColumnsMenu(false); }}
@@ -103,49 +229,74 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
               <div ref={sortMenuRef} style={sortMenuStyle} className="w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-[60] p-4">
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">{t("filter.sortBy")}</h4>
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.column")}</label>
-                    <select
-                      value={newSortColumnId}
-                      onChange={(e) => setNewSortColumnId(e.target.value)}
-                      className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
-                    >
-                      <option value="">Select column...</option>
-                      {columns.map(c => (
-                        <option key={c.id} value={c.id}>{displayColumnTitle(t, c.title)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.order")}</label>
-                    <select
-                      value={newSortDirection}
-                      onChange={(e) => setNewSortDirection(e.target.value as "asc" | "desc")}
-                      className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
-                    >
-                      <option value="asc">Ascending (A-Z, Old-New)</option>
-                      <option value="desc">Descending (Z-A, New-Old)</option>
-                    </select>
-                  </div>
-                  <div className="pt-2 flex justify-end gap-2">
-                    <button
-                      onClick={() => setShowSortMenu(false)}
-                      className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleAddSort}
-                      disabled={!newSortColumnId}
-                      className="px-3 py-1.5 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Apply Sort
-                    </button>
-                  </div>
+                  {singleSortColumn ? (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.column")}</label>
+                      <div className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded text-gray-700 dark:text-gray-200">
+                        {displayColumnTitle(t, singleSortColumn.title)}
+                      </div>
+                    </div>
+                  ) : sortableColumns.length > 1 ? (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.column")}</label>
+                      <select
+                        value={newSortColumnId}
+                        onChange={(e) => setNewSortColumnId(e.target.value)}
+                        className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+                      >
+                        <option value="">Select column...</option>
+                        {sortableColumns.map(c => (
+                          <option key={c.id} value={c.id}>{displayColumnTitle(t, c.title)}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t("filter.noSortableColumns")}</p>
+                  )}
+                  {sortableColumns.length > 0 && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.order")}</label>
+                        <select
+                          value={newSortDirection}
+                          onChange={(e) => setNewSortDirection(e.target.value as "asc" | "desc")}
+                          className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+                        >
+                          {isNewSortByDate ? (
+                            <>
+                              <option value="asc">{t("filter.sortEarliestToLatest")}</option>
+                              <option value="desc">{t("filter.sortLatestToEarliest")}</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="asc">Ascending (A-Z, Old-New)</option>
+                              <option value="desc">Descending (Z-A, New-Old)</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                      <div className="pt-2 flex justify-end gap-2">
+                        <button
+                          onClick={() => setShowSortMenu(false)}
+                          className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleAddSort}
+                          disabled={!effectiveSortColumnId}
+                          className="px-3 py-1.5 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Apply Sort
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
           </div>
+          )}
 
           <div className="relative" ref={advancedMenuAnchor}>
             <button
@@ -173,54 +324,35 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.column")}</label>
                   <select
                     value={newColumnId}
-                    onChange={(e) => setNewColumnId(e.target.value)}
+                    onChange={(e) => {
+                      const col = filterableColumns.find((c) => c.id === e.target.value);
+                      const firstOp = getOperatorOptions(col?.type)[0]?.value || "equals";
+                      setNewColumnId(e.target.value);
+                      setNewOperator(firstOp);
+                      setNewValue("");
+                      setNewValueEnd("");
+                    }}
                     className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
                   >
                     <option value="">Select column...</option>
-                    {columns.map(c => (
+                    {filterableColumns.map(c => (
                       <option key={c.id} value={c.id}>{displayColumnTitle(t, c.title)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.condition")}</label>
-                  {(() => {
-                    const selCol = columns.find((c) => c.id === newColumnId);
-                    if (selCol?.type === "timeline") {
-                      return (
-                        <select
-                          value={newOperator}
-                          onChange={(e) => setNewOperator(e.target.value)}
-                          className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
-                        >
-                          <option value="equals">{t("filter.isExactly")}</option>
-                          <option value="not_equals">{t("filter.isNotExactly")}</option>
-                          <option value="is_before">{t("filter.isBefore")}</option>
-                          <option value="is_after">{t("filter.isAfter")}</option>
-                          <option value="is_empty">{t("filter.isEmpty")}</option>
-                          <option value="is_not_empty">{t("filter.isNotEmpty")}</option>
-                        </select>
-                      );
-                    }
-                    return (
-                      <select
-                        value={newOperator}
-                        onChange={(e) => setNewOperator(e.target.value)}
-                        className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
-                      >
-                        <option value="equals">{t("filter.is")}</option>
-                        <option value="not_equals">{t("filter.isNot")}</option>
-                        <option value="contains">{t("filter.contains")}</option>
-                        <option value="not_contains">{t("filter.doesNotContain")}</option>
-                        <option value="greater_than">{t("filter.greaterThan")}</option>
-                        <option value="less_than">{t("filter.lessThan")}</option>
-                        <option value="is_empty">{t("filter.isEmpty")}</option>
-                        <option value="is_not_empty">{t("filter.isNotEmpty")}</option>
-                      </select>
-                    );
-                  })()}
+                  <select
+                    value={newOperator}
+                    onChange={(e) => { setNewOperator(e.target.value); setNewValue(""); setNewValueEnd(""); }}
+                    className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+                  >
+                    {newOperatorOptions.map((op) => (
+                      <option key={op.value} value={op.value}>{t(op.labelKey)}</option>
+                    ))}
+                  </select>
                 </div>
-                {newOperator !== "is_empty" && newOperator !== "is_not_empty" && (
+                {!VALUELESS_OPERATORS.has(newOperator) && (
                   <div>
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("filter.value")}</label>
                     {(() => {
@@ -240,12 +372,57 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                           </select>
                         );
                       }
-                      if (selCol?.type === "timeline") {
+                      if (selCol?.type === "people") {
+                        return (
+                          <select
+                            value={newValue}
+                            onChange={(e) => setNewValue(e.target.value)}
+                            className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+                          >
+                            <option value="">{t("filter.selectPerson")}</option>
+                            {profiles.map((p) => (
+                              <option key={p.id} value={p.id}>{p.full_name}</option>
+                            ))}
+                          </select>
+                        );
+                      }
+                      if ((selCol?.type === "timeline" || selCol?.type === "date" || selCol?.type === "numbers") && newOperator === "is_between") {
+                        const inputType = selCol.type === "numbers" ? "number" : "date";
+                        return (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type={inputType}
+                              value={newValue}
+                              onChange={(e) => setNewValue(e.target.value)}
+                              className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+                            />
+                            <span className="text-xs text-gray-400 shrink-0">{t("filter.and")}</span>
+                            <input
+                              type={inputType}
+                              value={newValueEnd}
+                              onChange={(e) => setNewValueEnd(e.target.value)}
+                              className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+                            />
+                          </div>
+                        );
+                      }
+                      if (selCol?.type === "timeline" || selCol?.type === "date") {
                         return (
                           <input
                             type="date"
                             value={newValue}
                             onChange={(e) => setNewValue(e.target.value)}
+                            className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+                          />
+                        );
+                      }
+                      if (selCol?.type === "numbers" || selCol?.type === "rating") {
+                        return (
+                          <input
+                            type="number"
+                            value={newValue}
+                            onChange={(e) => setNewValue(e.target.value)}
+                            placeholder={t("filter.valuePlaceholder")}
                             className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
                           />
                         );
@@ -271,7 +448,14 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                   </button>
                   <button
                     onClick={handleAddFilter}
-                    disabled={!newColumnId || (newOperator !== "is_empty" && newOperator !== "is_not_empty" && !newValue)}
+                    disabled={
+                      !newColumnId ||
+                      (VALUELESS_OPERATORS.has(newOperator)
+                        ? false
+                        : newOperator === "is_between"
+                        ? !newValue || !newValueEnd
+                        : !newValue)
+                    }
                     className="px-3 py-1.5 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Add Filter
@@ -347,15 +531,21 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Filters:</span>
               {activeRules.map((rule: any) => {
                 const col = columns.find(c => c.id === rule.columnId);
-                const opLabels: Record<string, string> = {
-                  eq: "=", neq: "≠", contains: "contains", not_contains: "not contains", is_empty: "is empty", is_not_empty: "is not empty"
-                };
+                const opLabel = getOperatorOptions(col?.type).find((op) => op.value === rule.operator)?.labelKey;
+                const displayValue =
+                  col?.type === "people"
+                    ? profiles.find((p) => p.id === rule.value)?.full_name || rule.value
+                    : rule.value;
                 return (
                   <div key={rule.id} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 rounded-md text-xs">
                     <span className="font-semibold">{col?.title || 'Unknown'}</span>
-                    <span className="text-blue-500 dark:text-blue-400">{opLabels[rule.operator]}</span>
-                    {rule.operator !== "is_empty" && rule.operator !== "is_not_empty" && (
-                      <span className="font-medium">"{rule.value}"</span>
+                    <span className="text-blue-500 dark:text-blue-400">{opLabel ? t(opLabel) : rule.operator}</span>
+                    {rule.operator === "is_between" && Array.isArray(rule.value) ? (
+                      <span className="font-medium">{rule.value[0]} → {rule.value[1]}</span>
+                    ) : (
+                      !VALUELESS_OPERATORS.has(rule.operator) && (
+                        <span className="font-medium">"{displayValue}"</span>
+                      )
                     )}
                     <button
                       onClick={() => filters.removeFilter(rule.id)}
@@ -375,10 +565,14 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Sorted by:</span>
               {activeSorts.map((sort: any) => {
                 const col = columns.find(c => c.id === sort.columnId);
+                const isDateSort = col?.type === "timeline" || col?.type === "date";
+                const directionLabel = isDateSort
+                  ? (sort.direction === 'asc' ? t("filter.sortEarliestToLatest") : t("filter.sortLatestToEarliest"))
+                  : (sort.direction === 'asc' ? 'Ascending' : 'Descending');
                 return (
                   <div key={sort.columnId} className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 rounded-md text-xs">
                     <span className="font-semibold">{col?.title || 'Unknown'}</span>
-                    <span className="text-purple-500 dark:text-purple-400">({sort.direction === 'asc' ? 'Ascending' : 'Descending'})</span>
+                    <span className="text-purple-500 dark:text-purple-400">({directionLabel})</span>
                     <button
                       onClick={() => filters.removeSort(sort.columnId)}
                       className="ml-1 text-purple-400 hover:text-purple-600 dark:hover:text-purple-200"

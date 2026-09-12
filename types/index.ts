@@ -356,7 +356,10 @@ export type FilterOperator =
   | "greater_than"
   | "less_than"
   | "is_before"
-  | "is_after";
+  | "is_after"
+  | "is_between"
+  | "is_checked"
+  | "is_not_checked";
 
 export interface FilterRule {
   id: string;
