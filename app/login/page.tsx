@@ -52,11 +52,17 @@ export default function LoginPage() {
   // matched by email, the moment redeem_pending_invitations() sees a profile
   // row created with that address (see the pending_invitations migration).
   // This only has to get the right person to the signup form.
+  //
+  // "Get started" on the public landing page (components/landing/LandingPage)
+  // links here with ?signup=1 for the same reason: it has no email to match,
+  // just a reader who has not decided between the two forms yet.
   useEffect(() => {
-    const invited = new URLSearchParams(window.location.search).get("invite");
-    if (invited) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("invite")) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsInvited(true);
+      setIsSignUp(true);
+    } else if (params.get("signup")) {
       setIsSignUp(true);
     }
   }, []);

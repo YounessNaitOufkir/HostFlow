@@ -59,17 +59,22 @@ export default async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // If there is no user and the route is not /login, /auth, /update-password, the
-  // public legal pages, or an API route, redirect to /login. /auth must stay open
-  // to signed-out visitors: that is where the OAuth code is exchanged for a
-  // session, so by definition there is no user yet when the request arrives.
+  // public legal pages, the root itself, or an API route, redirect to /login.
+  // /auth must stay open to signed-out visitors: that is where the OAuth code is
+  // exchanged for a session, so by definition there is no user yet when the
+  // request arrives.
   //
-  // /privacy and /terms must stay open for a different reason. Google's OAuth
+  // /privacy, /terms and / must stay open for a different reason. Google's OAuth
   // consent screen links to them, and both its reviewers and anyone deciding
-  // whether to grant access read them BEFORE they have an account. Behind the
-  // redirect they would answer 307 to /login, which fails the consent-screen
-  // configuration and tells a prospective user nothing.
+  // whether to grant access read them BEFORE they have an account — the review
+  // explicitly requires a home page reachable without signing in first. Behind
+  // the redirect they would answer 307 to /login, which fails the consent-screen
+  // configuration and tells a prospective user nothing. app/page.tsx renders a
+  // public landing view at / when there is no user, and the real board app once
+  // there is one.
   if (
     !user &&
+    request.nextUrl.pathname !== "/" &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth/") &&
     !request.nextUrl.pathname.startsWith("/update-password") &&

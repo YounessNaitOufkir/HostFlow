@@ -27,7 +27,7 @@ export function LegalPage({
       <div className="mx-auto w-full max-w-2xl">
         <div className="mb-8">
           <Link
-            href="/login"
+            href="/"
             className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
           >
             HostFlow

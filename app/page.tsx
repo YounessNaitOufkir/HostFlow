@@ -75,6 +75,7 @@ import { BoardSkeleton } from "@/components/skeletons/BoardSkeleton";
 import { SidebarSkeleton } from "@/components/skeletons/SidebarSkeleton";
 
 import EmptyState from "@/components/EmptyState";
+import LandingPage from "@/components/landing/LandingPage";
 import ProfileSettingsModal from "@/components/ProfileSettingsModal";
 import AdminSettingsModal from "@/components/AdminSettingsModal";
 import ReadabilityModal from "@/components/ReadabilityModal";
@@ -204,7 +205,7 @@ export default function HostFlowApp() {
   // ============================================================
   // React Query Data Fetching & Store Sync
   // ============================================================
-  const { data: settingsData } = useGlobalSettingsQuery(!authLoading);
+  const { data: settingsData } = useGlobalSettingsQuery(!authLoading && !!user);
   useEffect(() => {
     if (settingsData) {
       if (settingsData.organizationSettings) {
@@ -214,7 +215,7 @@ export default function HostFlowApp() {
     }
   }, [settingsData, dispatch]);
 
-  const { data: workspacesData, isLoading: workspacesLoading } = useWorkspacesQuery(!authLoading);
+  const { data: workspacesData, isLoading: workspacesLoading } = useWorkspacesQuery(!authLoading && !!user);
   useEffect(() => {
     if (workspacesData) {
       // Only restore a workspace that is still in the list this user can see.
@@ -231,14 +232,14 @@ export default function HostFlowApp() {
     }
   }, [workspacesData, dispatch, profile?.id]);
 
-  const { data: profilesData } = useProfilesQuery(!authLoading);
+  const { data: profilesData } = useProfilesQuery(!authLoading && !!user);
   useEffect(() => {
     if (profilesData) {
       dispatch({ type: "SET_PROFILES", payload: profilesData });
     }
   }, [profilesData, dispatch]);
 
-  const { data: boardsData, isLoading: boardsLoading } = useBoardsQuery(!authLoading);
+  const { data: boardsData, isLoading: boardsLoading } = useBoardsQuery(!authLoading && !!user);
 
   // Which user we have already restored the saved location for.
   //
@@ -656,16 +657,6 @@ export default function HostFlowApp() {
     return () => window.removeEventListener("open-readability", handleOpenReadability);
   }, []);
 
-  // The server already renders the right title via generateMetadata in
-  // app/layout.tsx. This keeps it live: organization_settings is subscribed to for
-  // realtime changes, so renaming the company retitles open tabs without a reload.
-  // Sits above the early returns below, so the hook count cannot change between
-  // renders.
-  useEffect(() => {
-    const name = state.organizationSettings?.company_name?.trim();
-    if (name) document.title = name;
-  }, [state.organizationSettings?.company_name]);
-
   const handleRenameGroup = useCallback(
     (groupId: string, title: string) => store.renameGroup(groupId, title),
     [store.renameGroup]
@@ -723,6 +714,13 @@ export default function HostFlowApp() {
   }, [state.activeBoard, activeBoardWorkspace, state.profiles, boardAccessData, profile, store.grantBoardAccess]);
 
   if (!state.mounted) return null;
+
+  // Checked before the loading skeleton below, not after: state.loading only
+  // ever clears once useBoardsQuery resolves, and that query is disabled for a
+  // signed-out visitor (see its `enabled` argument above) so it would never
+  // resolve — trapping them on the skeleton forever instead of ever reaching
+  // the landing page.
+  if (!authLoading && !user) return <LandingPage />;
 
   if (state.loading || authLoading) {
     return (

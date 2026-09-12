@@ -8,7 +8,7 @@ import { Toaster } from "sonner";
 import { FontProvider } from "@/components/FontProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import PWAInstallPrompt from "@/components/ui/PWAInstallPrompt";
-import { getCompanyName } from "@/lib/companyName";
+import { APP_NAME } from "@/lib/companyName";
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-inter",
@@ -16,32 +16,9 @@ const plusJakarta = Plus_Jakarta_Sans({
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-/**
- * The app is named by organization_settings.company_name, not by a string in this
- * file. Both titles below were hardcoded to "Host'Lik PM" and stayed that way when
- * the company was renamed in Settings.
- *
- * appleWebApp.title is the one that matters most: it is the label iOS puts under a
- * home-screen icon, and unlike the browser tab title it cannot be corrected from the
- * client afterwards.
- *
- * force-dynamic is required, not incidental. A Supabase read is not one of the
- * dynamic APIs Next watches for, so without it the route still prerenders and the
- * name is resolved once at build time and frozen into the HTML — a build made
- * before a rename shipped the old name indefinitely. Verified: a prerendered
- * login.html carried "Host'Lik" while the database already said "HostFlow".
- *
- * The cost is that / and /login render per request. Acceptable here — every request
- * already passes through proxy.ts, which calls supabase.auth.getUser(), so these
- * pages were never served from a cache anyway.
- */
-export const dynamic = 'force-dynamic';
-
 export async function generateMetadata(): Promise<Metadata> {
-  const name = await getCompanyName();
-
   return {
-    title: name,
+    title: APP_NAME,
     description: "Manage your projects flawlessly",
     // No `manifest` field: app/manifest.ts is a file convention and Next emits the
     // <link> for it automatically at /manifest.webmanifest. The value that used to
@@ -50,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
-      title: name,
+      title: APP_NAME,
     },
     formatDetection: {
       telephone: false,

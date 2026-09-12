@@ -1,19 +1,10 @@
 import type { MetadataRoute } from 'next';
-import { getCompanyName } from '@/lib/companyName';
+import { APP_NAME } from '@/lib/companyName';
 
-// manifest.js is a cached Route Handler by default, which would bake the company
-// name in at build time and leave the installed app named after whatever it was
-// when we last deployed. Renaming the company in Settings has to reach the
-// manifest without a redeploy, so this route opts out of caching.
-export const dynamic = 'force-dynamic';
-
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const name = await getCompanyName();
+export default function manifest(): MetadataRoute.Manifest {
   return {
-    // Both are just the company name. Windows and Android take the installed
-    // shortcut's label from `name`, so any suffix here ends up on the desktop.
-    name: name,
-    short_name: name,
+    name: APP_NAME,
+    short_name: APP_NAME,
     description: "Manage your projects flawlessly and collaborate in real-time.",
     start_url: '/',
     display: 'standalone',
