@@ -18,7 +18,6 @@ import CheckboxCell from "./CheckboxCell";
 import LinkCell from "./LinkCell";
 import RatingCell from "./RatingCell";
 import RelationCell from "./RelationCell";
-import ButtonCell from "./ButtonCell";
 
 interface CellRendererProps {
   item: Item;
@@ -138,8 +137,6 @@ export default function CellRenderer({
       return <RatingCell item={item} column={column} onUpdate={onUpdate} />;
     case "relation":
       return <RelationCell item={item} column={column} />;
-    case "button":
-      return <ButtonCell item={item} column={column} onUpdate={onUpdate} />;
     default: {
       const width = getColumnWidth(column.type);
       return (

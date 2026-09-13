@@ -24,10 +24,9 @@ describe("Column Registry — Batch 2", () => {
     "link",
     "rating",
     "relation",
-    "button",
   ];
 
-  it("contains definitions for all 16 supported column types", () => {
+  it("contains definitions for all 15 supported column types", () => {
     allTypes.forEach((type) => {
       const def = COLUMN_REGISTRY[type];
       expect(def).toBeDefined();
@@ -68,7 +67,6 @@ describe("Column Registry — Batch 2", () => {
     expect(advanced).not.toContain("link");
     expect(advanced).not.toContain("rating");
     expect(advanced).not.toContain("relation");
-    expect(advanced).not.toContain("button");
 
     // formula is the only computed type and it is hidden, so the section is
     // empty - GroupSection must not render a heading over nothing.
@@ -79,7 +77,7 @@ describe("Column Registry — Batch 2", () => {
     // Hiding is additive: existing columns of these types still render, and the
     // importer can still create them from a spreadsheet. Deleting a registry
     // entry to remove it from the menu would break both - this pins that.
-    const hidden: ColumnType[] = ["button", "formula", "rating", "link", "relation", "files", "date", "numbers"];
+    const hidden: ColumnType[] = ["formula", "rating", "link", "relation", "files", "date", "numbers"];
     hidden.forEach((type) => {
       expect(COLUMN_REGISTRY[type]).toBeDefined();
       expect(COLUMN_REGISTRY[type].hiddenFromMenu).toBe(true);

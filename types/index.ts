@@ -28,8 +28,7 @@ export type ColumnType =
   | "checkbox"
   | "link"
   | "rating"
-  | "relation"
-  | "button";
+  | "relation";
 
 // ============================================================
 // Column Settings (per-type configuration)

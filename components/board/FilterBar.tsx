@@ -9,7 +9,7 @@ import { Column, ColumnType, Profile, STATUS_OPTIONS, PRIORITY_OPTIONS } from "@
 import type { TranslationKey } from "@/lib/i18n";
 
 /** Column types with no stored, filterable value (see hooks/useFilters.ts's matchesRule). */
-const UNFILTERABLE_COLUMN_TYPES: ColumnType[] = ["formula", "relation", "button"];
+const UNFILTERABLE_COLUMN_TYPES: ColumnType[] = ["formula", "relation"];
 
 interface OperatorOption {
   value: string;

@@ -239,7 +239,6 @@ export async function executeImport(
           else if (normalizedHeader.includes("priority") || normalizedHeader.includes("priorite")) type = "priority";
           else if (normalizedHeader.includes("tag") || normalizedHeader.includes("etiquette")) type = "tags";
           else if (normalizedHeader.includes("depend") || normalizedHeader.includes("lie a")) type = "dependency";
-          else if (normalizedHeader.includes("button") || normalizedHeader.includes("bouton") || normalizedHeader === "bouton") type = "button";
           else if (normalizedHeader.includes("person") || normalizedHeader.includes("owner") || normalizedHeader.includes("assignee") || normalizedHeader.includes("responsable") || normalizedHeader.includes("attribue")) type = "people";
 
           let settings: any = {};
