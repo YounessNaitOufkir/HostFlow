@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useT } from "@/components/LanguageProvider";
 
 /**
  * The shell for /privacy and /terms.
@@ -22,6 +25,7 @@ export function LegalPage({
   effective: string;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-[#181c2e] px-4 py-12">
       <div className="mx-auto w-full max-w-2xl">
@@ -36,7 +40,7 @@ export function LegalPage({
             {title}
           </h1>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Effective {effective}
+            {t("legal.effective", { date: effective })}
           </p>
         </div>
 
@@ -46,7 +50,7 @@ export function LegalPage({
 
         <footer className="mt-12 border-t border-gray-200 dark:border-slate-700 pt-6 text-sm text-gray-500 dark:text-gray-400">
           <p>
-            Questions about this document:{" "}
+            {t("legal.questions")}{" "}
             <a
               className="text-blue-600 dark:text-blue-400 hover:underline"
               href="mailto:contact@hostflow-app.com"
@@ -55,8 +59,8 @@ export function LegalPage({
             </a>
           </p>
           <p className="mt-2 flex gap-4">
-            <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
-            <Link href="/terms" className="hover:underline">Terms of Service</Link>
+            <Link href="/privacy" className="hover:underline">{t("legal.privacyPolicy")}</Link>
+            <Link href="/terms" className="hover:underline">{t("legal.termsOfService")}</Link>
           </p>
         </footer>
       </div>

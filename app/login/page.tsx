@@ -7,8 +7,10 @@ import { validateNewPassword } from "@/lib/passwordSecurity";
 import { useRouter } from "next/navigation";
 import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
+import { useT } from "@/components/LanguageProvider";
 
 export default function LoginPage() {
+  const t = useT();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -115,9 +117,9 @@ export default function LoginPage() {
         router.push("/");
       }
     } catch (err: any) {
-      let errorMsg = err.message || "Authentication failed";
+      let errorMsg = err.message || t("auth.authFailed");
       if (errorMsg === "{}" || errorMsg === "[object Object]") {
-        errorMsg = "Rate limit exceeded or invalid request. Please wait a moment and try again.";
+        errorMsg = t("auth.rateLimited");
       }
       setError(errorMsg);
     } finally {
@@ -140,7 +142,7 @@ export default function LoginPage() {
       });
       if (error) throw error;
     } catch (err: any) {
-      setError(err.message || "An error occurred with Google Auth");
+      setError(err.message || t("auth.googleError"));
       setLoading(false);
     }
   };
@@ -251,10 +253,8 @@ export default function LoginPage() {
             keeps the corner mark and the unfolding mark from sitting six bars
             deep on top of each other. */}
         <div className="relative z-10 px-10 mt-10">
-          <h1 className="text-5xl xl:text-[3.5rem] font-extrabold text-white leading-[1.13] tracking-tight">
-            Keep the work
-            <br />
-            flowing.
+          <h1 className="text-5xl xl:text-[3.5rem] font-extrabold text-white leading-[1.13] tracking-tight text-balance">
+            {t("auth.tagline")}
           </h1>
         </div>
       </div>
@@ -276,11 +276,11 @@ export default function LoginPage() {
                 <div className="absolute inset-0 rounded-full bg-amber-400/20 animate-ping duration-1000" />
                 <MailCheck className="w-12 h-12 text-amber-400 relative z-10" />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">Check your inbox</h2>
+              <h2 className="text-3xl font-bold text-white mb-4">{t("auth.checkInbox")}</h2>
               <p className="text-slate-400 text-sm leading-relaxed mb-8 px-4">
-                We&apos;ve sent a password reset link to <br />
+                {t("auth.resetLinkSent")} <br />
                 <span className="font-semibold text-white text-base mt-1 inline-block">{email}</span><br /><br />
-                Click the link in the email to reset your password.
+                {t("auth.resetLinkHint")}
               </p>
               <button
                 onClick={() => {
@@ -291,7 +291,7 @@ export default function LoginPage() {
                 className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all duration-300 text-sm font-medium border border-white/10 hover:border-white/20"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Sign In
+                {t("auth.backToSignIn")}
               </button>
             </div>
           ) : isVerificationPending ? (
@@ -300,11 +300,11 @@ export default function LoginPage() {
                 <div className="absolute inset-0 rounded-full bg-blue-400/20 animate-ping duration-1000" />
                 <MailCheck className="w-12 h-12 text-blue-400 relative z-10" />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">Check your inbox</h2>
+              <h2 className="text-3xl font-bold text-white mb-4">{t("auth.checkInbox")}</h2>
               <p className="text-slate-400 text-sm leading-relaxed mb-8 px-4">
-                We&apos;ve sent a verification link to <br />
+                {t("auth.verificationSent")} <br />
                 <span className="font-semibold text-white text-base mt-1 inline-block">{email}</span><br /><br />
-                Click the link in the email to activate your HostFlow account.
+                {t("auth.verificationHint")}
               </p>
               <button
                 onClick={() => {
@@ -316,23 +316,27 @@ export default function LoginPage() {
                 className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all duration-300 text-sm font-medium border border-white/10 hover:border-white/20"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Sign In
+                {t("auth.backToSignIn")}
               </button>
             </div>
           ) : (
             <>
               <div className="mb-8">
                 <h2 className="text-3xl font-bold text-white mb-2">
-                  {isForgotPassword ? "Reset password" : isSignUp ? "Create an account" : "Welcome back"}
+                  {isForgotPassword
+                    ? t("auth.resetPassword")
+                    : isSignUp
+                      ? t("auth.createAnAccount")
+                      : t("auth.welcomeBack")}
                 </h2>
                 {!isSignUp && !isForgotPassword && (
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Enter your credentials to access your workspace.
+                    {t("auth.credentialsPrompt")}
                   </p>
                 )}
                 {isForgotPassword && (
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Enter your email and we&apos;ll send you a reset link.
+                    {t("auth.resetPrompt")}
                   </p>
                 )}
               </div>
@@ -341,7 +345,7 @@ export default function LoginPage() {
                 {isInvited && !error && (
                   <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-300 text-sm animate-in fade-in slide-in-from-top-2 flex items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-                    You&apos;ve been invited to collaborate on HostFlow. Sign up or sign in to accept.
+                    {t("auth.invited")}
                   </div>
                 )}
                 {error && (
@@ -354,7 +358,7 @@ export default function LoginPage() {
                 {!isForgotPassword && isSignUp && (
                   <div className="flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex-1 space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-300" htmlFor="firstName">First Name</label>
+                      <label className="block text-sm font-medium text-slate-300" htmlFor="firstName">{t("auth.firstName")}</label>
                       <input
                         id="firstName"
                         type="text"
@@ -362,11 +366,11 @@ export default function LoginPage() {
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
-                        placeholder="John"
+                        placeholder={t("auth.firstNamePlaceholder")}
                       />
                     </div>
                     <div className="flex-1 space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-300" htmlFor="lastName">Last Name</label>
+                      <label className="block text-sm font-medium text-slate-300" htmlFor="lastName">{t("auth.lastName")}</label>
                       <input
                         id="lastName"
                         type="text"
@@ -374,14 +378,14 @@ export default function LoginPage() {
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
-                        placeholder="Doe"
+                        placeholder={t("auth.lastNamePlaceholder")}
                       />
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-slate-300" htmlFor="email">Email address</label>
+                  <label className="block text-sm font-medium text-slate-300" htmlFor="email">{t("auth.emailAddress")}</label>
                   <input
                     id="email"
                     type="email"
@@ -389,21 +393,21 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
-                    placeholder="name@example.com"
+                    placeholder={t("auth.emailPlaceholder")}
                   />
                 </div>
 
                 {!isForgotPassword && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-slate-300" htmlFor="password">Password</label>
+                      <label className="block text-sm font-medium text-slate-300" htmlFor="password">{t("auth.password")}</label>
                       {!isSignUp && (
                         <button 
                           type="button" 
                           onClick={() => { setIsForgotPassword(true); setError(null); }}
                           className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
                         >
-                          Forgot password?
+                          {t("auth.forgotPassword")}
                         </button>
                       )}
                     </div>
@@ -427,7 +431,11 @@ export default function LoginPage() {
                   {loading ? (
                     <Loader2 className="w-5 h-5 animate-spin text-gray-900" />
                   ) : (
-                    isForgotPassword ? "Send Reset Link" : isSignUp ? "Create Account" : "Sign In"
+                    isForgotPassword
+                      ? t("auth.sendResetLink")
+                      : isSignUp
+                        ? t("auth.createAccountAction")
+                        : t("auth.signIn")
                   )}
                 </button>
               </form>
@@ -436,7 +444,7 @@ export default function LoginPage() {
                 <>
                   <div className="mt-6 flex items-center gap-4">
                     <div className="h-px bg-white/10 flex-1"></div>
-                    <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">or continue with</span>
+                    <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">{t("auth.orContinueWith")}</span>
                     <div className="h-px bg-white/10 flex-1"></div>
                   </div>
 
@@ -456,13 +464,13 @@ export default function LoginPage() {
                   </button>
 
                   <div className="mt-7 text-center text-sm text-slate-500">
-                    {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                    {isSignUp ? t("auth.haveAccount") : t("auth.noAccount")}{" "}
                     <button
                       type="button"
                       onClick={() => { setIsSignUp(!isSignUp); setError(null); }}
                       className="text-white hover:text-amber-400 font-semibold transition-colors ml-1"
                     >
-                      {isSignUp ? "Log in instead" : "Create one now"}
+                      {isSignUp ? t("auth.logInInstead") : t("auth.createOneNow")}
                     </button>
                   </div>
                 </>
@@ -470,13 +478,13 @@ export default function LoginPage() {
 
               {isForgotPassword && (
                 <div className="mt-7 text-center text-sm text-slate-500">
-                  Remember your password?{" "}
+                  {t("auth.rememberPassword")}{" "}
                   <button
                     type="button"
                     onClick={() => { setIsForgotPassword(false); setError(null); }}
                     className="text-white hover:text-amber-400 font-semibold transition-colors ml-1"
                   >
-                    Back to sign in
+                    {t("auth.backToSignInLink")}
                   </button>
                 </div>
               )}
