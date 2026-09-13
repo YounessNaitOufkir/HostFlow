@@ -92,6 +92,13 @@ export default function HostFlowApp() {
   useLocaleSync(profile);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
+  // Where the admin panel should open to when it was reached by clicking a
+  // notification about a specific person (a new signup, an access request),
+  // rather than through the sidebar's plain "Admin Settings" entry.
+  const [adminModalTarget, setAdminModalTarget] = useState<{
+    tab: "organization" | "users" | "permissions";
+    profileId: string;
+  } | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   // Handed to the view when the palette gives up on a query, so the words
   // are not typed twice.
@@ -643,6 +650,24 @@ export default function HostFlowApp() {
     }
   }, [state.activeBoard, state.boards, state.items, store.switchBoard, dispatch]);
 
+  // A notification about a person rather than a board/item (a new signup, an
+  // access request) has nowhere on the board to navigate to - it routes to the
+  // one place that can act on it instead: the admin panel, on the person who
+  // needs something already selected.
+  const handleNotificationClick = useCallback(
+    (boardId?: string, itemId?: string, relatedUserId?: string) => {
+      if (boardId || itemId) {
+        navigateToItem(boardId, itemId);
+        return;
+      }
+      if (relatedUserId) {
+        setAdminModalTarget({ tab: "permissions", profileId: relatedUserId });
+        setShowAdminSettingsModal(true);
+      }
+    },
+    [navigateToItem]
+  );
+
   useEffect(() => {
     if (state.pendingSelectedItemId && state.items.length > 0) {
       const itemToSelect = state.items.find(i => i.id === state.pendingSelectedItemId);
@@ -788,13 +813,16 @@ export default function HostFlowApp() {
         onCreateBoard={() => store.createBoard(state.activeWorkspace?.id, profile)}
         onRenameBoard={store.renameBoard}
         onDeleteBoard={store.deleteBoard}
-        onNotificationClick={navigateToItem}
+        onNotificationClick={handleNotificationClick}
         onSelectWorkspace={selectWorkspace}
         onRenameWorkspace={store.renameWorkspace}
         onDeleteWorkspace={store.deleteWorkspace}
         onCreateWorkspace={() => store.createWorkspace(profile)}
         onSignOut={signOut}
-        onOpenAdmin={() => setShowAdminSettingsModal(true)}
+        onOpenAdmin={() => {
+          setAdminModalTarget(null);
+          setShowAdminSettingsModal(true);
+        }}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenProfileSettings={() => setShowProfileSettings(true)}
         onDuplicateWorkspace={handleDuplicateWorkspace}
@@ -1173,11 +1201,16 @@ export default function HostFlowApp() {
 
       {showAdminSettingsModal && (
         <AdminSettingsModal
-          onClose={() => setShowAdminSettingsModal(false)}
+          onClose={() => {
+            setShowAdminSettingsModal(false);
+            setAdminModalTarget(null);
+          }}
           organizationSettings={state.organizationSettings}
           teams={state.teams}
           profiles={state.profiles}
           onGlobalSettingsChanged={() => queryClient.invalidateQueries({ queryKey: queryKeys.globalSettings() })}
+          initialTab={adminModalTarget?.tab}
+          initialProfileId={adminModalTarget?.profileId}
         />
       )}
 

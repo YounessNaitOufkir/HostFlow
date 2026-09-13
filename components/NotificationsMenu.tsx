@@ -9,7 +9,7 @@ import { runWrite } from "@/lib/errorReporting";
 import { Notification } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string) => void }) {
+export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string, relatedUserId?: string) => void }) {
   const t = useT();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -144,16 +144,16 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
                     key={n.id}
                     onClick={() => {
                       if (!n.read) markAsRead(n.id);
-                      if (onNotificationClick && (n.board_id || n.item_id)) {
-                        onNotificationClick(n.board_id, n.item_id);
+                      if (onNotificationClick && (n.board_id || n.item_id || n.related_user_id)) {
+                        onNotificationClick(n.board_id, n.item_id, n.related_user_id ?? undefined);
                         setIsOpen(false);
                       }
                     }}
                     className={`p-3 rounded-md transition-colors ${
-                      n.read 
-                        ? 'bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 opacity-75' 
-                        : 'bg-blue-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-slate-700 cursor-pointer'
-                    }`}
+                      n.read
+                        ? 'bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 opacity-75'
+                        : 'bg-blue-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-slate-700'
+                    } ${(n.board_id || n.item_id || n.related_user_id) ? 'cursor-pointer' : ''}`}
                   >
                     <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
                       {notificationText(t, n)}

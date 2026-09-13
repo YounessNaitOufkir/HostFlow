@@ -300,6 +300,8 @@ export interface Notification {
   created_at: string;
   board_id?: string;
   item_id?: string;
+  /** The account this notification is ABOUT (a signup, an access request), not who receives it. */
+  related_user_id?: string | null;
 }
 
 export interface ActivityLog {

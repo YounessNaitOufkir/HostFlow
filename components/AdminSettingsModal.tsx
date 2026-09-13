@@ -20,6 +20,9 @@ interface AdminSettingsModalProps {
   teams: Team[];
   profiles: Profile[];
   onGlobalSettingsChanged: () => void;
+  /** Deep-link, e.g. from clicking a "so-and-so needs access" notification. */
+  initialTab?: "organization" | "users" | "permissions";
+  initialProfileId?: string | null;
 }
 
 export default function AdminSettingsModal({
@@ -28,12 +31,14 @@ export default function AdminSettingsModal({
   teams,
   profiles: propProfiles,
   onGlobalSettingsChanged,
+  initialTab,
+  initialProfileId,
 }: AdminSettingsModalProps) {
   const t = useT();
-  const [activeTab, setActiveTab] = useState<"organization" | "users" | "permissions">("organization");
+  const [activeTab, setActiveTab] = useState<"organization" | "users" | "permissions">(initialTab ?? "organization");
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(initialProfileId ?? null);
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
   
   // Integrations state

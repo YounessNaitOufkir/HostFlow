@@ -694,6 +694,8 @@ export const fr: Dictionary = {
   "tg.assignment": "{actor} vous a assigné à {item}",
   "notif.mentionUpdate": "{actor} vous a mentionné dans une mise à jour sur « {item} »",
   "notif.mentionReply": "{actor} vous a mentionné dans une réponse sur « {item} »",
+  "notif.newUserSignedUp": "{name} vient de s'inscrire et attend l'accès à un espace de travail.",
+  "notif.workspaceAccessRequest": "{name} demande l'accès à un espace de travail.",
   "coltype.status": "Statut",
   "coltype.text": "Texte",
   "coltype.number": "Nombres",

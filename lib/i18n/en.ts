@@ -692,6 +692,8 @@ export const en = {
   "tg.assignment": "{actor} assigned you to {item}",
   "notif.mentionUpdate": "{actor} mentioned you in an update on \"{item}\"",
   "notif.mentionReply": "{actor} mentioned you in a reply on \"{item}\"",
+  "notif.newUserSignedUp": "New user {name} has signed up and is waiting for workspace access.",
+  "notif.workspaceAccessRequest": "{name} is requesting access to a workspace.",
   "coltype.status": "Status",
   "coltype.text": "Text",
   "coltype.number": "Numbers",

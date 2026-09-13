@@ -45,7 +45,7 @@ interface SidebarProps {
   onOpenAdmin: () => void;
   onOpenSearch: () => void;
   onOpenProfileSettings: () => void;
-  onNotificationClick: (boardId?: string, itemId?: string) => void;
+  onNotificationClick: (boardId?: string, itemId?: string, relatedUserId?: string) => void;
   onDuplicateWorkspace?: (ws: Workspace) => void;
   onImportData?: () => void;
 }
