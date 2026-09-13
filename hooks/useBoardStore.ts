@@ -26,7 +26,7 @@ import type { BoardStoreState, BoardAction } from "./store/types";
 
 export type { BoardStoreState, BoardAction };
 
-export function useBoardStore() {
+export function useBoardStore(onNeedsImport?: () => void) {
   const [state, dispatch] = useReducer(boardReducer, initialBoardStoreState);
   const { requestPrompt, PromptComponent } = usePromptModal();
   const { requestWorkspace, WorkspaceDialogComponent } = useWorkspaceDialog();
@@ -95,6 +95,7 @@ export function useBoardStore() {
     dispatch,
     requestPrompt,
     requestWorkspace,
+    onNeedsImport,
   });
   const boardMutations = useBoardMutations({
     dispatch,

@@ -110,7 +110,7 @@ export default function BoardHeader({
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-lg mx-0"
                   >
-                    {t("board.importFromMonday")}
+                    {t("board.importData")}
                   </button>
                 </div>
               )}

@@ -52,6 +52,7 @@ import { toast } from "sonner";
 // Layout components
 import Sidebar from "@/components/layout/Sidebar";
 import BoardHeader from "@/components/layout/BoardHeader";
+import SampleRowsBanner from "@/components/board/SampleRowsBanner";
 
 // View components
 import BoardTableView from "@/components/views/BoardTableView";
@@ -103,7 +104,7 @@ export default function HostFlowApp() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
 
-  const store = useBoardStore();
+  const store = useBoardStore(() => setShowImportModal(true));
   const { state, dispatch } = store;
   const queryClient = useQueryClient();
 
@@ -912,6 +913,13 @@ export default function HostFlowApp() {
                 onAddTask={() => setShowTaskModal(true)}
                 onDuplicateBoard={handleDuplicateBoard}
                 onImportData={() => setShowImportModal(true)}
+              />
+
+              <SampleRowsBanner
+                items={state.items}
+                onCleared={(ids) => {
+                  for (const id of ids) dispatch({ type: "REMOVE_ITEM", payload: id });
+                }}
               />
 
               {/* View Router */}

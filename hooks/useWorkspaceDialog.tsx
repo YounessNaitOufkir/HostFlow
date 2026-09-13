@@ -5,6 +5,7 @@ import WorkspaceDialog, { type WorkspaceDraft } from "@/components/WorkspaceDial
 
 interface DialogState {
   isOpen: boolean;
+  canCreateShared: boolean;
   resolve: ((value: WorkspaceDraft | null) => void) | null;
 }
 
@@ -16,11 +17,20 @@ interface DialogState {
  * where declining still created a shared workspace.
  */
 export function useWorkspaceDialog() {
-  const [state, setState] = useState<DialogState>({ isOpen: false, resolve: null });
+  const [state, setState] = useState<DialogState>({
+    isOpen: false,
+    canCreateShared: false,
+    resolve: null,
+  });
 
-  const requestWorkspace = useCallback((): Promise<WorkspaceDraft | null> => {
-    return new Promise((resolve) => setState({ isOpen: true, resolve }));
-  }, []);
+  const requestWorkspace = useCallback(
+    (opts: { canCreateShared: boolean }): Promise<WorkspaceDraft | null> => {
+      return new Promise((resolve) =>
+        setState({ isOpen: true, canCreateShared: opts.canCreateShared, resolve })
+      );
+    },
+    []
+  );
 
   const settle = useCallback(
     (value: WorkspaceDraft | null) => {
@@ -33,6 +43,7 @@ export function useWorkspaceDialog() {
   const WorkspaceDialogComponent = (
     <WorkspaceDialog
       isOpen={state.isOpen}
+      canCreateShared={state.canCreateShared}
       onClose={() => settle(null)}
       onSubmit={(draft) => settle(draft)}
     />
