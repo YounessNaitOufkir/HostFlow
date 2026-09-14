@@ -6,7 +6,7 @@ import { useT } from "@/components/LanguageProvider";
 export function PrivacyContent() {
   const t = useT();
   return (
-    <LegalPage title={t("legal.privacy.title")} effective="6 September 2026">
+    <LegalPage title={t("legal.privacy.title")} effective="14 September 2026">
       <p>{t("legal.privacy.intro")}</p>
 
       <Section heading={t("legal.privacy.whoRuns.heading")}>
@@ -48,6 +48,7 @@ export function PrivacyContent() {
             t("legal.privacy.google.item2"),
             t("legal.privacy.google.item3"),
             t("legal.privacy.google.item4"),
+            t("legal.privacy.google.item4b"),
             t("legal.privacy.google.item5"),
             <>
               {t("legal.privacy.google.item6before")}{" "}
