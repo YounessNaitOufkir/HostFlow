@@ -136,6 +136,8 @@ export const fr: Dictionary = {
   "auth.emailPlaceholder": "vous@exemple.com",
   "auth.passwordPlaceholder": "Saisissez votre mot de passe",
   "auth.forgotPassword": "Mot de passe oublié ?",
+  "auth.showPassword": "Afficher le mot de passe",
+  "auth.hidePassword": "Masquer le mot de passe",
   "auth.signInWithGoogle": "Se connecter avec Google",
   "auth.checkInbox": "Consultez votre boîte de réception",
   "auth.welcomeBack": "Bon retour parmi nous",

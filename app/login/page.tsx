@@ -1,13 +1,45 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { validateNewPassword } from "@/lib/passwordSecurity";
 import { useRouter } from "next/navigation";
-import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
+import { Loader2, MailCheck, ArrowLeft, Eye, EyeOff, Sun, Moon } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { useT } from "@/components/LanguageProvider";
+
+/**
+ * Shared field styling.
+ *
+ * Dark: the border (was #2a3140) measured at 1.27:1 against the field's own
+ * fill, and the placeholder (was slate-600) at 2.19:1 — before typing, the
+ * form read as a scatter of faint grey rectangles rather than four
+ * clearly-bounded fields. Lightened just enough to be visible.
+ *
+ * Light: a flat white fill on this app's #F4F6F8 page is only a 1.08:1
+ * luminance difference — barely better than the dark-mode bug above — so
+ * `border-gray-300` alone (1.47:1) isn't enough either. The shadow is doing
+ * the real work of separating the field from the page, the same premium-shadow
+ * approach already used throughout globals.css; it's dropped in dark mode
+ * since a shadow is invisible against near-black anyway.
+ *
+ * The focus ring is the brand's #F5A623 (the brand-amber theme key added for
+ * the landing page) rather than Tailwind's amber-400, which nothing else on
+ * this page — the button, the logo two inches away — was actually using.
+ */
+const INPUT_CLASS =
+  "w-full px-4 py-3 bg-white dark:bg-[#1a1e2b] border border-gray-300 dark:border-[#3d4a63] rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.045)] dark:shadow-none focus:outline-none focus:ring-2 focus:ring-brand-amber/40 focus:border-brand-amber transition-all text-sm";
+
+/**
+ * The "back to sign in" button on both success screens (reset-pending,
+ * verification-pending). Was dark-only (bg-white/5, border-white/10, which
+ * relies entirely on sitting against near-black); light mode needs actual
+ * grey fills instead of a translucent white that would vanish on #F4F6F8.
+ */
+const BACK_BUTTON_CLASS =
+  "flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-900 dark:text-white rounded-xl transition-all duration-300 text-sm font-medium border border-gray-200 hover:border-gray-300 dark:border-white/10 dark:hover:border-white/20";
 
 export default function LoginPage() {
   const t = useT();
@@ -22,8 +54,19 @@ export default function LoginPage() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isPasswordResetPending, setIsPasswordResetPending] = useState(false);
   const [isInvited, setIsInvited] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { theme, setTheme } = useTheme();
+
+  // next-themes can't know the resolved theme on the server — the class it
+  // reads lives in localStorage, which doesn't exist there. Rendering the
+  // icon before mount would flash the wrong one; this waits one tick.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   // Anyone who reaches this page already signed in belongs in the app, not in
   // front of a login form. Mostly this catches a stale second tab; the OAuth
@@ -148,10 +191,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#111318] font-sans overflow-hidden">
+    <div className="min-h-screen flex bg-[#F4F6F8] dark:bg-[#111318] font-sans overflow-hidden">
 
-      {/* ===== LEFT SIDE ===== */}
-      <div className="hidden lg:flex w-[48%] h-screen sticky top-0 relative flex-col justify-start overflow-hidden bg-[#0c1226]">
+      {/* ===== LEFT SIDE =====
+          Brand navy in light mode; back to the original near-black in dark
+          mode — dark mode wants its own depth here, not the same navy as the
+          light-mode panel. The mark's own colours (white/amber/blue) were
+          authored against #0c1226 and are untouched either way. */}
+      <div className="hidden lg:flex w-[48%] h-screen sticky top-0 relative flex-col justify-start overflow-hidden bg-[#1A2C5B] dark:bg-[#0c1226]">
 
         {/* The mark unfolds, on the flow.
             
@@ -260,26 +307,48 @@ export default function LoginPage() {
       </div>
 
       {/* ===== RIGHT SIDE – Form ===== */}
-      <div className="flex-1 flex flex-col items-center justify-center min-h-screen py-12 px-8 sm:px-12 relative bg-[#111318]">
+      <div className="flex-1 flex flex-col items-center justify-center min-h-screen py-12 px-8 sm:px-12 relative bg-[#F4F6F8] dark:bg-[#111318]">
 
-        {/* Mobile Header */}
-        <div className="lg:hidden flex items-center gap-3 mb-12 absolute top-8 left-8">
+        {/* Corner, not in flow: a single icon button, small enough that even
+            at the shortest viewport in the L2 fix above it has no heading to
+            collide with. Rendered only once mounted so the icon it shows
+            always matches the theme actually applied, never a server guess. */}
+        {mounted && (
+          <button
+            type="button"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            aria-label={theme === "dark" ? t("landing.switchToLight") : t("landing.switchToDark")}
+            className="focus-ring-premium absolute top-6 right-6 sm:top-8 sm:right-8 inline-flex items-center justify-center w-9 h-9 rounded-[10px] border border-gray-300 dark:border-white/10 bg-white/80 dark:bg-white/5 text-gray-500 dark:text-slate-400 hover:bg-white dark:hover:bg-white/10 hover:text-gray-700 dark:hover:text-slate-200 hover:border-gray-400 dark:hover:border-white/20 transition-colors"
+          >
+            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+        )}
+
+        {/* Mobile Header. In normal flow, not pinned to a corner: an absolute
+            position ignored the height of whatever sat below it, so on a short
+            viewport (a landscape phone, or a keyboard eating vertical space)
+            it landed on top of the heading — worse on the sign-up form, which
+            is taller. In flow, it can only ever stack above the card. */}
+        <div className="lg:hidden flex items-center gap-3 mb-12">
           <Logo variant="bare" tone="navy" size={32} />
-          <span className="text-xl font-bold text-white tracking-tight">HostFlow</span>
+          <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">HostFlow</span>
         </div>
 
-        <div className="w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="w-full max-w-[420px] animate-fade-up">
 
           {isPasswordResetPending ? (
-            <div className="flex flex-col items-center text-center p-8 rounded-3xl bg-white/[0.02] border border-white/5 shadow-2xl">
-              <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center mb-8 relative">
-                <div className="absolute inset-0 rounded-full bg-amber-400/20 animate-ping duration-1000" />
-                <MailCheck className="w-12 h-12 text-amber-400 relative z-10" />
+            // Its own entrance, not inherited from the wrapper above: that div
+            // mounted once, on first paint, and never remounts when this branch
+            // switches in — so without this the card used to just pop into place.
+            <div className="flex flex-col items-center text-center p-8 rounded-3xl bg-white dark:bg-white/[0.02] border border-gray-200 dark:border-white/5 shadow-sm dark:shadow-2xl animate-fade-up">
+              <div className="w-24 h-24 bg-amber-100 dark:bg-amber-500/10 rounded-full flex items-center justify-center mb-8 relative">
+                <div className="absolute inset-0 rounded-full bg-amber-300/40 dark:bg-amber-400/20 animate-ping duration-1000" />
+                <MailCheck className="w-12 h-12 text-amber-600 dark:text-amber-400 relative z-10" />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">{t("auth.checkInbox")}</h2>
-              <p className="text-slate-400 text-sm leading-relaxed mb-8 px-4">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{t("auth.checkInbox")}</h2>
+              <p className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed mb-8 px-4">
                 {t("auth.resetLinkSent")} <br />
-                <span className="font-semibold text-white text-base mt-1 inline-block">{email}</span><br /><br />
+                <span className="font-semibold text-gray-900 dark:text-white text-base mt-1 inline-block">{email}</span><br /><br />
                 {t("auth.resetLinkHint")}
               </p>
               <button
@@ -288,22 +357,22 @@ export default function LoginPage() {
                   setIsForgotPassword(false);
                   setEmail("");
                 }}
-                className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all duration-300 text-sm font-medium border border-white/10 hover:border-white/20"
+                className={BACK_BUTTON_CLASS}
               >
                 <ArrowLeft className="w-4 h-4" />
                 {t("auth.backToSignIn")}
               </button>
             </div>
           ) : isVerificationPending ? (
-            <div className="flex flex-col items-center text-center p-8 rounded-3xl bg-white/[0.02] border border-white/5 shadow-2xl">
-              <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mb-8 relative">
-                <div className="absolute inset-0 rounded-full bg-blue-400/20 animate-ping duration-1000" />
-                <MailCheck className="w-12 h-12 text-blue-400 relative z-10" />
+            <div className="flex flex-col items-center text-center p-8 rounded-3xl bg-white dark:bg-white/[0.02] border border-gray-200 dark:border-white/5 shadow-sm dark:shadow-2xl animate-fade-up">
+              <div className="w-24 h-24 bg-blue-100 dark:bg-blue-500/10 rounded-full flex items-center justify-center mb-8 relative">
+                <div className="absolute inset-0 rounded-full bg-blue-300/40 dark:bg-blue-400/20 animate-ping duration-1000" />
+                <MailCheck className="w-12 h-12 text-blue-600 dark:text-blue-400 relative z-10" />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">{t("auth.checkInbox")}</h2>
-              <p className="text-slate-400 text-sm leading-relaxed mb-8 px-4">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{t("auth.checkInbox")}</h2>
+              <p className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed mb-8 px-4">
                 {t("auth.verificationSent")} <br />
-                <span className="font-semibold text-white text-base mt-1 inline-block">{email}</span><br /><br />
+                <span className="font-semibold text-gray-900 dark:text-white text-base mt-1 inline-block">{email}</span><br /><br />
                 {t("auth.verificationHint")}
               </p>
               <button
@@ -313,7 +382,7 @@ export default function LoginPage() {
                   setEmail("");
                   setPassword("");
                 }}
-                className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all duration-300 text-sm font-medium border border-white/10 hover:border-white/20"
+                className={BACK_BUTTON_CLASS}
               >
                 <ArrowLeft className="w-4 h-4" />
                 {t("auth.backToSignIn")}
@@ -322,7 +391,7 @@ export default function LoginPage() {
           ) : (
             <>
               <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white mb-2">
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                   {isForgotPassword
                     ? t("auth.resetPassword")
                     : isSignUp
@@ -330,12 +399,12 @@ export default function LoginPage() {
                       : t("auth.welcomeBack")}
                 </h2>
                 {!isSignUp && !isForgotPassword && (
-                  <p className="text-slate-400 text-sm leading-relaxed">
+                  <p className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed">
                     {t("auth.credentialsPrompt")}
                   </p>
                 )}
                 {isForgotPassword && (
-                  <p className="text-slate-400 text-sm leading-relaxed">
+                  <p className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed">
                     {t("auth.resetPrompt")}
                   </p>
                 )}
@@ -343,41 +412,41 @@ export default function LoginPage() {
 
               <form onSubmit={handleAuth} className="space-y-4">
                 {isInvited && !error && (
-                  <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-300 text-sm animate-in fade-in slide-in-from-top-2 flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                  <div className="p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-xl text-blue-700 dark:text-blue-300 text-sm animate-fade-up flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 shrink-0" />
                     {t("auth.invited")}
                   </div>
                 )}
                 {error && (
-                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm animate-in fade-in slide-in-from-top-2 flex items-center gap-3">
+                  <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl text-red-700 dark:text-red-400 text-sm animate-fade-up flex items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                     {error}
                   </div>
                 )}
 
                 {!isForgotPassword && isSignUp && (
-                  <div className="flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex gap-3 animate-fade-up">
                     <div className="flex-1 space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-300" htmlFor="firstName">{t("auth.firstName")}</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300" htmlFor="firstName">{t("auth.firstName")}</label>
                       <input
                         id="firstName"
                         type="text"
                         required={isSignUp}
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
+                        className={INPUT_CLASS}
                         placeholder={t("auth.firstNamePlaceholder")}
                       />
                     </div>
                     <div className="flex-1 space-y-1.5">
-                      <label className="block text-sm font-medium text-slate-300" htmlFor="lastName">{t("auth.lastName")}</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300" htmlFor="lastName">{t("auth.lastName")}</label>
                       <input
                         id="lastName"
                         type="text"
                         required={isSignUp}
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
+                        className={INPUT_CLASS}
                         placeholder={t("auth.lastNamePlaceholder")}
                       />
                     </div>
@@ -385,14 +454,14 @@ export default function LoginPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-slate-300" htmlFor="email">{t("auth.emailAddress")}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300" htmlFor="email">{t("auth.emailAddress")}</label>
                   <input
                     id="email"
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
+                    className={INPUT_CLASS}
                     placeholder={t("auth.emailPlaceholder")}
                   />
                 </div>
@@ -400,33 +469,46 @@ export default function LoginPage() {
                 {!isForgotPassword && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-slate-300" htmlFor="password">{t("auth.password")}</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300" htmlFor="password">{t("auth.password")}</label>
                       {!isSignUp && (
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => { setIsForgotPassword(true); setError(null); }}
-                          className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                          className="text-xs text-amber-700 dark:text-brand-amber hover:text-amber-800 dark:hover:text-brand-amber-hover transition-colors"
                         >
                           {t("auth.forgotPassword")}
                         </button>
                       )}
                     </div>
-                    <input
-                      id="password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 bg-[#1a1e2b] border border-[#2a3140] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all text-sm"
-                      placeholder="••••••••"
-                    />
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className={`${INPUT_CLASS} pr-11`}
+                        placeholder="••••••••"
+                      />
+                      {/* Client-side only: flips what the input masks, nothing
+                          about the auth flow. There was no way to check what
+                          you'd typed before submitting. */}
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-200 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 px-4 bg-amber-400 hover:bg-amber-300 text-gray-900 font-bold rounded-xl shadow-[0_0_24px_rgba(251,191,36,0.25)] hover:shadow-[0_0_32px_rgba(251,191,36,0.40)] transition-all duration-300 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed mt-2 transform active:scale-[0.98] text-sm"
+                  className="w-full py-3 px-4 bg-brand-amber hover:bg-brand-amber-hover text-gray-900 font-bold rounded-xl shadow-[0_0_24px_rgba(245,166,35,0.25)] hover:shadow-[0_0_32px_rgba(245,166,35,0.40)] transition-all duration-300 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed mt-2 transform active:scale-[0.98] text-sm"
                 >
                   {loading ? (
                     <Loader2 className="w-5 h-5 animate-spin text-gray-900" />
@@ -443,9 +525,9 @@ export default function LoginPage() {
               {!isForgotPassword && (
                 <>
                   <div className="mt-6 flex items-center gap-4">
-                    <div className="h-px bg-white/10 flex-1"></div>
-                    <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">{t("auth.orContinueWith")}</span>
-                    <div className="h-px bg-white/10 flex-1"></div>
+                    <div className="h-px bg-gray-200 dark:bg-white/10 flex-1"></div>
+                    <span className="text-xs text-gray-500 dark:text-slate-400 font-medium uppercase tracking-wider">{t("auth.orContinueWith")}</span>
+                    <div className="h-px bg-gray-200 dark:bg-white/10 flex-1"></div>
                   </div>
 
                   <button
@@ -463,12 +545,12 @@ export default function LoginPage() {
                     Google
                   </button>
 
-                  <div className="mt-7 text-center text-sm text-slate-500">
+                  <div className="mt-7 text-center text-sm text-gray-500 dark:text-slate-400">
                     {isSignUp ? t("auth.haveAccount") : t("auth.noAccount")}{" "}
                     <button
                       type="button"
                       onClick={() => { setIsSignUp(!isSignUp); setError(null); }}
-                      className="text-white hover:text-amber-400 font-semibold transition-colors ml-1"
+                      className="text-gray-900 dark:text-white hover:text-amber-700 dark:hover:text-brand-amber font-semibold transition-colors ml-1"
                     >
                       {isSignUp ? t("auth.logInInstead") : t("auth.createOneNow")}
                     </button>
@@ -477,12 +559,12 @@ export default function LoginPage() {
               )}
 
               {isForgotPassword && (
-                <div className="mt-7 text-center text-sm text-slate-500">
+                <div className="mt-7 text-center text-sm text-gray-500 dark:text-slate-400">
                   {t("auth.rememberPassword")}{" "}
                   <button
                     type="button"
                     onClick={() => { setIsForgotPassword(false); setError(null); }}
-                    className="text-white hover:text-amber-400 font-semibold transition-colors ml-1"
+                    className="text-gray-900 dark:text-white hover:text-amber-700 dark:hover:text-brand-amber font-semibold transition-colors ml-1"
                   >
                     {t("auth.backToSignInLink")}
                   </button>

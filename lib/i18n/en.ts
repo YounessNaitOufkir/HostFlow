@@ -134,6 +134,8 @@ export const en = {
   "auth.emailPlaceholder": "you@example.com",
   "auth.passwordPlaceholder": "Enter your password",
   "auth.forgotPassword": "Forgot password?",
+  "auth.showPassword": "Show password",
+  "auth.hidePassword": "Hide password",
   "auth.signInWithGoogle": "Sign in with Google",
   "auth.checkInbox": "Check your inbox",
   "auth.welcomeBack": "Welcome back",
