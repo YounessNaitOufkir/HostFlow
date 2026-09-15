@@ -78,14 +78,14 @@ export default function MyWorkView({ items, boards, workspaces = [], onSelectIte
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500 bg-white dark:bg-slate-900 rounded-xl shadow-sm dark:shadow-none border border-gray-100 dark:border-slate-700">
             <AlertCircle size={48} className="mb-4 text-gray-300" />
-            <p className="text-lg font-medium">You&apos;re all caught up!</p>
-            <p className="text-sm">No tasks are currently assigned to you.</p>
+            <p className="text-lg font-medium">{t("myWork.emptyTitle")}</p>
+            <p className="text-sm">{t("myWork.emptyBody")}</p>
             {onBrowseWorkspaces && (
               <button
                 onClick={onBrowseWorkspaces}
                 className="mt-5 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
               >
-                Browse workspaces
+                {t("myWork.browseWorkspaces")}
               </button>
             )}
           </div>

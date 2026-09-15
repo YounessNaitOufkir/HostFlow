@@ -16,7 +16,7 @@ export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
   const { locale, setLocale, t } = useLanguage();
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-xs animate-in fade-in duration-200 p-4">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-xs panel-overlay-fade p-4">
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full border border-gray-200 dark:border-slate-800 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-gray-50/60 dark:bg-slate-900/40">

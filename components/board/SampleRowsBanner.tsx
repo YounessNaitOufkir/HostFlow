@@ -75,7 +75,7 @@ export default function SampleRowsBanner({
       <button
         onClick={clear}
         disabled={clearing}
-        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 px-3 py-1.5 text-[12.5px] font-semibold text-gray-900 transition-colors disabled:opacity-60"
+        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-brand-amber hover:bg-brand-amber-hover px-3 py-1.5 text-[12.5px] font-semibold text-gray-900 transition-colors disabled:opacity-60"
       >
         {clearing && <Loader2 size={13} className="animate-spin" />}
         {clearing ? t("tpl.clearingSamples") : t("tpl.clearSamples")}

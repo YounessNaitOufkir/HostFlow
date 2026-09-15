@@ -103,15 +103,23 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
 
   return (
     <div className="relative" ref={menuRef}>
-      <div
+      {/* Was a div: the entire notifications panel was unreachable by
+          keyboard, starting with the control that opens it. */}
+      <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-900/20 cursor-pointer text-gray-300 hover:text-white transition relative"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-label={t("sidebar.notifications")}
+        // hover:bg-white (no opacity) was a solid white flash on this navy
+        // rail — every sibling icon (Search, My Work, Trash) uses white/8.
+        className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/8 cursor-pointer text-white/60 hover:text-white transition relative"
       >
         <Bell size={20} />
       {unreadCount > 0 && (
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-[#1A2C5B]"></span>
         )}
-      </div>
+      </button>
 
       <AnimatePresence>
         {isOpen && (
@@ -120,12 +128,18 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute left-full ml-4 bottom-0 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 max-h-96 flex flex-col"
+            // This flyout opens beside the rail, not below/above an anchor —
+            // the app's shared useAnchoredMenu hook only supports the latter,
+            // so adopting it here would move this panel to open below the
+            // bell near the bottom-left screen corner instead. The actual
+            // risk was height: bottom-0 with no cap could clip off the top
+            // of a short window. max-h now bounds it to the viewport itself.
+            className="absolute left-full ml-4 bottom-0 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 max-h-[min(24rem,calc(100vh-32px))] flex flex-col"
           >
             <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center shrink-0">
               <h3 className="font-semibold text-gray-800 dark:text-gray-100">Notifications</h3>
               {unreadCount > 0 && (
-                <button 
+                <button
                   onClick={markAllAsRead}
                   className="text-xs text-blue-500 hover:text-blue-600 font-medium"
                 >
@@ -140,7 +154,8 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
                 </div>
               ) : (
                 Array.from(new Map(notifications.map(n => [n.id, n])).values()).map((n) => (
-                  <div 
+                  <button
+                    type="button"
                     key={n.id}
                     onClick={() => {
                       if (!n.read) markAsRead(n.id);
@@ -149,7 +164,7 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
                         setIsOpen(false);
                       }
                     }}
-                    className={`p-3 rounded-md transition-colors ${
+                    className={`w-full text-left p-3 rounded-md transition-colors ${
                       n.read
                         ? 'bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 opacity-75'
                         : 'bg-blue-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-slate-700'
@@ -161,7 +176,7 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
                     <p className="text-xs text-gray-400 mt-1">
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                  </div>
+                  </button>
                 ))
               )}
             </div>

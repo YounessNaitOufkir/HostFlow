@@ -72,7 +72,7 @@ export default function EmptyState({ profile, onCreateWorkspace }: EmptyStatePro
 
             <button
                 onClick={onCreateWorkspace}
-                className="px-6 py-2.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-semibold rounded-lg transition-colors shadow-sm text-sm"
+                className="px-6 py-2.5 bg-brand-amber hover:bg-brand-amber-hover text-gray-900 font-semibold rounded-lg transition-colors shadow-sm text-sm"
             >
                 {t("empty.createWorkspace")}
             </button>
@@ -93,7 +93,7 @@ export default function EmptyState({ profile, onCreateWorkspace }: EmptyStatePro
             </p>
 
             {toast && (
-                <div className={`fixed bottom-8 right-8 flex items-center p-4 rounded-xl shadow-xl border animate-in slide-in-from-bottom-5 fade-in duration-300 z-50 ${
+                <div className={`fixed bottom-8 right-8 flex items-center p-4 rounded-xl shadow-xl border z-50 ${
                     toast.type === 'success'
                         ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
                         : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'

@@ -324,7 +324,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
           )}
           {viewMode === "day" && (
             <div className="border-b border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900 shrink-0 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {format(currentDate, "EEEE")}
+              {format(currentDate, "EEEE", { locale: dateLocale })}
             </div>
           )}
 
@@ -428,7 +428,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
               </button>
               <h2 className="text-xl font-bold text-slate-800 dark:text-white pr-8 mb-1 leading-tight">{selectedItem.name}</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                in <ArrowRight size={14} className="opacity-70" /> {board?.name || "Board"}
+                {t("cal.in")} <ArrowRight size={14} className="opacity-70" /> {board?.name || t("cal.unknownBoard")}
               </p>
             </div>
             
@@ -439,7 +439,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
               <div className="grid grid-cols-12 gap-4 items-center group min-h-[32px]">
                 <div className="col-span-4 flex items-center gap-2 text-gray-600 dark:text-gray-400">
                   <Folder size={16} className="text-yellow-500" />
-                  <span className="text-sm font-medium truncate">Group</span>
+                  <span className="text-sm font-medium truncate">{t("cal.groupLabel")}</span>
                 </div>
                 <div className="col-span-8 flex items-center justify-center bg-gray-50 dark:bg-slate-800/50 min-h-[36px] rounded p-1">
                   {(() => {
@@ -447,7 +447,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                     return (
                       <div className="flex items-center justify-center gap-2 text-[13px] text-gray-800 dark:text-gray-200 w-full text-center">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: group?.color || "#579bfc" }}></div>
-                        <span>{(group as any)?.title || "Group"}</span>
+                        <span>{(group as any)?.title || t("cal.untitledGroup")}</span>
                       </div>
                     );
                   })()}
@@ -530,7 +530,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                         if (col.type === "dependency") {
                           const depIds = Array.isArray(val) ? val : [val];
                           const depNames = depIds.map((id: string) => items.find(it => it.id === id)?.name).filter(Boolean);
-                          const text = depNames.length > 0 ? depNames.join(", ") : val.linked_item_name || "Linked Item";
+                          const text = depNames.length > 0 ? depNames.join(", ") : val.linked_item_name || t("cal.linkedItemFallback");
                           
                           return (
                             <TruncatedText as="div" className="w-full text-center px-2 py-1 bg-blue-50/80 dark:bg-slate-800 text-blue-700 dark:text-blue-300 text-[13px] rounded border border-blue-100 dark:border-slate-700 truncate">

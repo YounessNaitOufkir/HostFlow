@@ -300,8 +300,14 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
 
   return (
     <div ref={anchorRef} className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative flex items-center p-1.5 cursor-pointer transition-colors ${isOpen ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
-      <div
-        className="w-full h-full flex items-center overflow-x-auto overflow-y-hidden no-scrollbar"
+      {/* Was a div: the badges inside are static text, not nested controls,
+          and the search popover below is a sibling — safe to be a real
+          button. */}
+      <button
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        className="w-full h-full flex items-center overflow-x-auto overflow-y-hidden no-scrollbar text-left"
         onClick={(e) => {
           e.stopPropagation();
           setIsOpen(!isOpen);
@@ -342,7 +348,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
             +
           </div>
         )}
-      </div>
+      </button>
 
       {isOpen && (
         <div

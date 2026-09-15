@@ -238,6 +238,14 @@ body {
 .animate-scale-in {
   animation: scaleIn 0.15s ease-out forwards;
 }
+/* Item row entrance. Deliberately opacity-only, reusing @keyframes fadeIn
+   above rather than a transform-based one: @hello-pangea/dnd writes its own
+   `transform` on this same element while dragging, and a translateY here
+   would fight it and make dragging jump. This replaces `animate-in fade-in`
+   in ItemRow.tsx, which did nothing — tailwindcss-animate isn't installed. */
+.animate-row-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
 
 /* ============================================================
    Skeleton Loader

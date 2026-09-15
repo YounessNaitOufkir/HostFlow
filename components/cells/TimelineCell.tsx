@@ -222,13 +222,29 @@ export default function TimelineCell({ item, column, onUpdate, activeStatusId, s
   }, [isEditing, range]); // Depend on range so save gets the latest state
 
   return (
+    // Stays a div: the popover calendar below is a DOM child of this cell
+    // (not a sibling), and it has its own buttons — day cells, month
+    // navigation — so this can't be a literal <button> without nesting
+    // interactive content. role="button" + tabIndex + onKeyDown makes it a
+    // real keyboard widget instead.
     <div
       ref={cellRef}
-      className={`${column.width ? '' : 'w-48'} h-full border-r border-gray-200 dark:border-slate-700 shrink-0 relative flex items-center justify-center p-1 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/50 group ${isEditing ? "z-50" : ""}`} 
+      role="button"
+      tabIndex={0}
+      aria-haspopup="true"
+      aria-expanded={isEditing}
+      className={`${column.width ? '' : 'w-48'} h-full border-r border-gray-200 dark:border-slate-700 shrink-0 relative flex items-center justify-center p-1 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/50 group ${isEditing ? "z-50" : ""}`}
       style={{ width: column.width ? `${column.width}px` : undefined }}
       onClick={(e) => {
         e.stopPropagation();
         setIsEditing(true);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsEditing(true);
+        }
       }}
     >
       {/* Sleek Pill UI */}

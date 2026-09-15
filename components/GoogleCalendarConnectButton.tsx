@@ -4,12 +4,14 @@ import React, { useEffect, useState } from "react";
 import { Calendar, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
+import { useT } from "@/components/LanguageProvider";
 
 interface GoogleCalendarConnectButtonProps {
   profile: Profile;
 }
 
 export default function GoogleCalendarConnectButton({ profile }: GoogleCalendarConnectButtonProps) {
+  const t = useT();
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -77,13 +79,13 @@ export default function GoogleCalendarConnectButton({ profile }: GoogleCalendarC
           <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
             <Check size={14} className="stroke-[3]" />
           </div>
-          <span className="text-sm font-medium">Connected to Google Calendar</span>
+          <span className="text-sm font-medium">{t("gcal.connected")}</span>
         </div>
         <button
           onClick={handleDisconnect}
           className="text-xs font-medium text-gray-500 hover:text-red-600 transition-colors"
         >
-          Disconnect
+          {t("gcal.disconnect")}
         </button>
       </div>
     );
@@ -95,7 +97,7 @@ export default function GoogleCalendarConnectButton({ profile }: GoogleCalendarC
       className="w-full py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 font-medium text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
     >
       <Calendar size={18} />
-      Connect Google Calendar
+      {t("gcal.connect")}
     </button>
   );
 }

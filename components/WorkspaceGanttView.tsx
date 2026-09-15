@@ -536,7 +536,7 @@ export default function WorkspaceGanttView({
                   <div key={group.name} className="pb-1">
                     <div className="flex items-center gap-1.5 px-2 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                       {group.isPrivate && (
-                        <Lock size={9} className="text-amber-500 shrink-0" />
+                        <Lock size={9} className="text-brand-amber shrink-0" />
                       )}
                       <TruncatedText className="truncate">{group.name}</TruncatedText>
                       <span className="ml-auto shrink-0 font-semibold tabular-nums">

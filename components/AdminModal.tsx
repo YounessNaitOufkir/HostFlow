@@ -61,18 +61,16 @@ export default function AdminModal({ onClose }: AdminModalProps) {
   const handleRoleChange = async (profileId: string, newRole: string) => {
     const targetProfile = profiles.find((p) => p.id === profileId);
     if (targetProfile?.email?.toLowerCase() === "younessnaitoufkir@gmail.com" && newRole !== "admin") {
-      alert("Action Blocked: The platform owner account (younessnaitoufkir@gmail.com) can never be demoted from Administrator.");
+      alert(t("adm.blockDemoteOwner"));
       return;
     }
     if (targetProfile?.role === "admin" && newRole !== "admin") {
       const adminCount = profiles.filter((p) => p.role === "admin").length;
       if (adminCount <= 1) {
-        alert("Action Blocked: You cannot remove Administrator privileges from the only remaining Administrator on this account.");
+        alert(t("adm.blockLastAdmin"));
         return;
       }
-      const confirmed = window.confirm(
-        "Warning: You are removing Administrator privileges from an administrator. If you change your own role, you will immediately lose access to Admin Settings and private workspaces. Are you sure you want to proceed?"
-      );
+      const confirmed = window.confirm(t("adm.confirmSelfDemote"));
       if (!confirmed) return;
     }
 

@@ -328,9 +328,17 @@ export default function LoginPage() {
             position ignored the height of whatever sat below it, so on a short
             viewport (a landscape phone, or a keyboard eating vertical space)
             it landed on top of the heading — worse on the sign-up form, which
-            is taller. In flow, it can only ever stack above the card. */}
+            is taller. In flow, it can only ever stack above the card.
+
+            tone can't be a Tailwind dark: class — it's a JS-computed SVG
+            fill — so it has to follow the resolved theme directly. "navy"
+            (bare) draws WHITE bars, meant for a dark ground; on this panel's
+            light-mode background that's a 1.08:1 white-on-#F4F6F8 render,
+            functionally invisible. "light" draws navy bars instead. Defaults
+            to "light" before mount, matching the server's light-mode guess,
+            so the common case never flashes invisible bars. */}
         <div className="lg:hidden flex items-center gap-3 mb-12">
-          <Logo variant="bare" tone="navy" size={32} />
+          <Logo variant="bare" tone={mounted && theme === "dark" ? "navy" : "light"} size={32} />
           <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">HostFlow</span>
         </div>
 

@@ -74,7 +74,7 @@ export default function TaskCreateModal({
       
       {/* Modal Content */}
       <div 
-        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 flex flex-col animate-in fade-in zoom-in-95 duration-200 my-auto sm:my-12 h-auto"
+        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 flex flex-col animate-scale-in my-auto sm:my-12 h-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex flex-col h-full">
@@ -90,7 +90,7 @@ export default function TaskCreateModal({
             <input
               autoFocus
               type="text"
-              placeholder="New Task Name"
+              placeholder={t("task.newTaskName")}
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => {
@@ -103,7 +103,7 @@ export default function TaskCreateModal({
               required
             />
             <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-              in <ArrowRight size={14} className="opacity-70" /> {board.name}
+              {t("cal.in")} <ArrowRight size={14} className="opacity-70" /> {board.name}
             </p>
           </div>
           
@@ -114,7 +114,7 @@ export default function TaskCreateModal({
             <div className="grid grid-cols-12 gap-4 items-center group min-h-[32px]">
               <div className="col-span-4 flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <Folder size={16} className="text-yellow-500 shrink-0" />
-                <span className="text-sm font-medium truncate">Group</span>
+                <span className="text-sm font-medium truncate">{t("cal.groupLabel")}</span>
               </div>
               <div className="col-span-8 flex items-center justify-center bg-gray-50 dark:bg-slate-800/50 min-h-[36px] rounded p-1">
                 <select
@@ -180,7 +180,7 @@ export default function TaskCreateModal({
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -189,7 +189,7 @@ export default function TaskCreateModal({
               className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
             >
               <Save size={16} />
-              {isSubmitting ? "Creating..." : "Create Task"}
+              {isSubmitting ? t("task.creating") : t("task.createTask")}
             </button>
           </div>
         </div>

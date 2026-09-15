@@ -64,10 +64,18 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
   };
 
   return (
-    <div className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative ${isElevated ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
-      <div
-        ref={anchorRef}
-        className={`w-full h-full flex items-center justify-center text-white text-sm cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-500 transition-colors ${currentOption.color}`}
+    <div
+      ref={anchorRef}
+      className={`${column.width ? '' : 'w-36'} border-r border-gray-200 dark:border-slate-700 shrink-0 relative ${isElevated ? "z-50" : ""}`}
+      style={{ width: column.width ? `${column.width}px` : undefined }}
+    >
+      {/* Was a div. useAnchoredMenu's ref is typed for a div, so it stays on
+          the wrapper above (same bounding box) and this button carries none. */}
+      <button
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        className={`w-full h-full flex items-center justify-center text-white text-sm cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-500 transition-colors text-left ${currentOption.color}`}
         onClick={(e) => {
           e.stopPropagation();
           handleToggle();
@@ -80,7 +88,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
         
         {/* Fold indicator */}
         <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
-      </div>
+      </button>
 
       <AnimatePresence onExitComplete={() => setIsElevated(false)}>
         {isOpen && (

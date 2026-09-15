@@ -258,15 +258,15 @@ export default function WorkspaceMembersModal({
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {isPrivate
-                ? "Private. Only people you add here can see it, administrators included."
-                : "Shared. Everyone on the team can see this workspace already, so there is nobody to invite."}
+                ? t("wsm.privateExplainer")
+                : t("wsm.sharedExplainer")}
             </p>
 
             <button
               type="button"
               role="switch"
               aria-checked={isPrivate}
-              aria-label="Private workspace"
+              aria-label={t("wsm.privateWorkspace")}
               disabled={togglingPrivacy}
               onClick={togglePrivacy}
               className="mt-3 flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-200 disabled:opacity-50"
@@ -285,13 +285,13 @@ export default function WorkspaceMembersModal({
               {togglingPrivacy ? (
                 <Loader2 size={12} className="animate-spin" />
               ) : (
-                <span>{isPrivate ? "Private" : "Shared"}</span>
+                <span>{isPrivate ? t("wsm.private") : t("wsm.shared")}</span>
               )}
             </button>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0 ml-3"
           >
             <X size={18} />
@@ -391,9 +391,7 @@ export default function WorkspaceMembersModal({
 
           {!isStaffInviter ? null : !isPrivate && !loading && (
             <p className="px-2 pb-3 text-xs text-gray-500 dark:text-gray-400">
-              Everyone on the team can already open this workspace. External
-              people are not listed - shared workspaces are staff-only. Switch
-              it to private if you want to choose who sees it.
+              {t("wsm.sharedStaffOnlyNote")}
             </p>
           )}
           {isStaffInviter && (loading ? (
@@ -402,7 +400,7 @@ export default function WorkspaceMembersModal({
             </div>
           ) : users.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-              No other people to show yet.
+              {t("wsm.noOtherPeople")}
             </p>
           ) : (
             users
@@ -433,8 +431,8 @@ export default function WorkspaceMembersModal({
                     size={32}
                   />
                   <TruncatedText className="truncate flex-1 text-sm text-gray-800 dark:text-gray-200">
-                    {u.full_name || "Unnamed user"}
-                    {isSelf && <span className="text-gray-400 text-xs"> (you)</span>}
+                    {u.full_name || t("wsm.unnamedUser")}
+                    {isSelf && <span className="text-gray-400 text-xs"> {t("wsm.youSuffix")}</span>}
                   </TruncatedText>
 
                   {/* On a shared workspace everyone already has access, so there
@@ -444,20 +442,20 @@ export default function WorkspaceMembersModal({
                       <button
                         disabled={busyId === u.id}
                         onClick={() => toggle(u.id, true)}
-                        title="This person was invited while the workspace was private. They cannot open it now that it is shared - removing them clears the leftover invite."
+                        title={t("wsm.lostAccessHint")}
                         className="text-xs font-medium px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shrink-0 flex items-center gap-1 disabled:opacity-50"
                       >
                         {busyId === u.id ? (
                           <Loader2 size={12} className="animate-spin" />
                         ) : (
                           <>
-                            <Ban size={12} /> Lost access
+                            <Ban size={12} /> {t("wsm.lostAccess")}
                           </>
                         )}
                       </button>
                     ) : (
                       <span className="text-xs font-medium px-2.5 py-1 rounded-md border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 shrink-0 flex items-center gap-1">
-                        <Check size={12} /> Has access
+                        <Check size={12} /> {t("wsm.hasAccess")}
                       </span>
                     )
                   ) : (
@@ -466,7 +464,7 @@ export default function WorkspaceMembersModal({
                       onClick={() => toggle(u.id, isMember)}
                       title={
                         isSelf
-                          ? "You always have access to workspaces you create"
+                          ? t("wsm.alwaysHasAccess")
                           : undefined
                       }
                       className={`text-xs font-medium px-2.5 py-1 rounded-md border transition-colors shrink-0 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -479,11 +477,11 @@ export default function WorkspaceMembersModal({
                         <Loader2 size={12} className="animate-spin" />
                       ) : isMember ? (
                         <>
-                          <Check size={12} /> Has access
+                          <Check size={12} /> {t("wsm.hasAccess")}
                         </>
                       ) : (
                         <>
-                          <UserPlus size={12} /> Invite
+                          <UserPlus size={12} /> {t("wsm.invite")}
                         </>
                       )}
                     </button>
@@ -500,7 +498,7 @@ export default function WorkspaceMembersModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
           >
-            Done
+            {t("common.done")}
           </button>
         </div>
       </div>

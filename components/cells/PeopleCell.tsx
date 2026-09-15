@@ -147,9 +147,23 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
       style={{ width: column.width ? `${column.width}px` : undefined }}
       ref={(el) => { anchorRef.current = el; guardAnchorRef.current = el; }}
     >
-      {/* Cell display */}
+      {/* Cell display. Stays a div rather than becoming a real <button>: when
+          people are assigned it contains its own per-avatar remove button
+          (below), and a button cannot validly contain another button.
+          role="button" + tabIndex + onKeyDown is the correct pattern for
+          exactly this case — unlike the Phase 1 icons that had role="button"
+          with neither, this one is a genuine keyboard-operable widget. */}
       <div
+        role="button"
+        tabIndex={0}
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }
+        }}
         className="flex items-center justify-center w-full h-full cursor-pointer group/people"
       >
         {selectedIds.length === 0 ? (

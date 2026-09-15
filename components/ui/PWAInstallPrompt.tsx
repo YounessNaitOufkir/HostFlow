@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Download, X, Share, PlusSquare } from "lucide-react";
+import { useT } from "@/components/LanguageProvider";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -13,6 +14,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function PWAInstallPrompt() {
+  const t = useT();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -76,7 +78,7 @@ export default function PWAInstallPrompt() {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[120] animate-in slide-in-from-bottom-5 duration-300">
+    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[120]">
       <div className="bg-white dark:bg-[#1e2140] border border-gray-200 dark:border-slate-700/80 rounded-2xl shadow-2xl p-4 text-left">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
@@ -85,10 +87,10 @@ export default function PWAInstallPrompt() {
             </div>
             <div>
               <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                Install Host&apos;Lik PM
+                {t("pwa.installTitle")}
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Add to your home screen for instant access and full-screen mode.
+                {t("pwa.installBody")}
               </p>
             </div>
           </div>
@@ -103,14 +105,14 @@ export default function PWAInstallPrompt() {
         {showIOSInstructions ? (
           <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-slate-800 text-xs text-gray-600 dark:text-gray-300 space-y-2">
             <p className="font-semibold text-gray-800 dark:text-gray-100">
-              How to install on iOS Safari:
+              {t("pwa.iosHeading")}
             </p>
             <div className="flex items-center space-x-2">
               <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center font-bold text-gray-700 dark:text-gray-300 shrink-0">
                 1
               </span>
               <span>
-                Tap the <Share size={13} className="inline mx-0.5 text-blue-500" /> <b>Share</b> button in Safari&apos;s bottom bar.
+                {t("pwa.iosStep1before")} <Share size={13} className="inline mx-0.5 text-blue-500" /> <b>{t("pwa.iosShare")}</b> {t("pwa.iosStep1after")}
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -118,7 +120,7 @@ export default function PWAInstallPrompt() {
                 2
               </span>
               <span>
-                Scroll down and select <PlusSquare size={13} className="inline mx-0.5 text-gray-600 dark:text-gray-300" /> <b>Add to Home Screen</b>.
+                {t("pwa.iosStep2before")} <PlusSquare size={13} className="inline mx-0.5 text-gray-600 dark:text-gray-300" /> <b>{t("pwa.addToHomeScreen")}</b>.
               </span>
             </div>
           </div>
@@ -128,14 +130,14 @@ export default function PWAInstallPrompt() {
               onClick={handleDismiss}
               className="px-3 py-1.5 rounded-xl text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
             >
-              Not Now
+              {t("pwa.notNow")}
             </button>
             <button
               onClick={handleInstallClick}
               className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all shadow-sm flex items-center space-x-1.5"
             >
               <Download size={13} />
-              <span>{isIOS ? "Install App" : "Add to Home Screen"}</span>
+              <span>{isIOS ? t("pwa.installApp") : t("pwa.addToHomeScreen")}</span>
             </button>
           </div>
         )}

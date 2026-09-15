@@ -39,9 +39,15 @@ export default function DateCell({ item, column, onUpdate }: DateCellProps) {
   };
 
   return (
-    <div 
+    // The hidden native <input type="date"> below has no tabIndex, so it was
+    // already in the tab order — reachable, just invisibly: opacity-0 means a
+    // keyboard user focusing it saw no ring at all. focus-within gives the
+    // wrapper a visible ring when that input has focus, so a real widget was
+    // fixed here rather than added; typing a date directly into the focused
+    // input, or opening its native picker, both already worked.
+    <div
       onClick={() => inputRef.current?.showPicker?.() || inputRef.current?.focus()}
-      className={`${column.width ? '' : 'w-32'} group relative border-r border-gray-200 dark:border-slate-700 flex items-center justify-center text-xs text-gray-600 dark:text-gray-300 shrink-0 hover:bg-gray-100/60 dark:hover:bg-slate-700/40 transition-colors cursor-pointer px-2 select-none`} 
+      className={`${column.width ? '' : 'w-32'} group relative border-r border-gray-200 dark:border-slate-700 flex items-center justify-center text-xs text-gray-600 dark:text-gray-300 shrink-0 hover:bg-gray-100/60 dark:hover:bg-slate-700/40 transition-colors cursor-pointer px-2 select-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-inset`}
       style={{ width: column.width ? `${column.width}px` : undefined }}
     >
       {formatted ? (

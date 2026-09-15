@@ -363,7 +363,7 @@ const GroupSection = memo(function GroupSection({
                     className="w-full flex items-center text-sm text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 p-1.5 rounded transition-colors font-medium"
                   >
                     <div className="w-4 h-4 rounded-full border border-gray-200 dark:border-slate-700 mr-2" style={{ background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)' }} />
-                    Custom color...
+                    {t("group.customColor")}
                   </button>
                 </div>
               </div>
@@ -509,16 +509,28 @@ const GroupSection = memo(function GroupSection({
             )}
           </Droppable>
 
-          {/* Add Column Button */}
+          {/* Add Column Button. Was a div carrying both the click handler and
+              the dropdown menu as a DOM child — unreachable by keyboard, and
+              putting a <button> directly on the anchor would nest the menu's
+              own buttons inside it (invalid HTML). Anchor stays a plain div,
+              a nested button owns the click. */}
           <div
             ref={addColMenuAnchor}
-            className="relative w-16 shrink-0 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/[0.04] cursor-pointer transition-colors rounded-tr-xl"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSetShowAddColumnMenu(showAddColumnMenu === group.id ? null : group.id);
-            }}
+            className="relative w-16 shrink-0 rounded-tr-xl"
           >
-            <Plus size={16} className="text-gray-400 hover:text-blue-500 transition-colors" />
+            <button
+              type="button"
+              className="w-full h-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/[0.04] cursor-pointer transition-colors rounded-tr-xl"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSetShowAddColumnMenu(showAddColumnMenu === group.id ? null : group.id);
+              }}
+              aria-haspopup="true"
+              aria-expanded={showAddColumnMenu === group.id}
+              title={t("col.addColumn")}
+            >
+              <Plus size={16} className="text-gray-400 hover:text-blue-500 transition-colors" />
+            </button>
 
             <AnimatePresence>
               {showAddColumnMenu === group.id && (
@@ -680,9 +692,12 @@ const GroupSection = memo(function GroupSection({
 
       {/* Centered Custom Color Picker Modal */}
       {isCustomColorModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
-          <div 
-            className="w-full max-w-md bg-white dark:bg-[#1a1e36] rounded-2xl border border-gray-200 dark:border-slate-700/80 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        // animate-in fade-in / zoom-in-95 did nothing — tailwindcss-animate
+        // isn't installed. panel-overlay-fade and animate-scale-in are real,
+        // working classes already used for exactly this by ItemPanel.tsx.
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm panel-overlay-fade p-4">
+          <div
+            className="w-full max-w-md bg-white dark:bg-[#1a1e36] rounded-2xl border border-gray-200 dark:border-slate-700/80 shadow-2xl overflow-hidden animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -692,7 +707,7 @@ const GroupSection = memo(function GroupSection({
                   <Palette size={18} />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Choose Group Color
+                  {t("group.chooseColor")}
                 </h3>
               </div>
               <button
@@ -708,7 +723,7 @@ const GroupSection = memo(function GroupSection({
               {/* Live Preview */}
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                  Live Preview
+                  {t("group.livePreview")}
                 </label>
                 <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#131526] border border-gray-200/70 dark:border-slate-800 flex items-center space-x-3">
                   <div className="w-5 h-5 rounded-full shadow-sm border border-black/10" style={{ backgroundColor: customColorValue }} />
@@ -727,7 +742,7 @@ const GroupSection = memo(function GroupSection({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                    Visual Picker
+                    {t("group.visualPicker")}
                   </label>
                   <label className="relative block w-full h-11 rounded-xl cursor-pointer border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm hover:border-blue-500 transition-colors">
                     <input
@@ -743,7 +758,7 @@ const GroupSection = memo(function GroupSection({
                           style={{ backgroundColor: customColorValue }} 
                         />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                          Pick color
+                          {t("group.pickColor")}
                         </span>
                       </div>
                       <div className="w-4 h-4 rounded-full" style={{ background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)' }} />
@@ -753,7 +768,7 @@ const GroupSection = memo(function GroupSection({
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                    Hex Code
+                    {t("group.hexCode")}
                   </label>
                   <div className="relative">
                     <input
@@ -771,7 +786,7 @@ const GroupSection = memo(function GroupSection({
               {/* Extended Modern Palette */}
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
-                  Curated Colors
+                  {t("group.curatedColors")}
                 </label>
                 <div className="grid grid-cols-6 gap-2">
                   {EXTENDED_COLORS.map((color) => (
@@ -799,7 +814,7 @@ const GroupSection = memo(function GroupSection({
                 onClick={() => setIsCustomColorModalOpen(false)}
                 className="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-slate-800 transition-colors"
               >
-                Cancel
+                {t("group.cancel")}
               </button>
               <button
                 type="button"
@@ -809,7 +824,7 @@ const GroupSection = memo(function GroupSection({
                 }}
                 className="px-5 py-2 rounded-xl text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors shadow-sm"
               >
-                Apply Color
+                {t("group.applyColor")}
               </button>
             </div>
           </div>

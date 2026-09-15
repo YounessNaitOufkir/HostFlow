@@ -68,7 +68,7 @@ export default function TrashView({ trashItems, groups, allItems, onRestore, onD
 
 
   const handleDeleteUpdatePermanently = async (id: string) => {
-    if (!window.confirm("Are you sure you want to permanently delete this update? This action cannot be undone.")) return;
+    if (!window.confirm(t("trash.confirmDeleteUpdate"))) return;
     try {
       const { error } = await supabase.from("updates").delete().eq("id", id);
       if (error) throw error;
@@ -147,11 +147,11 @@ export default function TrashView({ trashItems, groups, allItems, onRestore, onD
                         <td className="px-6 py-3">
                           <span className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: group?.color || '#ccc' }}></span>
-                            {group?.title || "Unknown Group"}
+                            {group?.title || t("trash.unknownGroup")}
                           </span>
                         </td>
                         <td className="px-6 py-3">
-                          {item.deleted_at ? format(new Date(item.deleted_at), "MMM d, yyyy HH:mm") : "Unknown"}
+                          {item.deleted_at ? format(new Date(item.deleted_at), "MMM d, yyyy HH:mm") : t("trash.unknownDate")}
                         </td>
                         <td className="px-6 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -159,18 +159,18 @@ export default function TrashView({ trashItems, groups, allItems, onRestore, onD
                               onClick={() => onRestore(item.id)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
                             >
-                              <RotateCcw size={14} /> Restore
+                              <RotateCcw size={14} /> {t("trash.restore")}
                             </button>
                             {isAdmin && (
                               <button
                                 onClick={() => {
-                                  if (window.confirm("Are you sure you want to permanently delete this task? This action cannot be undone.")) {
+                                  if (window.confirm(t("trash.confirmDeleteTask"))) {
                                     onDeletePermanently(item.id);
                                   }
                                 }}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
                               >
-                                <Trash size={14} /> Delete
+                                <Trash size={14} /> {t("trash.delete")}
                               </button>
                             )}
                           </div>
@@ -194,10 +194,10 @@ export default function TrashView({ trashItems, groups, allItems, onRestore, onD
                           </div>
                         </td>
                         <td className="px-6 py-3">
-                          <span className="text-gray-500 text-sm italic">Update from {update.author_name}</span>
+                          <span className="text-gray-500 text-sm italic">{t("trash.updateFrom", { author: update.author_name })}</span>
                         </td>
                         <td className="px-6 py-3">
-                          {update.deleted_at ? format(new Date(update.deleted_at), "MMM d, yyyy HH:mm") : "Unknown"}
+                          {update.deleted_at ? format(new Date(update.deleted_at), "MMM d, yyyy HH:mm") : t("trash.unknownDate")}
                         </td>
                         <td className="px-6 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -205,14 +205,14 @@ export default function TrashView({ trashItems, groups, allItems, onRestore, onD
                               onClick={() => handleRestoreUpdate(update.id)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
                             >
-                              <RotateCcw size={14} /> Restore
+                              <RotateCcw size={14} /> {t("trash.restore")}
                             </button>
                             {isAdmin && (
                               <button
                                 onClick={() => handleDeleteUpdatePermanently(update.id)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
                               >
-                                <Trash size={14} /> Delete
+                                <Trash size={14} /> {t("trash.delete")}
                               </button>
                             )}
                           </div>

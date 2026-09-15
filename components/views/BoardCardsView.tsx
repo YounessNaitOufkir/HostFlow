@@ -124,7 +124,7 @@ export default function BoardCardsView({
                               className="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center space-x-2"
                             >
                               <Copy size={13} />
-                              <span>Duplicate</span>
+                              <span>{t("cards.duplicate")}</span>
                             </button>
                             <button
                               onClick={(e) => {
@@ -135,7 +135,7 @@ export default function BoardCardsView({
                               className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center space-x-2"
                             >
                               <Trash2 size={13} />
-                              <span>Delete</span>
+                              <span>{t("cards.delete")}</span>
                             </button>
                           </div>
                         )}

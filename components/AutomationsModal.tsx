@@ -625,14 +625,13 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {duplicateRule ? (
                       <span className="text-xs text-amber-600 dark:text-amber-400">
-                        A rule for this trigger already exists below. Two rules on
-                        the same trigger cannot both run - only the first would.
+                        {t("auto.duplicateHint")}
                       </span>
                     ) : isMoveRecipe ? (
                       <div className="flex flex-wrap items-center gap-2">
                         {statusCols.length > 1 && (
                           <>
-                            <span>Status Column:</span>
+                            <span>{t("auto.statusColumnLabel")}</span>
                             <select
                               className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium outline-none"
                               value={triggerColId}
@@ -654,20 +653,22 @@ export default function AutomationsModal({ board, groups, items, boardAutomation
                           French board's is "Fait".
                         */}
                         <span>
-                          When a task is marked{" "}
-                          <b className="font-semibold text-gray-800 dark:text-gray-100">
-                            {effectiveTriggerValue}
-                          </b>
-                          , it moves to the{" "}
-                          <b className="font-semibold text-gray-800 dark:text-gray-100">
-                            {COMPLETED_GROUP_TITLE}
-                          </b>{" "}
-                          group.
+                          {fill(t("auto.moveRuleSummary"), {
+                            status: (
+                              <b className="font-semibold text-gray-800 dark:text-gray-100">
+                                {effectiveTriggerValue}
+                              </b>
+                            ),
+                            group: (
+                              <b className="font-semibold text-gray-800 dark:text-gray-100">
+                                {COMPLETED_GROUP_TITLE}
+                              </b>
+                            ),
+                          })}
                         </span>
                         {!existingCompletedGroup && (
                           <span className="text-amber-600 dark:text-amber-400">
-                            This board has no {COMPLETED_GROUP_TITLE}{" "}
-                            group yet &mdash; enabling this will create one.
+                            {t("auto.noCompletedGroupYet", { group: COMPLETED_GROUP_TITLE })}
                           </span>
                         )}
                       </div>

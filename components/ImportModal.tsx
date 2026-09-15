@@ -294,7 +294,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm panel-overlay-fade">
       <div 
         className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 flex flex-col"
       >
@@ -332,7 +332,7 @@ export default function ImportModal({ onClose, onImport, activeBoard, activeBoar
               />
             </div>
           ) : (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            <div className="space-y-6">
               <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-slate-700">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded bg-green-100 text-green-600 flex items-center justify-center">

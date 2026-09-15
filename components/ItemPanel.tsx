@@ -203,7 +203,7 @@ function ReplyComposer({
   onPostReply: (tempUpdate: Update, htmlBody: string, editorJson: any) => Promise<void>;
 }) {
   const t = useT();
-  const { editor, isEditorEmpty, setIsEditorEmpty } = useUpdateEditor(profiles, "Write a reply...");
+  const { editor, isEditorEmpty, setIsEditorEmpty } = useUpdateEditor(profiles, t("panel.replyPlaceholder"));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePost = async () => {
@@ -631,7 +631,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
 
         const depNames = validIds.map(id => {
           const depItem = boardItems.find(i => i.id === id);
-          return depItem ? depItem.name : "Unknown Item";
+          return depItem ? depItem.name : t("panel.unknownItem");
         });
 
         return (
@@ -661,7 +661,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
       };
     }
     return {
-      name: "Unknown",
+      name: t("panel.unknownAuthor"),
       avatar: "??",
       color: "#6b7280",
       avatar_url: undefined,
@@ -716,7 +716,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
           <button 
             className="py-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors flex items-center border-blue-500 text-blue-600 dark:text-blue-400"
           >
-            <MessageSquare size={16} className="mr-2" /> Updates {updates.length > 0 && `(${updates.length})`}
+            <MessageSquare size={16} className="mr-2" /> {t("panel.updatesTab")} {updates.length > 0 && `(${updates.length})`}
           </button>
         </div>
 
@@ -763,8 +763,8 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
               ) : updates.length === 0 ? (
                 <div className="px-6 py-12 text-center">
                   <MessageSquare size={32} className="text-gray-200 mx-auto mb-3" />
-                  <p className="text-gray-400 dark:text-gray-500 text-sm">No updates yet.</p>
-                  <p className="text-gray-300 text-xs mt-1">Be the first to post an update!</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm">{t("panel.noUpdatesYet")}</p>
+                  <p className="text-gray-300 text-xs mt-1">{t("panel.beFirstToPost")}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-slate-800">
@@ -828,7 +828,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                               onClick={() => setReplyingToId(update.id)}
                               className="text-xs font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 flex items-center transition-colors"
                             >
-                              <Reply size={14} className="mr-1" /> Reply
+                              <Reply size={14} className="mr-1" /> {t("panel.reply")}
                             </button>
                           </div>
 

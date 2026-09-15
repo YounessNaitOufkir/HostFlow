@@ -1,6 +1,8 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { useT } from "@/components/LanguageProvider"
 
 export const MentionList = forwardRef((props: any, ref) => {
+  const t = useT()
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const selectItem = (index: number) => {
@@ -62,7 +64,7 @@ export const MentionList = forwardRef((props: any, ref) => {
           </button>
         ))
       ) : (
-        <div className="px-3 py-2 text-sm text-gray-500">No result</div>
+        <div className="px-3 py-2 text-sm text-gray-500">{t("mention.noResult")}</div>
       )}
     </div>
   )

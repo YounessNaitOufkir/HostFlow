@@ -159,9 +159,7 @@ export default function AdminSettingsModal({
         alert(t("adm.blockLastAdmin"));
         return;
       }
-      const confirmed = window.confirm(
-        "Warning: You are removing Administrator privileges from an administrator. If you change your own role, you will immediately lose access to Admin Settings and private workspaces. Are you sure you want to proceed?"
-      );
+      const confirmed = window.confirm(t("adm.confirmSelfDemote"));
       if (!confirmed) return;
     }
 
@@ -413,7 +411,7 @@ export default function AdminSettingsModal({
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-[100] flex bg-white dark:bg-slate-900 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex bg-white dark:bg-slate-900 panel-overlay-fade">
       {/* Sidebar */}
       <div className="w-64 border-r border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex flex-col h-full">
         <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
@@ -456,7 +454,7 @@ export default function AdminSettingsModal({
           <div className="max-w-4xl mx-auto space-y-8">
             
             {activeTab === "organization" && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{t("adm.orgTitle")}</h3>
                   <p className="text-gray-500 mt-1">
@@ -583,7 +581,7 @@ export default function AdminSettingsModal({
             )}
 
             {activeTab === "users" && (
-              <div className="h-full animate-in fade-in slide-in-from-bottom-4 flex flex-col">
+              <div className="h-full flex flex-col">
                 <div className="mb-6 shrink-0">
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{t("adm.usersTitle")}</h3>
                   <p className="text-gray-500 mt-1">{t("adm.usersSub")}</p>
@@ -666,7 +664,7 @@ export default function AdminSettingsModal({
             )}
 
             {activeTab === "permissions" && (
-              <div className="h-full animate-in fade-in slide-in-from-bottom-4 flex flex-col">
+              <div className="h-full flex flex-col">
                 <div className="mb-6 shrink-0">
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{t("adm.permTitle")}</h3>
                   <p className="text-gray-500 mt-1">{t("adm.permSub")}</p>

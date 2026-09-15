@@ -165,17 +165,17 @@ export default function BoardTableView({
                   <LayoutIcon size={28} className="text-blue-500 dark:text-amber-500" />
                 </div>
                 <p className="text-lg font-medium mb-1 text-gray-600 dark:text-gray-300">
-                  No groups yet
+                  {t("board.emptyTitle")}
                 </p>
                 <p className="text-sm mb-4">
-                  Get started by adding your first group
+                  {t("board.emptyBody")}
                 </p>
                 <button
                   onClick={onAddGroup}
                   className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors shadow-sm"
                 >
                   <Plus size={14} className="inline mr-1.5 -mt-0.5" />
-                  Add Group
+                  {t("board.addGroup")}
                 </button>
               </div>
             ) : (
@@ -263,7 +263,7 @@ export default function BoardTableView({
                   onClick={onAddGroup}
                   className="mt-2 flex items-center px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-[#1e2140] rounded-lg border border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all font-medium"
                 >
-                  <Plus size={15} className="mr-2" /> Add New Group
+                  <Plus size={15} className="mr-2" /> {t("board.addNewGroup")}
                 </button>
               </Tooltip>
             )}

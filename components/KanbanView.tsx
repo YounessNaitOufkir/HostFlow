@@ -147,9 +147,9 @@ export default function KanbanView({
                     setKanbanColumnId(col.id);
                     setShowPicker(false);
                   }}
-                  className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-50 dark:bg-slate-800 transition-colors ${
+                  className={`flex items-center w-full px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors ${
                     kanbanColumnId === col.id
-                      ? "bg-blue-50 text-blue-600 font-medium"
+                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 font-medium"
                       : "text-gray-700 dark:text-gray-200"
                   }`}
                 >
@@ -334,7 +334,10 @@ export default function KanbanView({
                                               key={col.id}
                                               className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
                                             >
-                                              🔗 {val.length} dep{val.length > 1 ? 's' : ''}
+                                              🔗{" "}
+                                              {val.length === 1
+                                                ? t("kanban.depCountOne", { count: val.length })
+                                                : t("kanban.depCount", { count: val.length })}
                                             </span>
                                           );
                                         }

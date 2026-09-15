@@ -108,9 +108,23 @@ export default function RelationCell({ item, column }: RelationCellProps) {
 
   return (
     <div ref={anchorRef} className={`${column.width ? '' : 'w-48'} border-r border-gray-200 dark:border-slate-700/60 shrink-0 relative flex items-center p-1.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group`} style={{ width: column.width ? `${column.width}px` : undefined }}>
+      {/* Stays a div: each linked-item badge carries its own remove button,
+          so this can't be a literal <button> without nesting interactive
+          content. role="button" + tabIndex + onKeyDown makes it a real
+          keyboard widget instead — same pattern as PeopleCell. */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
         className="w-full h-full flex items-center overflow-hidden min-h-[28px]"
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          }
+        }}
       >
         {linkedItemsData.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 items-center">

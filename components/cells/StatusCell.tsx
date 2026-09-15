@@ -51,14 +51,24 @@ export default function StatusCell({
   };
 
   return (
-    <div className={`${column.width ? '' : 'w-32'} border-r border-gray-200 dark:border-slate-700 relative shrink-0 ${isElevated ? "z-50" : ""}`} style={{ width: column.width ? `${column.width}px` : undefined }}>
-      <div
-        ref={anchorRef}
+    <div
+      ref={anchorRef}
+      className={`${column.width ? '' : 'w-32'} border-r border-gray-200 dark:border-slate-700 relative shrink-0 ${isElevated ? "z-50" : ""}`}
+      style={{ width: column.width ? `${column.width}px` : undefined }}
+    >
+      {/* Was a div: the single most common cell in the whole product,
+          unreachable by keyboard. useAnchoredMenu's ref is typed for a div,
+          so the anchor stays on this wrapper (same bounding box either way)
+          and the button underneath carries no ref of its own. */}
+      <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           handleToggle();
         }}
-        className={`relative cursor-pointer w-full h-full flex items-center justify-center text-white text-[13px] hover:opacity-90 transition-all ${bgColor} ${
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        className={`relative cursor-pointer w-full h-full flex items-center justify-center text-white text-[13px] hover:opacity-90 transition-all text-left ${bgColor} ${
           isOverdue ? "shadow-sm border border-red-500/40 dark:border-red-400/50" : "border border-transparent hover:border-gray-300 dark:hover:border-slate-500"
         }`}
       >
@@ -69,7 +79,7 @@ export default function StatusCell({
 
         {/* Fold indicator */}
         <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
-      </div>
+      </button>
 
       <AnimatePresence onExitComplete={() => setIsElevated(false)}>
         {isOpen && (

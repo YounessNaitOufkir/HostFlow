@@ -140,7 +140,7 @@ export function SearchPalette({
         aria-modal="true"
         aria-label={t("search.title")}
         onKeyDown={onKeyDown}
-        className="relative w-full max-w-[620px] bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+        className="relative w-full max-w-[620px] bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden animate-slide-down"
       >
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 dark:border-slate-800">
           <Search size={17} className="text-gray-400 shrink-0" />

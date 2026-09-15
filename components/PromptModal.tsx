@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useT } from "@/components/LanguageProvider";
 
 interface PromptModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface PromptModalProps {
 }
 
 export default function PromptModal({ isOpen, title, defaultValue = "", onClose, onSubmit }: PromptModalProps) {
+  const t = useT();
   const [value, setValue] = useState(defaultValue);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,7 +56,7 @@ export default function PromptModal({ isOpen, title, defaultValue = "", onClose,
               }
             }}
             className="w-full bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all shadow-inner"
-            placeholder="Type here..."
+            placeholder={t("prompt.placeholder")}
           />
         </div>
 
@@ -63,14 +65,14 @@ export default function PromptModal({ isOpen, title, defaultValue = "", onClose,
             onClick={onClose}
             className="px-5 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={() => value.trim() && onSubmit(value.trim())}
             disabled={!value.trim()}
             className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-md disabled:opacity-50 disabled:shadow-none transition-all"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
       </div>

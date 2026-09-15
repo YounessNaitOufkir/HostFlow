@@ -168,7 +168,7 @@ export default function ColumnHeader({
           {isRenaming ? (
             /* Rename input mode */
             <div className="px-3 py-1">
-              <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-1.5">Rename Column</div>
+              <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-1.5">{t("col.renameColumn")}</div>
               <div className="flex items-center gap-1.5">
                 <input
                   ref={inputRef}
@@ -203,7 +203,7 @@ export default function ColumnHeader({
                 className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
               >
                 <Pencil size={14} className="mr-2.5 text-gray-400 dark:text-gray-500" />
-                Rename Column
+                {t("col.renameColumn")}
               </button>
               <div className="border-t border-gray-100 dark:border-slate-800 my-1"></div>
               <button
@@ -211,7 +211,7 @@ export default function ColumnHeader({
                 className="flex items-center w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
                 <Trash2 size={14} className="mr-2.5" />
-                Delete Column
+                {t("col.deleteColumn")}
               </button>
             </>
           )}

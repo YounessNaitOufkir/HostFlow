@@ -55,9 +55,23 @@ export default function FilesCell({ item, column, onUpdate }: FilesCellProps) {
   };
 
   return (
-    <div 
+    // Stays a div: the hidden file input (className="hidden", i.e.
+    // display:none) is genuinely removed from the tab order — unlike
+    // DateCell's opacity-0 input, this one really was unreachable — and each
+    // attached file below carries its own remove button, so this can't be a
+    // literal <button>. role="button" + tabIndex + onKeyDown makes the cell
+    // itself the keyboard-operable widget.
+    <div
+      role="button"
+      tabIndex={0}
       className={`${column.width ? '' : 'w-40'} border-r border-gray-200 dark:border-slate-700 shrink-0 flex items-center justify-center p-2 relative group overflow-hidden cursor-pointer transition-colors`} style={{ width: column.width ? `${column.width}px` : undefined }}
       onClick={() => fileInputRef.current?.click()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          fileInputRef.current?.click();
+        }
+      }}
     >
       <input 
         type="file" 

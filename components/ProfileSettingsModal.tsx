@@ -69,7 +69,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
       
       onProfileUpdated();
     } catch (err: any) {
-      setError(err.message || "Failed to upload avatar");
+      setError(err.message || t("profile.errUpload"));
     } finally {
       setUploading(false);
     }
@@ -117,7 +117,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
       onProfileUpdated();
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to save profile");
+      setError(err.message || t("profile.errSave"));
     } finally {
       setSaving(false);
     }
@@ -137,7 +137,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#252849] rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-[#252849] rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700/50 flex justify-between items-center bg-gray-50/50 dark:bg-white/[0.02]">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white">{t("profile.title")}</h2>
           <button 
@@ -154,13 +154,13 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
             onClick={() => setActiveTab('profile')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-2 transition-colors ${activeTab === 'profile' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
           >
-            <User size={16} /> Profile
+            <User size={16} /> {t("profile.tabProfile")}
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('notifications')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-2 transition-colors ${activeTab === 'notifications' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
           >
-            <Bell size={16} /> Notifications
+            <Bell size={16} /> {t("profile.tabNotifications")}
           </button>
         </div>
 
@@ -214,7 +214,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{profile.full_name}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">{profile.email}</p>
               <div className="mt-1 inline-flex px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-medium capitalize border border-blue-100 dark:border-blue-500/20">
-                {profile.role || "Member"}
+                {profile.role || t("profile.member")}
               </div>
               {profile.role !== "admin" && profile.is_owner && (
                 <div className="mt-2.5">
@@ -230,10 +230,10 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
                           const { error: rpcError } = await supabase.rpc("restore_my_admin");
                           if (rpcError) throw rpcError;
                         }
-                        toast.success("Admin privileges restored successfully!");
+                        toast.success(t("profile.adminRestored"));
                         setTimeout(() => window.location.reload(), 500);
                       } catch (err) {
-                        toast.error("Failed to restore admin role.");
+                        toast.error(t("profile.adminRestoreFailed"));
                       }
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-semibold border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors shadow-sm"
@@ -263,7 +263,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
         </div>
           )}
           {activeTab === 'notifications' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            <div className="space-y-6">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{t("profile.notifications")}</h3>
                 <p className="text-sm text-gray-500">{t("profile.notificationsBody")}</p>
@@ -342,7 +342,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
               {/* Google Calendar Integration */}
               <div className="pt-4 border-t border-gray-100 dark:border-slate-700/50">
                 <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">{t("profile.calendar")}</h4>
-                <p className="text-xs text-gray-500 mb-3">Sync your assigned task deadlines directly to your Google Calendar.</p>
+                <p className="text-xs text-gray-500 mb-3">{t("profile.calendarBody")}</p>
                 <GoogleCalendarConnectButton profile={profile} />
               </div>
             </div>

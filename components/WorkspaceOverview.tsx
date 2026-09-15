@@ -121,7 +121,7 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
       {/* Header */}
       <div className="pt-8 px-8 pb-4 shrink-0 border-b border-gray-200 dark:border-slate-800">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          {workspace.name} Overview
+          {t("ws.overviewTitle", { name: workspace.name })}
         </h1>
       </div>
 

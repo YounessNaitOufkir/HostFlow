@@ -10,6 +10,7 @@ import type { Item, Column, Profile } from "@/types";
 import CellRenderer from "@/components/cells/CellRenderer";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { useT } from "@/components/LanguageProvider";
 
 interface ItemRowProps {
   item: Item;
@@ -54,6 +55,7 @@ const ItemRow = memo(function ItemRow({
   itemNameWidth = 300,
   draggingColumnId,
 }: ItemRowProps) {
+  const t = useT();
   const isMenuOpen = itemMenuOpen === item.id;
   const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isMenuOpen, { align: 'right' });
   const [isEditingName, setIsEditingName] = React.useState(false);
@@ -131,7 +133,7 @@ const ItemRow = memo(function ItemRow({
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`flex border-b border-gray-100 dark:border-slate-800/60 group/row transition-colors animate-in fade-in duration-200 ${
+          className={`flex border-b border-gray-100 dark:border-slate-800/60 group/row transition-colors animate-row-in ${
             snapshot.isDragging
               ? "bg-white dark:bg-slate-800 shadow-2xl z-[100] rounded-lg ring-1 ring-indigo-500/20 relative"
               : (isMenuOpen || activeStatusId?.startsWith(item.id))
@@ -190,8 +192,8 @@ const ItemRow = memo(function ItemRow({
               <Tooltip
                 content={
                   updatesCount > 0
-                    ? `${updatesCount} update${updatesCount > 1 ? "s" : ""}`
-                    : "Add update"
+                    ? (updatesCount === 1 ? t("item.updatesCountOne") : t("item.updatesCount", { count: updatesCount }))
+                    : t("item.addUpdate")
                 }
                 side="top"
               >
@@ -215,7 +217,7 @@ const ItemRow = memo(function ItemRow({
             {/* Row context menu button */}
             {!isEditingName && (
               <div ref={anchorRef} className="opacity-0 group-hover/name:opacity-100 transition-opacity">
-                <Tooltip content="Item menu" side="top">
+                <Tooltip content={t("item.menu")} side="top">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -247,7 +249,7 @@ const ItemRow = memo(function ItemRow({
                     className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
                   >
                     <Copy size={14} className="mr-2.5 text-gray-400" />
-                    Duplicate
+                    {t("item.duplicate")}
                   </button>
                   <div className="border-t border-gray-100 dark:border-slate-800 my-0.5"></div>
                   <button
@@ -258,7 +260,7 @@ const ItemRow = memo(function ItemRow({
                     className="flex items-center w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
                     <Trash2 size={14} className="mr-2.5" />
-                    Delete
+                    {t("item.delete")}
                   </button>
                 </motion.div>
               )}

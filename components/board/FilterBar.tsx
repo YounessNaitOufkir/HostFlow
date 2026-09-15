@@ -195,7 +195,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
             placeholder={t("filter.searchItems")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 w-64 text-gray-700 dark:text-gray-200 placeholder:text-gray-400 transition-shadow"
+            className="pl-8 pr-3 py-1.5 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 w-64 text-gray-700 dark:text-gray-200 placeholder:text-gray-400 transition-shadow"
           />
           {searchQuery && (
             <button
@@ -215,7 +215,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           <div className="relative" ref={sortMenuAnchor}>
             <button
               onClick={() => { setShowSortMenu(!showSortMenu); setShowAdvanced(false); setShowColumnsMenu(false); }}
-              className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+              className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                 activeSorts.length > 0 || showSortMenu 
                   ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" 
                   : "bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700/50 text-gray-700 dark:text-gray-200"
@@ -301,7 +301,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           <div className="relative" ref={advancedMenuAnchor}>
             <button
               onClick={() => { setShowAdvanced(!showAdvanced); setShowSortMenu(false); setShowColumnsMenu(false); }}
-            className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-blue-500 ${
               activeRules.length > 0 || showAdvanced 
                 ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" 
                 : "bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700/50 text-gray-700 dark:text-gray-200"
@@ -474,7 +474,7 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
           <div className="relative" ref={columnsMenuAnchor}>
             <button
               onClick={() => { setShowColumnsMenu(!showColumnsMenu); setShowSortMenu(false); setShowAdvanced(false); }}
-              className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+              className={`flex items-center gap-2 py-1.5 px-3 text-sm rounded-lg border transition-shadow focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                 hiddenColumns.length > 0 || showColumnsMenu 
                   ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" 
                   : "bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700/50 text-gray-700 dark:text-gray-200"

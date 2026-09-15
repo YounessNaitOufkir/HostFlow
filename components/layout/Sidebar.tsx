@@ -50,10 +50,16 @@ interface SidebarProps {
   onImportData?: () => void;
 }
 
-function SpringButton({ children, onClick, className }: { children: React.ReactNode, onClick?: () => void, className?: string }) {
+// Was animated.div: every icon on the rail — sidebar toggle, search, my work,
+// trash — was an unreachable div, same defect as the workspace panel below.
+// animated.button carries the identical spring, since react-spring's
+// `animated` factory works on any host element.
+function SpringButton({ children, onClick, className, "aria-label": ariaLabel }: { children: React.ReactNode, onClick?: () => void, className?: string, "aria-label"?: string }) {
   const [props, api] = useSpring(() => ({ scale: 1, config: { tension: 300, friction: 10 } }));
   return (
-    <animated.div
+    <animated.button
+      type="button"
+      aria-label={ariaLabel}
       style={props}
       onMouseEnter={() => api.start({ scale: 1.12 })}
       onMouseLeave={() => api.start({ scale: 1 })}
@@ -63,7 +69,7 @@ function SpringButton({ children, onClick, className }: { children: React.ReactN
       className={className}
     >
       {children}
-    </animated.div>
+    </animated.button>
   );
 }
 
@@ -147,6 +153,7 @@ export default function Sidebar({
         <div className="flex flex-col items-center space-y-3 w-full">
           <Tooltip content={t("sidebar.toggle")} side="right">
             <SpringButton
+              aria-label={t("sidebar.toggle")}
               className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#F5A623] to-[#E09015] flex items-center justify-center font-bold text-lg select-none cursor-pointer hover:from-[#FFB540] hover:to-[#F5A623] transition-colors shadow-lg shadow-amber-500/30 text-white"
               onClick={onToggleSidebar}
             >
@@ -160,6 +167,7 @@ export default function Sidebar({
               on a phone. The rail carries the same thing where it can be seen. */}
           <Tooltip content={t("search.openPalette")} side="right">
             <SpringButton
+              aria-label={t("search.openPalette")}
               onClick={onOpenSearch}
               className="w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-colors text-white/60 hover:text-white hover:bg-white/8"
             >
@@ -168,6 +176,7 @@ export default function Sidebar({
           </Tooltip>
           <Tooltip content={t("sidebar.myWork")} side="right">
             <SpringButton
+              aria-label={t("sidebar.myWork")}
               onClick={() =>
                 onSetMainView(mainView === "my_work" ? viewAfterLeaving(!!activeBoard) : "my_work")
               }
@@ -182,6 +191,7 @@ export default function Sidebar({
           </Tooltip>
           <Tooltip content={t("sidebar.trashBin")} side="right">
             <SpringButton
+              aria-label={t("sidebar.trashBin")}
               // Leaving Trash used to go to "board" unconditionally, stranding the
               // user on "Loading board..." with no board open — the same trap My
               // Work was fixed for. Both now share viewAfterLeaving.
@@ -234,11 +244,20 @@ export default function Sidebar({
           >
             <div className="w-[260px] h-full flex flex-col">
               {/* Workspace Picker */}
-              <div 
-                ref={wsMenuAnchor}
-                className="h-[52px] border-b border-gray-200 dark:border-slate-700/50 flex items-center px-4 font-semibold text-[13px] text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors relative"
-                onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
-              >
+              {/* The clickable row is a nested <button>, not the outer div
+                  itself: the dropdown below is a DOM child of this container
+                  (per useAnchoredMenu's anchor pattern) and it holds its own
+                  buttons, which is invalid HTML nested inside a <button>.
+                  anchorRef only needs a position to measure from, so the
+                  outer div can stay a plain container. */}
+              <div ref={wsMenuAnchor} className="h-[52px] border-b border-gray-200 dark:border-slate-700/50 relative">
+                <button
+                  type="button"
+                  className="h-full w-full flex items-center px-4 font-semibold text-[13px] text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors text-left"
+                  onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
+                  aria-haspopup="true"
+                  aria-expanded={isWorkspaceMenuOpen}
+                >
                 {/*
                   The company mark stands in for the generic briefcase, but only on a
                   company workspace: a private workspace is personal space and is not
@@ -247,7 +266,7 @@ export default function Sidebar({
                   unreachable for them. HostFlow's own mark keeps the icon rail.
                 */}
                 {activeWorkspace?.is_private ? (
-                  <Lock size={15} className="mr-2.5 text-amber-500 shrink-0" />
+                  <Lock size={15} className="mr-2.5 text-brand-amber shrink-0" />
                 ) : activeWorkspace && companyLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -276,6 +295,7 @@ export default function Sidebar({
                   size={13}
                   className={`text-gray-400 dark:text-gray-500 transition-transform ${isWorkspaceMenuOpen ? 'rotate-180' : ''}`}
                 />
+                </button>
 
                 <AnimatePresence>
                   {isWorkspaceMenuOpen && (
@@ -291,9 +311,11 @@ export default function Sidebar({
                     >
                     {/* The header reads "All workspaces" when none is selected,
                         but nothing could put you back into that state once you
-                        had picked one. This is the way back. */}
-                    <div
-                      className={`px-4 py-2.5 cursor-pointer text-[13px] border-b border-gray-100 dark:border-slate-700/50 transition-colors ${
+                        had picked one. This is the way back. Was a div —
+                        every row here was unreachable by keyboard. */}
+                    <button
+                      type="button"
+                      className={`w-full text-left px-4 py-2.5 cursor-pointer text-[13px] border-b border-gray-100 dark:border-slate-700/50 transition-colors ${
                         activeWorkspace
                           ? "hover:bg-gray-50 dark:hover:bg-white/[0.04] text-gray-700 dark:text-gray-300"
                           : "bg-[#cce5ff] dark:bg-blue-900/30 font-medium text-blue-700 dark:text-blue-300"
@@ -307,14 +329,15 @@ export default function Sidebar({
                         <LayoutGrid size={11} className="shrink-0 opacity-70" />
                         {t("sidebar.allWorkspacesLower")}
                       </span>
-                    </div>
+                    </button>
                     {workspaces.map((ws) => (
                       <div
                         key={ws.id}
                         className="px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] group/ws flex justify-between items-center transition-colors"
                       >
-                        <div
-                          className="flex-1 cursor-pointer truncate mr-2 text-gray-700 dark:text-gray-300"
+                        <button
+                          type="button"
+                          className="flex-1 text-left cursor-pointer truncate mr-2 text-gray-700 dark:text-gray-300"
                           onClick={() => {
                             onSelectWorkspace(ws);
                             onSwitchBoard(null);
@@ -325,16 +348,18 @@ export default function Sidebar({
                             {ws.is_private && (
                               <Lock
                                 size={11}
-                                className="text-amber-500 shrink-0"
+                                className="text-brand-amber shrink-0"
                               />
                             )}
                             <TruncatedText className="truncate block">{ws.name}</TruncatedText>
                           </span>
-                        </div>
+                        </button>
                         <div className="hidden group-hover/ws:flex items-center gap-2">
-                          <Users2
-                            size={13}
-                            role="button"
+                          {/* Icons with role="button" but no tabIndex/onKeyDown were
+                              announced as buttons to a screen reader yet unreachable
+                              and non-activatable by keyboard — real <button>s instead. */}
+                          <button
+                            type="button"
                             aria-label={`Manage access to ${ws.name}`}
                             className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
                             onClick={(e) => {
@@ -342,43 +367,48 @@ export default function Sidebar({
                               setMembersModalWs(ws);
                               setIsWorkspaceMenuOpen(false);
                             }}
-                          />
+                          >
+                            <Users2 size={13} />
+                          </button>
                           {canManageWorkspace(ws) && (
                             <>
-                              <Pencil
-                                size={13}
-                                role="button"
+                              <button
+                                type="button"
                                 aria-label={`Rename ${ws.name}`}
                                 className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onRenameWorkspace(ws);
                                 }}
-                              />
-                              <Trash2
-                                size={13}
-                                role="button"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                type="button"
                                 aria-label={`Delete ${ws.name}`}
                                 className="text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onDeleteWorkspace(ws);
                                 }}
-                              />
+                              >
+                                <Trash2 size={13} />
+                              </button>
                             </>
                           )}
                         </div>
                       </div>
                     ))}
-                    <div
+                    <button
+                      type="button"
                       onClick={() => {
                         onCreateWorkspace();
                         setIsWorkspaceMenuOpen(false);
                       }}
-                      className="px-4 py-2.5 border-t border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-blue-600 dark:text-blue-400 flex items-center cursor-pointer transition-colors"
+                      className="w-full text-left px-4 py-2.5 border-t border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-blue-600 dark:text-blue-400 flex items-center cursor-pointer transition-colors"
                     >
                       <Plus size={13} className="mr-1.5" /> New Workspace
-                    </div>
+                    </button>
                   </motion.div>
                   )}
                 </AnimatePresence>
@@ -391,8 +421,9 @@ export default function Sidebar({
                   <span>{t("sidebar.dashboards")}</span>
                 </div>
                 
-                <div 
-                  className={`group flex items-center px-4 py-2 cursor-pointer transition-colors ${mainView === 'workspace_gantt' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
+                <button
+                  type="button"
+                  className={`group w-full text-left flex items-center px-4 py-2 cursor-pointer transition-colors ${mainView === 'workspace_gantt' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
                   onClick={() => {
                     onSwitchBoard(null);
                     onSetMainView("workspace_gantt");
@@ -402,7 +433,7 @@ export default function Sidebar({
                   <span className={`text-[13px] truncate ${mainView === 'workspace_gantt' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
                     {t("sidebar.masterGantt")}
                   </span>
-                </div>
+                </button>
 
                 {/* Boards Section */}
                 <div className="px-4 mb-2 mt-5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center relative">
@@ -430,32 +461,35 @@ export default function Sidebar({
                           style={createMenuStyle}
                           className="w-48 dropdown-menu rounded-xl z-[60] shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50 py-1"
                         >
-                          <div
+                          <button
+                            type="button"
                             onClick={() => {
                               onCreateBoard();
                               setIsCreateMenuOpen(false);
                             }}
-                            className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
                           >
                             <LayoutGrid size={14} className="mr-2" /> {t("sidebar.blankBoard")}
-                          </div>
-                          <div
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => {
                               if (onImportData) onImportData();
                               setIsCreateMenuOpen(false);
                             }}
-                            className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
                           >
                             <Briefcase size={14} className="mr-2" /> {t("sidebar.importFromExcel")}
-                          </div>
+                          </button>
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
                 </div>
 
-                <div 
-                  className={`group flex items-center px-4 py-2 cursor-pointer transition-colors ${mainView === 'workspace_overview' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
+                <button
+                  type="button"
+                  className={`group w-full text-left flex items-center px-4 py-2 cursor-pointer transition-colors ${mainView === 'workspace_overview' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
                   onClick={() => {
                     onSwitchBoard(null);
                     onSetMainView("workspace_overview");
@@ -465,7 +499,7 @@ export default function Sidebar({
                   <span className={`text-[13px] truncate ${mainView === 'workspace_overview' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
                     {t("sidebar.workspaceOverview")}
                   </span>
-                </div>
+                </button>
 
                 <div className="space-y-0.5 px-2 mt-1">
                   <AnimatePresence initial={false}>
@@ -482,8 +516,9 @@ export default function Sidebar({
                             : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
                         }`}
                       >
-                        <div
-                          className="flex items-center space-x-2.5 cursor-pointer flex-1 truncate mr-2"
+                        <button
+                          type="button"
+                          className="flex items-center space-x-2.5 cursor-pointer flex-1 truncate mr-2 text-left"
                           onClick={() => {
                             if (activeBoard?.id === b.id) {
                               onSetMainView("board");
@@ -501,25 +536,34 @@ export default function Sidebar({
                             }
                           />
                           <TruncatedText className="truncate text-[13px]">{b.name}</TruncatedText>
-                        </div>
+                        </button>
                         <div className="hidden group-hover/board:flex items-center gap-1.5">
-                          <Pencil
-                            size={13}
+                          {/* These carried onClick directly on the SVG with no
+                              role or keyboard support at all — not even the
+                              ARIA-only affordance the workspace rows above had. */}
+                          <button
+                            type="button"
+                            aria-label={`Rename ${b.name}`}
                             className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
                               onRenameBoard(b);
                             }}
-                          />
+                          >
+                            <Pencil size={13} />
+                          </button>
                           {profile?.role === "admin" && (
-                            <Trash2
-                              size={13}
+                            <button
+                              type="button"
+                              aria-label={`Delete ${b.name}`}
                               className="text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteBoard(b);
                               }}
-                            />
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           )}
                         </div>
                       </motion.div>
