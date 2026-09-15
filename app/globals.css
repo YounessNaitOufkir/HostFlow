@@ -64,6 +64,29 @@
   --font-sans: var(--font-inter);
 }
 
+@theme {
+  /* Brand amber as a real utility colour. The landing page's CTAs were
+     Tailwind's amber-400 (#FBBF24) while the shadow cast beneath them and the
+     logo sitting beside them were already #F5A623 — two ambers, four percent
+     apart, reading as a mistake rather than a range. This is the same value as
+     --accent-secondary; it exists as a @theme key so `bg-brand-amber` can be
+     written in JSX. */
+  --color-brand-amber: #F5A623;
+  --color-brand-amber-hover: #FFB840;
+
+  /* Landing page type scale. Replaces ten one-off arbitrary sizes — 2.1rem,
+     3.4rem, 1.6rem, 2.15rem, 1.4rem, 1.05rem, 15px, 13.5px, 12.5px, 11.5px —
+     several of which were half-pixel neighbours doing one size's work. */
+  --text-display: 3.4rem;
+  --text-display-sm: 2.1rem;
+  --text-h2: 2.15rem;
+  --text-h2-sm: 1.6rem;
+  --text-h3: 1.4rem;
+  --text-lede: 1.05rem;
+  --text-body: 0.9375rem;
+  --text-meta: 0.75rem;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @media (prefers-color-scheme: dark) {
@@ -979,4 +1002,46 @@ body {
   .hf-ctx, .hf-head { opacity: 1; }
   .hf-link { stroke-dashoffset: 0; opacity: 1; }
   .hf-stream { stroke-dasharray: none; }
+}
+
+/* ============================================================
+   Public landing page — components/landing/LandingPage.tsx
+   ============================================================ */
+
+/* The page's own in-page anchors. The header is sticky at 62px, so a target
+   scrolled to the top of the viewport lands underneath it; the sections carry
+   scroll-mt-[78px] and this supplies the easing. Scoped with :has() so the
+   board views, which scroll programmatically in several places, keep their
+   instant jumps. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.hf-landing) { scroll-behavior: smooth; }
+}
+
+/* The hero's arrival: one orchestrated beat — headline, lede, CTA row, product
+   frame — and then the page is still. Nothing below the fold animates on
+   scroll. The resting state is the VISIBLE one: the animation exists only
+   inside the no-preference query, so a reduced-motion visitor, or anyone whose
+   CSS never applies, gets the finished page rather than a blank column. */
+@keyframes hfRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hf-rise   { animation: hfRise .32s ease-out both; }
+  .hf-rise-1 { animation-delay: .07s; }
+  .hf-rise-2 { animation-delay: .14s; }
+  .hf-rise-3 { animation-delay: .21s; }
+}
+
+/* The critical path draws itself once, instead of a dot pulsing forever.
+   `animate-pulse` read as "loading"; the product's actual claim is that a slip
+   propagates down the chain, which is what a draw along the path says.
+   Outside the query no dash is set at all, so the path is simply solid. */
+@keyframes hfDraw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .hf-cp-draw {
+    stroke-dasharray: 460;
+    stroke-dashoffset: 460;
+    animation: hfDraw .9s ease-out .3s forwards;
+  }
 }

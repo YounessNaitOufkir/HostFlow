@@ -1,9 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Languages } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  Languages,
+  LayoutList,
+  Columns3,
+  LayoutDashboard,
+  Calendar,
+  GripVertical,
+  Smartphone,
+} from "lucide-react";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { useLanguage, useT } from "@/components/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n";
 
@@ -16,6 +27,36 @@ const MOCK_TABS: { key: MockView; labelKey: TranslationKey }[] = [
   { key: "calendar", labelKey: "board.viewCalendar" },
   { key: "dashboard", labelKey: "board.viewDashboard" },
 ];
+
+/**
+ * One focus ring for every interactive element on the page.
+ *
+ * The five view tabs used to be the only thing that had one; every <Link> —
+ * nav, hero pair, closing pair, footer — fell back to the UA default, which
+ * the amber button's own background swallows. A keyboard visitor lost the
+ * cursor on the primary conversion path.
+ */
+const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5A623] dark:focus-visible:outline-amber-300";
+
+/**
+ * One press transition, shared.
+ *
+ * `active:scale-[.98]` only eases if `transform` is named in the transition.
+ * The amber CTA had `transition-all` so it did; every secondary button had
+ * `transition-colors`, so the same scale snapped — two buttons side by side in
+ * the hero pressing like different components. Not `transition-all` as the
+ * fix: that animates layout properties too.
+ */
+const PRESS =
+  "transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out active:scale-[.98]";
+
+const BTN_BASE = `inline-flex items-center justify-center font-bold rounded-[10px] ${PRESS} ${FOCUS_RING}`;
+
+/** Brand amber (#F5A623 via the brand-amber theme key), not Tailwind's amber-400. */
+const BTN_PRIMARY = `${BTN_BASE} bg-brand-amber text-[#221704] shadow-[0_1px_2px_rgba(245,166,35,.4)] hover:bg-brand-amber-hover hover:shadow-[0_6px_20px_-6px_rgba(245,166,35,.8)]`;
+
+const BTN_SECONDARY = `${BTN_BASE} border border-gray-200 dark:border-slate-600 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-white/5 hover:border-gray-400 dark:hover:border-slate-400`;
 
 /**
  * The same four illustrative tasks, reused across every mock view below.
@@ -118,10 +159,14 @@ function GanttMock() {
       <div className="flex items-center justify-between mb-2.5">
         <span className="text-[11px] uppercase tracking-[.09em] font-bold text-gray-400 dark:text-gray-500">{t("landing.ganttStripTitle")}</span>
         <div className="flex gap-3.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500">
-          <span className="flex items-center gap-1.5"><i className="w-4 h-[5px] rounded-full inline-block bg-amber-400 not-italic" /> {t("landing.criticalPath")}</span>
+          <span className="flex items-center gap-1.5"><i className="w-4 h-[5px] rounded-full inline-block bg-brand-amber not-italic" /> {t("landing.criticalPath")}</span>
           <span className="flex items-center gap-1.5"><i className="w-4 h-[5px] rounded-full inline-block bg-[#579bfc] not-italic" /> {t("landing.float")}</span>
         </div>
       </div>
+      {/* Every colour below used to be a literal, so this whole chart had no
+          dark mode: the gridlines glared near-white on the #1e2140 card while
+          the bar labels sank into it. Gantt is the DEFAULT tab, so it was the
+          first thing a dark-mode visitor saw. */}
       <svg
         viewBox="0 0 620 132"
         width="100%"
@@ -129,13 +174,13 @@ function GanttMock() {
         role="img"
         aria-label="Gantt bars for four tasks with dependency arrows; the design review sits on the critical path"
       >
-        <g className="font-mono" fontSize="9" fill="#8a96b4">
+        <g className="font-mono fill-[#8a96b4] dark:fill-[#64748B]" fontSize="9">
           <text x="40" y="10">{t("landing.ganttAxis1")}</text>
           <text x="180" y="10">{t("landing.ganttAxis2")}</text>
           <text x="320" y="10">{t("landing.ganttAxis3")}</text>
           <text x="460" y="10">{t("landing.ganttAxis4")}</text>
         </g>
-        <g stroke="#DFE4F0" strokeWidth="1">
+        <g className="stroke-[#DFE4F0] dark:stroke-[#2a2d45]" strokeWidth="1">
           <line x1="40" y1="18" x2="40" y2="124" />
           <line x1="180" y1="18" x2="180" y2="124" />
           <line x1="320" y1="18" x2="320" y2="124" />
@@ -148,24 +193,36 @@ function GanttMock() {
         <rect x="240" y="76" width="120" height="15" rx="7.5" fill="#F5A623" />
         <rect x="460" y="100" width="96" height="15" rx="7.5" fill="#579bfc" />
 
-        <g stroke="#8a96b4" strokeWidth="1.3" fill="none">
+        <g className="stroke-[#8a96b4] dark:stroke-[#64748B]" strokeWidth="1.3" fill="none">
           <path d="M136 35.5 H150 V52 h24" />
           <path d="M320 59.5 H334 V76 h20" />
           <path d="M360 83.5 H420 V100 h34" />
         </g>
-        <g fill="#8a96b4">
+        <g className="fill-[#8a96b4] dark:fill-[#64748B]">
           <polygon points="180,59.5 172,55.5 172,63.5" />
           <polygon points="360,83.5 352,79.5 352,87.5" />
           <polygon points="460,107.5 452,103.5 452,111.5" />
         </g>
 
-        <g className="font-mono" fontSize="9.5" fill="#55638a">
+        {/* The claim this page makes is that a slip PROPAGATES down the chain.
+            Drawing the path once says that; the pulsing dot that used to sit
+            here said "loading". See .hf-cp-draw in globals.css — outside the
+            no-preference query it is simply a solid line. */}
+        <path
+          className="hf-cp-draw"
+          d="M136 35.5 H150 V52 h30 M320 59.5 H334 V76 h26 M360 83.5 H420 V100 h40"
+          stroke="#e2445c"
+          strokeWidth="2"
+          fill="none"
+        />
+
+        <g className="font-mono fill-[#55638a] dark:fill-[#94A3B8]" fontSize="9.5">
           <text x="144" y="39">{t("landing.mockTaskWireframesShort")}</text>
           <text x="328" y="63">{t("landing.mockTaskContentShort")}</text>
           <text x="368" y="87">{t("landing.mockTaskReviewShort")}</text>
           <text x="564" y="111">{t("landing.mockTaskLaunchShort")}</text>
         </g>
-        <circle cx="320" cy="59.5" r="4.5" fill="#e2445c" className="motion-safe:animate-pulse" />
+        <circle cx="320" cy="59.5" r="4.5" fill="#e2445c" />
       </svg>
     </div>
   );
@@ -299,7 +356,7 @@ function DashboardMock() {
 }
 
 const TOGGLE_CLASS =
-  "inline-flex items-center justify-center h-9 rounded-[10px] border border-gray-200 dark:border-slate-600 text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-white/5 hover:border-gray-400 dark:hover:border-slate-400 transition-colors active:scale-[.98]";
+  `inline-flex items-center justify-center h-9 rounded-[10px] border border-gray-200 dark:border-slate-600 text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-white/5 hover:border-gray-400 dark:hover:border-slate-400 ${PRESS} ${FOCUS_RING}`;
 
 function ThemeToggle() {
   const t = useT();
@@ -338,11 +395,81 @@ function LanguageToggle() {
   );
 }
 
+/** The six views, with the same glyphs the real board header uses. */
+const VIEW_TILES: { key: TranslationKey; Icon: typeof LayoutList }[] = [
+  { key: "board.viewTable", Icon: LayoutList },
+  { key: "board.viewKanban", Icon: Columns3 },
+  { key: "board.viewDashboard", Icon: LayoutDashboard },
+  { key: "board.viewCalendar", Icon: Calendar },
+  { key: "board.viewGantt", Icon: GripVertical },
+  { key: "board.viewCards", Icon: Smartphone },
+];
+
 export default function LandingPage() {
   const t = useT();
   const [activeView, setActiveView] = useState<MockView>("gantt");
+
+  /**
+   * Which section the reader is in, driving the nav's active underline.
+   *
+   * The only piece of component state on the page — everything else here is
+   * presentational. (A second observer used to also fade the nav's own "Get
+   * started" to an outline button while the hero's identical CTA was still on
+   * screen, so the two wouldn't split the click — but a quiet, near-white
+   * button at the top of the page read as broken rather than deliberate, so
+   * the nav CTA is back to always being the branded amber button.)
+   */
+  const [activeSection, setActiveSection] = useState<"how" | "views" | null>(null);
+
+  useEffect(() => {
+    const sections = ["how", "views"]
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+
+    // Read every section's position rather than trusting the entry that fired:
+    // that way scrolling back above "how" clears the underline instead of
+    // leaving it stuck on whichever section was last seen.
+    const decide = () => {
+      let current: "how" | "views" | null = null;
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= 140) {
+          current = section.id as "how" | "views";
+        }
+      }
+      setActiveSection(current);
+    };
+
+    const sectionObserver = new IntersectionObserver(decide, {
+      threshold: [0, 0.25, 0.5, 0.75, 1],
+    });
+    sections.forEach((section) => sectionObserver.observe(section));
+
+    return () => sectionObserver.disconnect();
+  }, []);
+
+  const navLink = (href: string, id: "how" | "views" | null, label: string) => (
+    <a
+      href={href}
+      className={`relative py-1 transition-colors ${FOCUS_RING} ${
+        id !== null && activeSection === id
+          ? "text-gray-900 dark:text-white"
+          : "hover:text-gray-900 dark:hover:text-white"
+      }`}
+    >
+      {label}
+      {id !== null && (
+        <span
+          aria-hidden="true"
+          className={`absolute left-0 -bottom-0.5 h-0.5 w-full origin-left rounded-full bg-brand-amber transition-transform duration-300 ease-out ${
+            activeSection === id ? "scale-x-100" : "scale-x-0"
+          }`}
+        />
+      )}
+    </a>
+  );
+
   return (
-    <div className="min-h-screen bg-[#F4F6F8] dark:bg-[#181b34] text-gray-900 dark:text-gray-100">
+    <div className="hf-landing min-h-screen bg-[#F4F6F8] dark:bg-[#181b34] text-gray-900 dark:text-gray-100">
       {/* ================= NAV ================= */}
       <header className="sticky top-0 z-30 backdrop-blur bg-[#F4F6F8]/85 dark:bg-[#181b34]/85 border-b border-gray-200/80 dark:border-slate-700/50">
         <div className="max-w-6xl mx-auto px-5 h-[62px] flex items-center justify-between gap-4">
@@ -356,22 +483,22 @@ export default function LandingPage() {
             HostFlow
           </div>
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-gray-500 dark:text-gray-400">
-            <a href="#how" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t("landing.navHowItWorks")}</a>
-            <a href="#views" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t("landing.navViews")}</a>
-            <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t("landing.navPrivacy")}</Link>
+            {navLink("#how", "how", t("landing.navHowItWorks"))}
+            {navLink("#views", "views", t("landing.navViews"))}
+            <Link href="/privacy" className={`py-1 hover:text-gray-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}>{t("landing.navPrivacy")}</Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageToggle />
             <ThemeToggle />
             <Link
               href="/login"
-              className="hidden sm:inline-flex items-center justify-center text-[13.5px] font-bold rounded-[10px] px-4 py-2.5 border border-gray-200 dark:border-slate-600 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-white/5 hover:border-gray-400 dark:hover:border-slate-400 transition-colors active:scale-[.98]"
+              className={`hidden sm:inline-flex text-[13.5px] px-4 py-2.5 ${BTN_SECONDARY}`}
             >
               {t("landing.signIn")}
             </Link>
             <Link
               href="/login?signup=1"
-              className="inline-flex items-center justify-center text-[13.5px] font-bold rounded-[10px] px-4 py-2.5 bg-amber-400 text-[#221704] shadow-[0_1px_2px_rgba(245,166,35,.4)] hover:bg-amber-300 hover:shadow-[0_6px_20px_-6px_rgba(245,166,35,.8)] transition-all active:scale-[.98]"
+              className={`text-[13.5px] px-4 py-2.5 ${BTN_PRIMARY}`}
             >
               {t("landing.getStarted")}
             </Link>
@@ -380,36 +507,35 @@ export default function LandingPage() {
       </header>
 
       {/* ================= HERO ================= */}
-      <section className="max-w-6xl mx-auto px-5 pt-16 pb-10">
-        <h1 className="max-w-[22ch] text-[2.1rem] sm:text-5xl lg:text-[3.4rem] leading-[1.08] tracking-[-.03em] font-extrabold text-balance">
+      <section className="max-w-6xl mx-auto px-5 pt-20 pb-20">
+        {/* The three lines are broken by hand on desktop, where they are a
+            deliberate shape. Below sm: the breaks come off and text-balance
+            owns the rag — French line one ("Planification visuelle,") is 23
+            characters against English's 18, so on a 360px screen the forced
+            breaks gave French four ragged lines where English got three. */}
+        <h1 className="hf-rise max-w-[20ch] text-display-sm sm:text-5xl lg:text-display leading-[1.08] tracking-[-.03em] font-extrabold text-balance">
           {t("landing.heroLine1")}
-          <br />
+          <br className="hidden sm:inline" />
           {t("landing.heroLine2")}
-          <br />
+          <br className="hidden sm:inline" />
           <span className="bg-[linear-gradient(transparent_66%,rgba(245,166,35,.45)_66%)] dark:bg-[linear-gradient(transparent_66%,rgba(245,166,35,.55)_66%)]">
             {t("landing.heroLine3")}
           </span>
         </h1>
-        <p className="mt-6 max-w-[56ch] text-[1.05rem] leading-[1.62] font-medium text-gray-600 dark:text-gray-300">
+        <p className="hf-rise hf-rise-1 mt-6 max-w-[56ch] text-lede leading-[1.62] font-medium text-gray-600 dark:text-gray-300">
           {t("landing.lede")}
         </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Link
-            href="/login?signup=1"
-            className="inline-flex items-center justify-center text-sm font-bold rounded-[10px] px-6 py-3.5 bg-amber-400 text-[#221704] shadow-[0_1px_2px_rgba(245,166,35,.4)] hover:bg-amber-300 hover:shadow-[0_6px_20px_-6px_rgba(245,166,35,.8)] transition-all active:scale-[.98]"
-          >
+        <div className="hf-rise hf-rise-2 mt-8 flex flex-wrap items-center gap-3">
+          <Link href="/login?signup=1" className={`text-sm px-6 py-3.5 ${BTN_PRIMARY}`}>
             {t("landing.getStarted")}
           </Link>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center text-sm font-bold rounded-[10px] px-6 py-3.5 border border-gray-200 dark:border-slate-600 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-white/5 hover:border-gray-400 dark:hover:border-slate-400 transition-colors active:scale-[.98]"
-          >
+          <Link href="/login" className={`text-sm px-6 py-3.5 ${BTN_SECONDARY}`}>
             {t("landing.signIn")}
           </Link>
         </div>
 
         {/* ---- product frame ---- */}
-        <div className="mt-12 flex bg-white dark:bg-[#1e2140] border border-gray-200 dark:border-slate-700/60 rounded-[14px] shadow-[0_2px_4px_rgba(26,44,91,.06),0_32px_64px_-24px_rgba(26,44,91,.32)] dark:shadow-[0_2px_4px_rgba(0,0,0,.3),0_32px_64px_-24px_rgba(0,0,0,.6)] overflow-hidden">
+        <div className="hf-rise hf-rise-3 mt-12 flex bg-white dark:bg-[#1e2140] border border-gray-200 dark:border-slate-700/60 rounded-[14px] shadow-[0_2px_4px_rgba(26,44,91,.06),0_32px_64px_-24px_rgba(26,44,91,.32)] dark:shadow-[0_2px_4px_rgba(0,0,0,.3),0_32px_64px_-24px_rgba(0,0,0,.6)] overflow-hidden">
           <div className="w-[46px] shrink-0 bg-[#1A2C5B] flex flex-col items-center gap-3.5 py-3" aria-hidden="true">
             <div className="w-[26px] h-[26px] rounded-[7px] grid place-items-center bg-white/15 text-white">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -425,7 +551,10 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="flex-1 min-w-0 overflow-x-auto">
+          {/* Below ~700px the board is wider than the frame. The mask says
+              "there is more to the right" without adding a control; above sm:
+              nothing is clipped, so it comes off. */}
+          <div className="flex-1 min-w-0 overflow-x-auto overscroll-x-contain [mask-image:linear-gradient(to_right,#000_calc(100%-44px),transparent)] sm:[mask-image:none]">
             <div className="min-w-[660px]">
               <div className="h-12 border-b border-gray-200 dark:border-slate-700/60 flex items-center gap-3.5 px-4">
                 <span className="font-bold text-sm tracking-[-.01em]">{t("landing.mockBoardName")}</span>
@@ -437,7 +566,7 @@ export default function LandingPage() {
                       role="tab"
                       aria-selected={activeView === tab.key}
                       onClick={() => setActiveView(tab.key)}
-                      className={`text-[12.5px] px-2.5 py-1.5 rounded-[7px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 focus-visible:outline-offset-2 ${
+                      className={`text-[12.5px] px-2.5 py-1.5 rounded-[7px] transition-colors ${FOCUS_RING} ${
                         activeView === tab.key
                           ? "font-bold text-[#1A2C5B] bg-[#cce5ff] dark:text-[#cfe0ff] dark:bg-blue-900/30"
                           : "font-semibold text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
@@ -449,25 +578,44 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {activeView === "table" && <TableMock />}
-              {activeView === "gantt" && (
-                <>
-                  <TableMock />
-                  <GanttMock />
-                </>
-              )}
-              {activeView === "kanban" && <KanbanMock />}
-              {activeView === "calendar" && <CalendarMock />}
-              {activeView === "dashboard" && <DashboardMock />}
+              {/* The page's one interactive moment. It used to swap on the same
+                  frame, and because the Gantt tab renders the table AND the
+                  chart (~330px) against Kanban's ~150px, the page below lurched.
+                  `layout` animates the wrapper between the two heights;
+                  mode="wait" crossfades so the two never overlap. */}
+              <MotionConfig reducedMotion="user">
+                <motion.div layout transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={activeView}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.12 }}
+                    >
+                      {activeView === "table" && <TableMock />}
+                      {activeView === "gantt" && (
+                        <>
+                          <TableMock />
+                          <GanttMock />
+                        </>
+                      )}
+                      {activeView === "kanban" && <KanbanMock />}
+                      {activeView === "calendar" && <CalendarMock />}
+                      {activeView === "dashboard" && <DashboardMock />}
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.div>
+              </MotionConfig>
             </div>
           </div>
         </div>
       </section>
 
       {/* ================= FEATURES ================= */}
-      <section id="how" className="max-w-6xl mx-auto px-5 py-14">
+      <section id="how" className="scroll-mt-[78px] max-w-6xl mx-auto px-5 py-20">
         <div className="max-w-[60ch]">
-          <h2 className="text-[1.6rem] sm:text-[2.15rem] tracking-[-.03em] font-extrabold leading-[1.14]">
+          <h2 className="text-h2-sm sm:text-h2 tracking-[-.022em] font-extrabold leading-[1.14]">
             {t("landing.featuresHeading")}
           </h2>
           <p className="mt-3.5 text-base leading-[1.6] font-medium text-gray-600 dark:text-gray-300">
@@ -475,11 +623,11 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-10 md:gap-13 items-center pt-11">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-13 items-center pt-12">
           <div>
-            <p className="font-mono text-[11px] tracking-[.14em] font-bold text-amber-500">{t("landing.criticalPathEyebrow")}</p>
-            <h3 className="mt-3 text-[1.4rem] tracking-[-.025em] font-extrabold">{t("landing.criticalPathTitle")}</h3>
-            <p className="mt-3 text-[15px] leading-[1.65] font-medium text-gray-600 dark:text-gray-300">
+            <p className="font-mono text-[11px] tracking-[.14em] font-bold text-amber-700 dark:text-amber-400">{t("landing.criticalPathEyebrow")}</p>
+            <h3 className="mt-3 text-h3 tracking-[-.015em] font-extrabold">{t("landing.criticalPathTitle")}</h3>
+            <p className="mt-3 text-body leading-[1.65] font-medium text-gray-600 dark:text-gray-300">
               {t("landing.criticalPathBody")}
             </p>
           </div>
@@ -488,15 +636,15 @@ export default function LandingPage() {
               <rect x="8" y="16" width="72" height="13" rx="6.5" fill="#579bfc" />
               <rect x="96" y="44" width="86" height="13" rx="6.5" fill="#F5A623" />
               <rect x="198" y="72" width="66" height="13" rx="6.5" fill="#F5A623" />
-              <g stroke="#8a96b4" strokeWidth="1.2" fill="none">
+              <g className="stroke-[#8a96b4] dark:stroke-[#64748B]" strokeWidth="1.2" fill="none">
                 <path d="M80 22.5 H88 V44 h4" />
                 <path d="M182 50.5 H190 V72 h4" />
               </g>
-              <g fill="#8a96b4">
+              <g className="fill-[#8a96b4] dark:fill-[#64748B]">
                 <polygon points="96,50.5 88,46.5 88,54.5" />
                 <polygon points="198,78.5 190,74.5 190,82.5" />
               </g>
-              <g className="font-mono" fontSize="8" fill="#8a96b4">
+              <g className="font-mono fill-[#8a96b4] dark:fill-[#64748B]" fontSize="8">
                 <text x="8" y="12">{t("landing.floatHigh")}</text>
                 <text x="96" y="40">{t("landing.floatZero")}</text>
                 <text x="198" y="68">{t("landing.floatZero")}</text>
@@ -505,11 +653,11 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-10 md:gap-13 items-center pt-11 mt-11 border-t border-gray-100 dark:border-slate-700/30">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-13 items-center pt-12 mt-12 border-t border-gray-100 dark:border-slate-700/30">
           <div>
-            <p className="font-mono text-[11px] tracking-[.14em] font-bold text-amber-500">{t("landing.bilingualEyebrow")}</p>
-            <h3 className="mt-3 text-[1.4rem] tracking-[-.025em] font-extrabold">{t("landing.bilingualTitle")}</h3>
-            <p className="mt-3 text-[15px] leading-[1.65] font-medium text-gray-600 dark:text-gray-300">
+            <p className="font-mono text-[11px] tracking-[.14em] font-bold text-amber-700 dark:text-amber-400">{t("landing.bilingualEyebrow")}</p>
+            <h3 className="mt-3 text-h3 tracking-[-.015em] font-extrabold">{t("landing.bilingualTitle")}</h3>
+            <p className="mt-3 text-body leading-[1.65] font-medium text-gray-600 dark:text-gray-300">
               {t("landing.bilingualBody")}
             </p>
           </div>
@@ -521,21 +669,21 @@ export default function LandingPage() {
               <span className="font-mono text-[11px] font-bold tracking-[.06em] text-gray-400 dark:text-gray-500 w-[26px] shrink-0">EN</span>
               <span>Due date &mdash; <span className="font-bold">{t("landing.mockTaskReview")}</span></span>
             </div>
-            <div className="mt-1.5 flex items-center gap-2.5 text-[12.5px] px-2.5 py-2 rounded-lg bg-amber-400/15">
+            <div className="mt-1.5 flex items-center gap-2.5 text-[12.5px] px-2.5 py-2 rounded-lg bg-brand-amber/15">
               <span className="font-mono text-[11px] font-bold tracking-[.06em] text-gray-400 dark:text-gray-500 w-[26px] shrink-0">FR</span>
               <span>Date d&rsquo;&eacute;ch&eacute;ance &mdash; <span className="font-bold">{t("landing.mockTaskReview")}</span></span>
             </div>
-            <p className="mt-3 text-[11.5px] font-semibold text-gray-400 dark:text-gray-500">
+            <p className="mt-3 text-meta font-semibold text-gray-400 dark:text-gray-500">
               {t("landing.bilingualCaption")}
             </p>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-10 md:gap-13 items-center pt-11 mt-11 border-t border-gray-100 dark:border-slate-700/30">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-13 items-center pt-12 mt-12 border-t border-gray-100 dark:border-slate-700/30">
           <div>
-            <p className="font-mono text-[11px] tracking-[.14em] font-bold text-amber-500">{t("landing.searchEyebrow")}</p>
-            <h3 className="mt-3 text-[1.4rem] tracking-[-.025em] font-extrabold">{t("landing.searchTitle")}</h3>
-            <p className="mt-3 text-[15px] leading-[1.65] font-medium text-gray-600 dark:text-gray-300">
+            <p className="font-mono text-[11px] tracking-[.14em] font-bold text-amber-700 dark:text-amber-400">{t("landing.searchEyebrow")}</p>
+            <h3 className="mt-3 text-h3 tracking-[-.015em] font-extrabold">{t("landing.searchTitle")}</h3>
+            <p className="mt-3 text-body leading-[1.65] font-medium text-gray-600 dark:text-gray-300">
               {t("landing.searchBody")}
             </p>
           </div>
@@ -557,27 +705,32 @@ export default function LandingPage() {
       </section>
 
       {/* ================= VIEWS + EXTRAS ================= */}
-      <section id="views" className="max-w-6xl mx-auto px-5 pb-14">
+      <section id="views" className="scroll-mt-[78px] max-w-6xl mx-auto px-5 pb-20">
         <div className="max-w-[60ch]">
-          <h2 className="text-[1.6rem] sm:text-[2.15rem] tracking-[-.03em] font-extrabold leading-[1.14]">
+          <h2 className="text-h2-sm sm:text-h2 tracking-[-.022em] font-extrabold leading-[1.14]">
             {t("landing.viewsHeading")}
           </h2>
           <p className="mt-3.5 text-base leading-[1.6] font-medium text-gray-600 dark:text-gray-300">
             {t("landing.viewsSub")}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 mt-5">
-          {(["board.viewTable", "board.viewKanban", "board.viewDashboard", "board.viewCalendar", "board.viewGantt", "board.viewCards"] as const).map((key) => (
-            <span
+
+        {/* The six views are this section's actual headline claim, so they are
+            no longer a row of pills identical to the row below them — which put
+            "Gantt" at the same weight as "Trash, restore & activity log". */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mt-5">
+          {VIEW_TILES.map(({ key, Icon }) => (
+            <div
               key={key}
-              className="text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 bg-white dark:bg-[#1e2140]"
+              className="bg-white dark:bg-[#1e2140] border border-gray-200 dark:border-slate-600 rounded-[10px] px-3 py-3.5 flex flex-col gap-2.5 transition-colors hover:border-brand-amber"
             >
-              {t(key)}
-            </span>
+              <Icon size={18} className="text-gray-400 dark:text-gray-500" />
+              <span className="text-[12.5px] font-bold tracking-[-.01em]">{t(key)}</span>
+            </div>
           ))}
         </div>
 
-        <p className="font-mono text-[11px] tracking-[.14em] font-bold text-gray-400 dark:text-gray-500 mt-11">{t("landing.alsoInTheBox")}</p>
+        <p className="font-mono text-[11px] tracking-[.14em] font-bold text-gray-400 dark:text-gray-500 mt-12">{t("landing.alsoInTheBox")}</p>
         <div className="flex flex-wrap gap-2 mt-3">
           {(["landing.chipColumns", "landing.chipAutomations", "landing.chipNotifications", "landing.chipImport", "landing.chipPermissions", "landing.chipTrash", "landing.chipBaselines"] as const).map((key) => (
             <span
@@ -592,37 +745,47 @@ export default function LandingPage() {
 
       {/* ================= CLOSE ================= */}
       <section className="max-w-6xl mx-auto px-5 pb-6">
-        <div className="rounded-[18px] px-8 py-14 text-center bg-[#1A2C5B] text-white">
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-[-.03em]">
-            {t("landing.closingHeading")}
-          </h2>
-          <p className="mt-3.5 text-base font-medium text-white/70">{t("landing.closingSub")}</p>
-          <div className="mt-7 flex flex-wrap gap-3 justify-center">
-            <Link
-              href="/login?signup=1"
-              className="inline-flex items-center justify-center text-sm font-bold rounded-[10px] px-6 py-3.5 bg-amber-400 text-[#221704] shadow-[0_1px_2px_rgba(245,166,35,.4)] hover:bg-amber-300 hover:shadow-[0_6px_20px_-6px_rgba(245,166,35,.8)] transition-all active:scale-[.98]"
-            >
-              {t("landing.getStarted")}
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center text-sm font-bold rounded-[10px] px-6 py-3.5 bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors active:scale-[.98]"
-            >
-              {t("landing.signIn")}
-            </Link>
+        {/* Left-aligned like every other heading on the page, and carrying the
+            mark — the same three bars as the logo and the favicon, third
+            surface — so the one block that showed nothing of the product now
+            shows the product's own geometry. */}
+        <div className="relative overflow-hidden rounded-[18px] px-8 py-14 bg-[#1A2C5B] text-white">
+          <svg
+            className="pointer-events-none absolute -right-10 top-1/2 -translate-y-1/2 w-[240px] h-[200px]"
+            viewBox="0 0 512 512"
+            aria-hidden="true"
+          >
+            <rect x="104" y="130" width="184" height="68" rx="34" fill="rgba(255,255,255,.08)" />
+            <rect x="160" y="222" width="256" height="68" rx="34" fill="rgba(255,255,255,.12)" />
+            <rect x="224" y="314" width="160" height="68" rx="34" fill="rgba(255,255,255,.08)" />
+          </svg>
+          <div className="relative">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-[-.022em]">
+              {t("landing.closingHeading")}
+            </h2>
+            <p className="mt-3.5 text-base font-medium text-white/70">{t("landing.closingSub")}</p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link href="/login?signup=1" className={`text-sm px-6 py-3.5 ${BTN_PRIMARY}`}>
+                {t("landing.getStarted")}
+              </Link>
+              <Link
+                href="/login"
+                className={`text-sm px-6 py-3.5 ${BTN_BASE} bg-white/10 border border-white/20 text-white hover:bg-white/20`}
+              >
+                {t("landing.signIn")}
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ================= FOOTER ================= */}
-      <footer className="max-w-6xl mx-auto px-5 py-7 border-t border-gray-200/80 dark:border-slate-700/50">
-        <div className="flex flex-wrap items-center justify-between gap-4 text-[13px] font-semibold text-gray-400 dark:text-gray-500">
+      <footer className="max-w-6xl mx-auto px-5 py-8 border-t border-gray-200/80 dark:border-slate-700/50">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13px] font-semibold text-slate-500 dark:text-slate-400">
           <span>&copy; {new Date().getFullYear()} HostFlow</span>
-          <div className="flex items-center gap-5">
-            <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t("landing.footerPrivacy")}</Link>
-            <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t("landing.footerTerms")}</Link>
-            <Link href="/login" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t("landing.signIn")}</Link>
-          </div>
+          <Link href="/privacy" className={`hover:text-gray-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}>{t("landing.footerPrivacy")}</Link>
+          <Link href="/terms" className={`hover:text-gray-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}>{t("landing.footerTerms")}</Link>
+          <Link href="/login" className={`hover:text-gray-900 dark:hover:text-white transition-colors ${FOCUS_RING}`}>{t("landing.signIn")}</Link>
         </div>
       </footer>
     </div>
