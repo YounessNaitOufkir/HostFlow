@@ -18,6 +18,17 @@ const plusJakarta = Plus_Jakarta_Sans({
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
+    // Required for Next to emit absolute canonical/OG URLs at all, and the
+    // root cause of Search Console's "duplicate without user-selected
+    // canonical": with no metadataBase, no page ever declared one, so any
+    // domain/trailing-slash variant Google found looked equally legitimate.
+    // Same env var app/lib/emailTemplate.ts's appUrl() already treats as this
+    // app's one canonical origin, so this can't drift from it.
+    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+    // Applies to every route that doesn't declare its own (privacy, terms) —
+    // covers /, /login and /update-password, none of which have unique
+    // indexable content of their own.
+    alternates: { canonical: "/" },
     title: APP_NAME,
     description: "Manage your projects flawlessly",
     // No `manifest` field: app/manifest.ts is a file convention and Next emits the
