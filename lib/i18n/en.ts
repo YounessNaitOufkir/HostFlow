@@ -36,6 +36,8 @@ export const en = {
   "sidebar.trashBin": "Trash Bin",
   "sidebar.notifications": "Notifications",
   "sidebar.allWorkspacesLower": "All workspaces",
+  "sidebar.privateSpace": "Private space",
+  "sidebar.organization": "Organization",
   "sidebar.dashboards": "Dashboards",
   "sidebar.masterGantt": "Master Gantt Chart",
   "sidebar.createBoard": "Create Board",

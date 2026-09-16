@@ -250,10 +250,10 @@ export default function Sidebar({
                   buttons, which is invalid HTML nested inside a <button>.
                   anchorRef only needs a position to measure from, so the
                   outer div can stay a plain container. */}
-              <div ref={wsMenuAnchor} className="h-[52px] border-b border-gray-200 dark:border-slate-700/50 relative">
+              <div ref={wsMenuAnchor} className="min-h-[52px] border-b border-gray-200 dark:border-slate-700/50 relative">
                 <button
                   type="button"
-                  className="h-full w-full flex items-center px-4 font-semibold text-[13px] text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors text-left"
+                  className="h-full w-full flex items-center px-4 py-2 font-semibold text-[13px] text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors text-left"
                   onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
                   aria-haspopup="true"
                   aria-expanded={isWorkspaceMenuOpen}
@@ -288,9 +288,20 @@ export default function Sidebar({
                 ) : (
                   <Briefcase size={15} className="mr-2.5 text-blue-500 shrink-0" />
                 )}
-                <TruncatedText className="truncate flex-1">
-                  {activeWorkspace ? activeWorkspace.name : t("sidebar.allWorkspacesLower")}
-                </TruncatedText>
+                <span className="min-w-0 flex-1 leading-tight">
+                  <TruncatedText className="truncate block">
+                    {activeWorkspace ? activeWorkspace.name : t("sidebar.allWorkspacesLower")}
+                  </TruncatedText>
+                  {/* A private workspace is personal space; anything else is
+                      Host'lik's shared company work. Naming which one you're
+                      looking at here means you don't have to remember it from
+                      whichever board brought you to this workspace. */}
+                  {activeWorkspace && (
+                    <span className="block truncate text-[10.5px] font-normal uppercase tracking-[0.06em] text-gray-400 dark:text-slate-500 mt-0.5">
+                      {activeWorkspace.is_private ? t("sidebar.privateSpace") : t("sidebar.organization")}
+                    </span>
+                  )}
+                </span>
                 <ChevronDown
                   size={13}
                   className={`text-gray-400 dark:text-gray-500 transition-transform ${isWorkspaceMenuOpen ? 'rotate-180' : ''}`}
@@ -333,11 +344,11 @@ export default function Sidebar({
                     {workspaces.map((ws) => (
                       <div
                         key={ws.id}
-                        className="px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] group/ws flex justify-between items-center transition-colors"
+                        className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] group/ws flex justify-between items-center transition-colors"
                       >
                         <button
                           type="button"
-                          className="flex-1 text-left cursor-pointer truncate mr-2 text-gray-700 dark:text-gray-300"
+                          className="flex-1 text-left cursor-pointer truncate mr-2 text-gray-700 dark:text-gray-300 py-0.5"
                           onClick={() => {
                             onSelectWorkspace(ws);
                             onSwitchBoard(null);
@@ -352,6 +363,9 @@ export default function Sidebar({
                               />
                             )}
                             <TruncatedText className="truncate block">{ws.name}</TruncatedText>
+                          </span>
+                          <span className={`block truncate text-[10.5px] uppercase tracking-[0.06em] text-gray-400 dark:text-slate-500 mt-0.5 ${ws.is_private ? "ml-[17px]" : ""}`}>
+                            {ws.is_private ? t("sidebar.privateSpace") : t("sidebar.organization")}
                           </span>
                         </button>
                         <div className="hidden group-hover/ws:flex items-center gap-2">

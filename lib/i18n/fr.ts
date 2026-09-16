@@ -38,6 +38,8 @@ export const fr: Dictionary = {
   "sidebar.trashBin": "Corbeille",
   "sidebar.notifications": "Notifications",
   "sidebar.allWorkspacesLower": "Tous les espaces de travail",
+  "sidebar.privateSpace": "Espace privé",
+  "sidebar.organization": "Organisation",
   "sidebar.dashboards": "Tableaux de bord",
   "sidebar.masterGantt": "Diagramme de Gantt général",
   "sidebar.createBoard": "Créer un tableau",
