@@ -126,6 +126,18 @@ export function useAnchoredMenu(
       }
     }
 
+    // Every caller entrance-animates with framer-motion's `initial={{ scale:
+    // 0.95 }}` and no transformOrigin of its own, which defaults to the CSS
+    // default of the box's centre. top/left above anchor the box's CORNER,
+    // not its centre, so a centre-origin scale visibly drags that corner
+    // sideways (and vertically) for the ~150ms the animation runs — the menu
+    // "flickers" because it is genuinely moving, settling a few pixels from
+    // where it opened. Anchoring the transform origin to the same corner the
+    // menu is positioned from means scaling changes only the far edges; the
+    // anchored corner never moves. Matches this in both axes: horizontally to
+    // `align`, vertically to whichever side `openAbove` just chose.
+    const transformOrigin = `${align === "right" ? "right" : align === "center" ? "center" : "left"} ${openAbove ? "bottom" : "top"}`;
+
     setMenuStyle({
       position: "fixed",
       top: top - offsetY,
@@ -133,6 +145,7 @@ export function useAnchoredMenu(
       maxHeight,
       overflowY: "auto",
       visibility: "visible",
+      transformOrigin,
     });
   }, [align, gap]);
 
