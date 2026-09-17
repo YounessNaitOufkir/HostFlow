@@ -150,13 +150,8 @@ export function useAnchoredMenu(
   }, [align, gap]);
 
   useLayoutEffect(() => {
-    if (!isOpen) {
-      // Reset so the next open measures from a known origin rather than the
-      // last position, which is what the containing-block correction reads.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setMenuStyle({ position: "fixed", top: 0, left: 0, visibility: "hidden" });
-      return;
-    }
+    if (!isOpen) return;
+
     // Measure-then-position has to write the result to state, and runs before
     // paint so nothing flickers.
     place();
