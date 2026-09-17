@@ -311,6 +311,7 @@ export default function Sidebar({
                 <AnimatePresence>
                   {isWorkspaceMenuOpen && (
                     <motion.div 
+                      key="workspace-menu"
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
@@ -467,6 +468,7 @@ export default function Sidebar({
                     <AnimatePresence>
                       {isCreateMenuOpen && (
                         <motion.div 
+                          key="create-menu"
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}

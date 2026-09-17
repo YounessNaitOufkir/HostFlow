@@ -93,6 +93,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
       <AnimatePresence onExitComplete={() => setIsElevated(false)}>
         {isOpen && (
           <motion.div
+            key="priority-menu"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
