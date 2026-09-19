@@ -114,7 +114,7 @@ export function GanttToolbar({
   const viewActive = showCriticalPath || showBaseline;
 
   return (
-    <div className="flex flex-wrap items-center gap-y-1 gap-x-1 px-6 pt-3.5 pb-3 z-10 relative">
+    <div className="flex flex-wrap items-center gap-y-1 gap-x-1 px-6 pt-3.5 pb-3 z-40 relative">
       {/* What you are looking at. Allowed to compress and clip, because the
           controls on the right must never be pushed off the edge - which is
           what happened when one flat row shared the width equally. */}
