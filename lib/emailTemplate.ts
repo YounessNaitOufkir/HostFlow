@@ -215,15 +215,23 @@ export function renderEmail(options: EmailOptions): { html: string; text: string
     <tr><td align="center" style="padding:24px 12px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560"
              style="width:100%;max-width:560px;background:#ffffff;border:1px solid ${HAIRLINE};border-radius:8px;">
-        <tr><td style="background:${NAVY};padding:18px 24px;border-radius:8px 8px 0 0;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td><img src="${logo}" width="40" height="40" alt="HostFlow"
-                       style="display:block;border:0;border-radius:8px;"></td>
-              <td style="padding-left:12px;font:700 18px/1 ${FONT};color:#ffffff;">HostFlow</td>
-            </tr>
-          </table>
-        </td></tr>
+        <!-- Animated banner — same GIF used by the Supabase auth emails.
+             Outlook desktop renders only the first frame (the compact mark),
+             which is a clean fallback. alt is empty: the wordmark row below
+             already names the brand in real text. -->
+        <tr>
+          <td bgcolor="#0c1226" style="background-color:#0c1226;font-size:0;line-height:0;border-radius:8px 8px 0 0;">
+            <img src="${appUrl()}/email-mark.gif"
+                 width="560" height="175" alt=""
+                 style="display:block;width:100%;max-width:560px;height:auto;border:0;">
+          </td>
+        </tr>
+        <!-- Wordmark strip: brand named in real text even when images are blocked -->
+        <tr>
+          <td bgcolor="#0c1226" style="background-color:#0c1226;padding:0 24px 20px;border-radius:0;">
+            <span style="font:800 17px/1 ${FONT};color:#ffffff;letter-spacing:-0.02em;">HostFlow</span>
+          </td>
+        </tr>
         <tr><td style="padding:28px 24px 24px;">
           <h1 style="margin:0 0 16px;font:700 20px/1.3 ${FONT};color:${INK};">${escapeHtml(
             options.heading
