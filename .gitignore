@@ -71,6 +71,9 @@ AUDIT_BRIEF.md
 QA_REPORT.md
 QA_E2E_REPORT.md
 PRODUCTION_READINESS_PLAN.md
+ACCESS_MODEL.md
+tasks.md
+.coderabbit.yaml
 apply-dark-mode.js
 db.sql
 query.js

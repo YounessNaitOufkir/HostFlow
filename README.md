@@ -167,8 +167,7 @@ Day, week and month, coloured by group or by status, spanning multi-day work acr
 - **Import** — CSV and Excel, including Monday.com exports: groups, columns, status labels,
   people and update history.
 - **Permissions** — company and private workspaces, staff and external accounts, per-workspace
-  and per-board grants, enforced in Postgres row-level security rather than in the client. See
-  [ACCESS_MODEL.md](ACCESS_MODEL.md).
+  and per-board grants, enforced in Postgres row-level security rather than in the client.
 - **Trash and restore**, an activity log per board, baselines that record the plan as agreed,
   and PNG, PDF and spreadsheet export from the chart.
 
