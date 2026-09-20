@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/React-19-087EA4?style=flat&logo=react&logoColor=white" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript, strict" />
   <img src="https://img.shields.io/badge/Supabase-Postgres%20%2B%20RLS-3FCF8E?style=flat&logo=supabase&logoColor=white" alt="Supabase: Postgres with row-level security" />
-  <img src="https://img.shields.io/badge/tests-720%20passing-00C875?style=flat" alt="720 tests passing" />
+  <a href="https://hostflow-app.com"><img src="https://img.shields.io/badge/deployed-vercel-000000?style=flat&logo=vercel&logoColor=white" alt="Deployed on Vercel" /></a>
   <img src="https://img.shields.io/badge/English%20%C2%B7%20Fran%C3%A7ais-F5A623?style=flat" alt="Available in English and French" />
 </p>
 
