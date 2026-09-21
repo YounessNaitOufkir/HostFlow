@@ -3,7 +3,7 @@
 </h1>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-1A2C5B?style=flat" alt="Licensed under the GNU Affero General Public License v3" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-proprietary-1A2C5B?style=flat" alt="Proprietary — All rights reserved" /></a>
   <img src="https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/React-19-087EA4?style=flat&logo=react&logoColor=white" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript, strict" />
@@ -305,13 +305,8 @@ reading the SQL is not enough to know what an account can see.
 
 ## License
 
-Copyright © 2026 Youness Nait Oufkir.
+Copyright © 2026 Youness Nait Oufkir. All rights reserved.
 
-HostFlow is free software under the [GNU Affero General Public License, version 3](LICENSE).
-You may use it, study it, change it and host it yourself. The one obligation the AGPL adds
-over the ordinary GPL is the one that matters for something you reach over a network: if you
-run a modified version as a service other people use, you have to offer those people its
-source.
-
-It is distributed in the hope that it will be useful, but **without any warranty** — see
-sections 15 and 16 of the licence.
+This software is proprietary. Viewing the source is permitted; copying, modifying,
+distributing or selling it — in whole or in part — requires explicit written permission
+from the copyright holder. See [LICENSE](LICENSE) for the full terms.
