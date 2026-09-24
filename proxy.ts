@@ -106,8 +106,13 @@ export const config = {
      * - favicon.ico (favicon file)
      * - manifest.webmanifest (PWA manifest; without this it gets redirected to
      *   /login for signed-out visitors, so the app is never installable)
+     * - robots.txt / sitemap.xml (crawler files; without this Googlebot's
+     *   every request for them 307s to /login instead of the real file, so it
+     *   never learns /login is disallowed and keeps indexing it anyway — this
+     *   is what Search Console's "page with redirect" / "crawled - currently
+     *   not indexed" report was actually seeing, not a stale report)
      * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
