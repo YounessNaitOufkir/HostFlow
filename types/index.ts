@@ -143,6 +143,8 @@ export interface Profile {
   in_app_alerts_enabled?: boolean;
   /** Interface language, mirrored from the browser so the cron can match it. */
   language?: Locale;
+  /** Set by request_workspace_access() on first call; blocks repeat requests until an admin grants a workspace. */
+  access_requested_at?: string | null;
 }
 
 /** Timeline granularity of a Gantt chart. */

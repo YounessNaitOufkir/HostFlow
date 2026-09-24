@@ -64,7 +64,9 @@ export function clearDeepLink(): void {
     }
     url.searchParams.delete(DEEP_LINK_BOARD_PARAM);
     url.searchParams.delete(DEEP_LINK_ITEM_PARAM);
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    // Keep the existing state: it carries Next.js's router data and the app's
+    // Back/Forward position (hooks/useAppHistory.ts).
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   } catch {
     // A browser that refuses replaceState is not a reason to lose the navigation
     // that already happened.

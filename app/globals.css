@@ -918,6 +918,39 @@ body {
 .animate-fade-up-delay-2 { animation-delay: 0.12s; opacity: 0; }
 .animate-fade-up-delay-3 { animation-delay: 0.18s; opacity: 0; }
 
+/* "We just did the thing" confirmation: the ring pulses outward once, like a
+   sent/delivered signal, then the screen holds still. Replaces animate-ping
+   (an infinite loop) on the email-sent and reset-link-sent cards, which read
+   as a live notification badge rather than something already finished. */
+@keyframes ringSettle {
+  from { transform: scale(1); opacity: 0.6; }
+  to { transform: scale(1.55); opacity: 0; }
+}
+.animate-ring-settle {
+  animation: ringSettle 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+}
+@keyframes ringSettleIconIn {
+  from { transform: scale(0.7); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.animate-ring-settle-icon {
+  animation: ringSettleIconIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+}
+/* The row a notification or My Work just took you to: a brief amber wash so
+   the eye lands on it, then back to normal. */
+@keyframes rowFlash {
+  0%, 35% { background-color: rgba(245, 166, 35, 0.22); }
+  100% { background-color: transparent; }
+}
+.row-flash {
+  animation: rowFlash 2.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-flash { animation: none; background-color: rgba(245, 166, 35, 0.18); }
+  .animate-ring-settle { animation: none; opacity: 0; }
+  .animate-ring-settle-icon { animation: none; opacity: 1; transform: none; }
+}
+
 /* ============================================================
    Sign-in panel: the mark unfolds, on the flow
    ============================================================

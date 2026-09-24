@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useT } from "@/components/LanguageProvider";
 import { useAuth } from "@/components/AuthProvider";
 import { useProfilesQuery } from "@/hooks/queries/useGlobalQueries";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { supabase } from "@/lib/supabase";
-import { reportFetchError } from "@/lib/errorReporting";
+import { reportFetchError, reportMutationError } from "@/lib/errorReporting";
 import { format } from "date-fns";
 import {
   History,
@@ -21,6 +22,8 @@ import {
   FileText,
   ShieldAlert,
   Type,
+  Undo2,
+  Loader2,
   LucideIcon,
 } from "lucide-react";
 import { TruncatedText } from "@/components/ui/TruncatedText";
@@ -155,6 +158,37 @@ export default function ActivityLog({ board, onOpenItem }: ActivityLogProps) {
     enabled: isAdmin,
   });
 
+  const queryClient = useQueryClient();
+  const [undoingId, setUndoingId] = React.useState<string | null>(null);
+
+  // The conflict check and the write both happen in undo_audit_log(), in one
+  // statement, so a change made by someone else in between can't be clobbered.
+  const handleUndo = async (logId: string) => {
+    setUndoingId(logId);
+    try {
+      const { data, error } = await supabase.rpc("undo_audit_log", { log_id: logId });
+      if (error) throw error;
+      const messages: Record<string, TranslationKey> = {
+        changed_since: "audit.undoChangedSince",
+        item_gone: "audit.undoItemGone",
+        item_in_trash: "audit.undoInTrash",
+        already_undone: "audit.undoAlready",
+        unavailable: "audit.undoUnavailable",
+      };
+      if (data === "undone") {
+        toast.success(t("audit.undone"));
+        queryClient.invalidateQueries({ queryKey: queryKeys.auditLogs(board.id) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.boardData(board.id) });
+      } else {
+        toast.warning(t(messages[data as string] ?? "audit.undoFailed"));
+      }
+    } catch (err) {
+      reportMutationError(err, t("audit.undoFailed"), { table: "audit_logs", operation: "undo" });
+    } finally {
+      setUndoingId(null);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400 dark:text-gray-500 bg-[#f6f7fb] dark:bg-[#181b34]">
@@ -200,7 +234,7 @@ export default function ActivityLog({ board, onOpenItem }: ActivityLogProps) {
                   <li
                     key={log.id}
                     onClick={clickable ? () => onOpenItem!(log.item_id!) : undefined}
-                    className={`flex items-start gap-3 px-5 py-3 ${
+                    className={`group flex items-start gap-3 px-5 py-3 ${
                       clickable ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors" : ""
                     }`}
                   >
@@ -212,6 +246,22 @@ export default function ActivityLog({ board, onOpenItem }: ActivityLogProps) {
                     >
                       {text}
                     </TruncatedText>
+                    {log.item_id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUndo(log.id);
+                        }}
+                        disabled={undoingId !== null}
+                        className={`shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 disabled:opacity-50 transition-opacity focus:opacity-100 ${
+                          undoingId === log.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        }`}
+                      >
+                        {undoingId === log.id ? <Loader2 size={12} className="animate-spin" /> : <Undo2 size={12} />}
+                        {t("audit.undo")}
+                      </button>
+                    )}
                     <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
                       {format(new Date(log.created_at), "MMM d, yyyy HH:mm")}
                     </span>

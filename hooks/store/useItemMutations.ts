@@ -377,13 +377,24 @@ export function useItemMutations({
         );
 
         if (newlyAssigned.length > 0) {
-          // Authorised server-side; see notify_users in stage 3.
-          await supabase.rpc("notify_users", {
+          // Authorised server-side: a recipient is notified only if they can see
+          // this board (20260925000005). The result used to be ignored, which is
+          // how assignment alerts went missing for two weeks without a trace.
+          const { error: notifyError } = await supabase.rpc("notify_users_i18n", {
             recipient_ids: newlyAssigned,
-            message: `${profile.full_name} assigned you to the task "${itemToUpdate.name}".`,
+            message_key: "notif.assignedToTask",
+            message_vars: { actor: profile.full_name, item: itemToUpdate.name },
+            fallback: `${profile.full_name} assigned you to the task "${itemToUpdate.name}".`,
             board_id: activeBoard.id,
             item_id: itemToUpdate.id,
           });
+          if (notifyError) {
+            reportMutationError(notifyError, "Assigned, but the assignee could not be notified", {
+              table: "notifications",
+              operation: "insert",
+              itemId: itemToUpdate.id,
+            });
+          }
           
           // Send the Telegram alert.
           //

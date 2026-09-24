@@ -8,9 +8,12 @@ import { supabase } from "@/lib/supabase";
 import { runWrite } from "@/lib/errorReporting";
 import { Notification } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/hooks/queries/queryKeys";
 
-export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string, relatedUserId?: string) => void }) {
+export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string, relatedUserId?: string, messageKey?: string) => void }) {
   const t = useT();
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -45,10 +48,24 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
     const channel = supabase
       .channel("realtime-notifications")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, (payload) => {
+        const incoming = payload.new as Notification;
         setNotifications((prev) => {
-          if (prev.some(n => n.id === payload.new.id)) return prev;
-          return [payload.new as Notification, ...prev];
+          if (prev.some(n => n.id === incoming.id)) return prev;
+          return [incoming, ...prev];
         });
+        // An access grant changes what this person can see, but the workspace
+        // and board lists never refetch on their own (refetchOnWindowFocus is
+        // off), so without this the notification arrived while the sidebar
+        // kept showing the old list and the "request access" prompt.
+        // The workspace/board grant triggers write untranslated text with no
+        // key, hence the message match alongside the key.
+        if (
+          incoming.message_key === "notif.teamAccessGranted" ||
+          incoming.message?.includes(" gave you access to ")
+        ) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() });
+          queryClient.invalidateQueries({ queryKey: ["boards"] });
+        }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, (payload) => {
         setNotifications((prev) => prev.map(n => n.id === payload.new.id ? payload.new as Notification : n));
@@ -61,7 +78,7 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
       supabase.removeChannel(channel);
       window.removeEventListener('notification-added', fetchNotifications);
     };
-  }, [userId]);
+  }, [userId, queryClient]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -160,7 +177,7 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
                     onClick={() => {
                       if (!n.read) markAsRead(n.id);
                       if (onNotificationClick && (n.board_id || n.item_id || n.related_user_id)) {
-                        onNotificationClick(n.board_id, n.item_id, n.related_user_id ?? undefined);
+                        onNotificationClick(n.board_id, n.item_id, n.related_user_id ?? undefined, n.message_key ?? undefined);
                         setIsOpen(false);
                       }
                     }}

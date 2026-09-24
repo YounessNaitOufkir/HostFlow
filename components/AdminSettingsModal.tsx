@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useT } from "@/components/LanguageProvider";
 import { fill } from "@/lib/i18n/fill";
-import { X, Building2, Users, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown } from "lucide-react";
+import { X, Building2, Users, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown, Search } from "lucide-react";
 import { OrganizationSettings, Team, Profile, Workspace, Board, UserRole } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { reportMutationError, reportSuccess } from "@/lib/errorReporting";
@@ -40,6 +40,14 @@ export default function AdminSettingsModal({
   const queryClient = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(initialProfileId ?? null);
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
+  const [permUserSearch, setPermUserSearch] = useState("");
+  const [roleUserSearch, setRoleUserSearch] = useState("");
+  // The person a notification click was about, when it landed on User Roles.
+  const [highlightedProfileId] = useState<string | null>(
+    initialTab === "users" ? initialProfileId ?? null : null
+  );
+  const highlightedCardRef = React.useRef<HTMLDivElement | null>(null);
+  const hasScrolledToHighlight = React.useRef(false);
   
   // Integrations state
 
@@ -76,6 +84,14 @@ export default function AdminSettingsModal({
   const { profiles, workspaces, boards, workspaceMembers, boardMembers } = adminData;
   const [savingId, setSavingId] = useState<string | null>(null);
 
+  // user_directory loads after the modal opens, so the card only exists once
+  // profiles arrive; scroll to it then, once.
+  React.useEffect(() => {
+    if (hasScrolledToHighlight.current || !highlightedCardRef.current) return;
+    hasScrolledToHighlight.current = true;
+    highlightedCardRef.current.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [profiles]);
+
   // This panel only governs company workspaces. A private workspace is reachable
   // solely through its own creator's members dialog — can_manage_workspace() is
   // false for anybody else — so listing one here would render a toggle that cannot
@@ -83,6 +99,21 @@ export default function AdminSettingsModal({
   const companyWorkspaces = workspaces.filter((w) => !w.is_private);
 
   const selectedProfile = profiles.find((p) => p.id === selectedProfileId) || null;
+
+  // A notification click can preselect someone who isn't a name match for
+  // whatever's currently typed — keep them visible instead of letting the
+  // filter hide the very person the admin just navigated here for.
+  // Name only: user_directory never exposes email, so there is none to match.
+  const matchesName = (p: Profile, query: string) => {
+    const q = query.trim().toLowerCase();
+    return !q || (p.full_name ?? "").toLowerCase().includes(q);
+  };
+  const permFilteredProfiles = profiles.filter(
+    (p) => p.id === selectedProfileId || matchesName(p, permUserSearch)
+  );
+  const roleFilteredProfiles = profiles.filter(
+    (p) => p.id === highlightedProfileId || matchesName(p, roleUserSearch)
+  );
 
   // Three tiers, three different panels. Admins reach every company workspace and
   // board by role, so there is nothing to grant them; externals are held out of
@@ -582,14 +613,36 @@ export default function AdminSettingsModal({
 
             {activeTab === "users" && (
               <div className="h-full flex flex-col">
-                <div className="mb-6 shrink-0">
+                <div className="mb-4 shrink-0">
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{t("adm.usersTitle")}</h3>
                   <p className="text-gray-500 mt-1">{t("adm.usersSub")}</p>
                 </div>
+                <div className="relative mb-4 shrink-0 max-w-sm">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={roleUserSearch}
+                    onChange={(e) => setRoleUserSearch(e.target.value)}
+                    placeholder={t("adm.searchUsers")}
+                    aria-label={t("adm.searchUsers")}
+                    className="w-full pl-8 pr-3 py-2 text-sm bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400 transition-all"
+                  />
+                </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 pb-10">
+                  {roleFilteredProfiles.length === 0 && (
+                    <p className="py-8 text-sm text-gray-400 text-center">{t("adm.noUsersFound")}</p>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {profiles.map((profile) => (
-                      <div key={profile.id} className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-gray-100 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-shadow group">
+                    {roleFilteredProfiles.map((profile) => (
+                      <div
+                        key={profile.id}
+                        ref={profile.id === highlightedProfileId ? highlightedCardRef : undefined}
+                        className={`bg-white dark:bg-slate-800 rounded-xl p-5 border shadow-sm hover:shadow-md transition-shadow group ${
+                          profile.id === highlightedProfileId
+                            ? "border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-500/30"
+                            : "border-gray-100 dark:border-slate-700/50"
+                        }`}
+                      >
                         <div className="flex items-center gap-4 mb-4">
                           <Avatar
                             name={profile.full_name}
@@ -674,8 +727,23 @@ export default function AdminSettingsModal({
                   <div className="w-1/3 border-r border-gray-200/50 dark:border-slate-700/50 bg-white/30 dark:bg-slate-800/20 overflow-y-auto custom-scrollbar">
                     <div className="p-4">
                       <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">{t("adm.selectUser")}</h3>
+                      <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 pb-3 -mt-1 pt-1">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            value={permUserSearch}
+                            onChange={(e) => setPermUserSearch(e.target.value)}
+                            placeholder={t("adm.searchUsers")}
+                            className="w-full pl-8 pr-3 py-2 text-sm bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400 transition-all"
+                          />
+                        </div>
+                      </div>
                       <div className="space-y-1">
-                        {profiles.map(profile => (
+                        {permFilteredProfiles.length === 0 && (
+                          <p className="px-2 py-4 text-sm text-gray-400 text-center">{t("adm.noUsersFound")}</p>
+                        )}
+                        {permFilteredProfiles.map(profile => (
                           <button
                             key={profile.id}
                             onClick={() => setSelectedProfileId(profile.id)}

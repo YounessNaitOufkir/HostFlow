@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, Loader2, Check, AlertCircle, X } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { reportMutationError } from "@/lib/errorReporting";
+import { Sparkles, Loader2, Check, AlertCircle, Info, X } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
+import { useRequestWorkspaceAccess } from "@/hooks/useRequestWorkspaceAccess";
+import type { Profile } from "@/types";
 
 type EmptyStateProps = {
-    profile: any;
+    profile: Profile | null;
     onCreateWorkspace: () => void;
 };
 
@@ -26,31 +26,19 @@ type EmptyStateProps = {
  */
 export default function EmptyState({ profile, onCreateWorkspace }: EmptyStateProps) {
     const t = useT();
-    const [requesting, setRequesting] = useState(false);
-    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+    const { requesting, request } = useRequestWorkspaceAccess(profile);
 
-    const showToast = (message: string, type: 'success' | 'error') => {
+    const showToast = (message: string, type: 'success' | 'error' | 'info') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 4000);
     };
 
     const handleRequestAccess = async () => {
-        setRequesting(true);
-        try {
-            // Notifying admins requires reading their rows and writing rows they
-            // own, so it runs server-side in request_workspace_access().
-            const { error } = await supabase.rpc("request_workspace_access");
-            if (!error) {
-                showToast(t("empty.requestSent"), "success");
-            } else {
-                showToast(t("empty.requestFailed"), "error");
-            }
-        } catch (err) {
-            reportMutationError(err, "Failed to send access request", { table: "notifications", operation: "insert" });
-            showToast(t("empty.requestFailed"), "error");
-        } finally {
-            setRequesting(false);
-        }
+        const result = await request();
+        if (result === "sent") showToast(t("empty.requestSent"), "success");
+        else if (result === "already") showToast(t("empty.requestAlreadySent"), "info");
+        else showToast(t("empty.requestFailed"), "error");
     };
 
     return (
@@ -96,10 +84,14 @@ export default function EmptyState({ profile, onCreateWorkspace }: EmptyStatePro
                 <div className={`fixed bottom-8 right-8 flex items-center p-4 rounded-xl shadow-xl border z-50 ${
                     toast.type === 'success'
                         ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
+                        : toast.type === 'info'
+                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300'
                         : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
                 }`}>
                     {toast.type === 'success'
                         ? <Check className="w-5 h-5 mr-3 shrink-0" />
+                        : toast.type === 'info'
+                        ? <Info className="w-5 h-5 mr-3 shrink-0" />
                         : <AlertCircle className="w-5 h-5 mr-3 shrink-0" />}
                     <span className="font-medium text-sm">{toast.message}</span>
                     <button

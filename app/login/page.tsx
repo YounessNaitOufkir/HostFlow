@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { validateNewPassword } from "@/lib/passwordSecurity";
 import { useRouter } from "next/navigation";
-import { Loader2, MailCheck, ArrowLeft, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import { Loader2, MailCheck, AlertCircle, ArrowLeft, Eye, EyeOff, Sun, Moon } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { useT } from "@/components/LanguageProvider";
 
@@ -55,6 +55,8 @@ export default function LoginPage() {
   const [isPasswordResetPending, setIsPasswordResetPending] = useState(false);
   const [isInvited, setIsInvited] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isLinkExpired, setIsLinkExpired] = useState(false);
+  const [resending, setResending] = useState(false);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -82,16 +84,48 @@ export default function LoginPage() {
   // require wrapping this page in a Suspense boundary; that also means the value
   // cannot be seeded during render, since the server has no URL to read.
   useEffect(() => {
-    const oauthError = new URLSearchParams(window.location.search).get("error");
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("error");
     if (oauthError) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setError(oauthError);
+      // app/page.tsx sets this when Supabase's error_code was "otp_expired" —
+      // the one case where there's something to actually do about it here,
+      // rather than just tell the person to try signing in again.
+      if (params.get("expired")) {
+        setIsLinkExpired(true);
+      }
       // Clear it so a refresh doesn't resurrect a message about a past attempt.
       // This goes through the router rather than window.history.replaceState,
       // which gets reverted when the router reconciles after hydration.
       router.replace("/login");
     }
   }, [router]);
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setError(t("auth.enterEmailToResend"));
+      return;
+    }
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        // Same PKCE reasoning as the signUp() call above — /auth/callback
+        // exchanges the code, "/" alone leaves it unconsumed.
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw error;
+      setIsLinkExpired(false);
+      setError(null);
+      setIsVerificationPending(true);
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : t("auth.authFailed"));
+    } finally {
+      setResending(false);
+    }
+  };
 
   // The invite link itself carries no auth — redemption happens server-side,
   // matched by email, the moment redeem_pending_invitations() sees a profile
@@ -120,7 +154,10 @@ export default function LoginPage() {
     try {
       if (isForgotPassword) {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/update-password`,
+          // Same PKCE reasoning as signUp() above: exchange the code at
+          // /auth/callback first, then land on /update-password with an
+          // actual recovery session instead of an unconsumed ?code=.
+          redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
         });
         if (error) throw error;
         setIsPasswordResetPending(true);
@@ -142,7 +179,14 @@ export default function LoginPage() {
             data: {
               full_name: `${firstName} ${lastName}`.trim(),
             },
-            emailRedirectTo: `${window.location.origin}/`,
+            // The browser client uses the PKCE flow (see lib/supabase.ts), so
+            // the confirmation link comes back as a ?code= that has to be
+            // exchanged for a session before anything else — exactly what
+            // app/auth/callback/route.ts does for Google sign-in. Pointing
+            // this straight at "/" instead left that code unconsumed: the
+            // visitor landed on "/" still signed out, seeing the marketing
+            // page rather than their new workspace.
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
           }
         });
         if (error) throw error;
@@ -344,14 +388,76 @@ export default function LoginPage() {
 
         <div className="w-full max-w-[420px] animate-fade-up">
 
-          {isPasswordResetPending ? (
+          {isLinkExpired ? (
+            // Its own screen, not a banner bolted onto the sign-in form: with
+            // the password field still showing underneath, the resend prompt
+            // read as decoration on top of an ordinary login attempt rather
+            // than the thing to actually do here.
+            <div className="flex flex-col items-center text-center p-8 rounded-3xl bg-white dark:bg-white/[0.02] border border-gray-200 dark:border-white/5 shadow-sm dark:shadow-2xl animate-fade-up">
+              <div className="w-24 h-24 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mb-8">
+                <AlertCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t("auth.linkExpiredTitle")}</h2>
+              <p className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed mb-8 px-4">
+                {t("auth.linkExpiredHint")}
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleResendConfirmation();
+                }}
+                className="w-full space-y-4 text-left"
+              >
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300" htmlFor="resend-email">
+                    {t("auth.emailAddress")}
+                  </label>
+                  <input
+                    id="resend-email"
+                    type="email"
+                    required
+                    autoFocus
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={INPUT_CLASS}
+                    placeholder={t("auth.emailPlaceholder")}
+                  />
+                </div>
+                {error && (
+                  <div className="p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl text-red-700 dark:text-red-400 text-sm flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                    {error}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={resending}
+                  className="w-full py-3 px-4 bg-brand-amber hover:bg-brand-amber-hover text-gray-900 font-bold rounded-xl shadow-sm transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                >
+                  {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {resending ? t("auth.resending") : t("auth.resendLink")}
+                </button>
+              </form>
+              <button
+                onClick={() => {
+                  setIsLinkExpired(false);
+                  setError(null);
+                  setEmail("");
+                }}
+                className={`${BACK_BUTTON_CLASS} mt-6`}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                {t("auth.backToSignIn")}
+              </button>
+            </div>
+          ) : isPasswordResetPending ? (
             // Its own entrance, not inherited from the wrapper above: that div
             // mounted once, on first paint, and never remounts when this branch
             // switches in — so without this the card used to just pop into place.
             <div className="flex flex-col items-center text-center p-8 rounded-3xl bg-white dark:bg-white/[0.02] border border-gray-200 dark:border-white/5 shadow-sm dark:shadow-2xl animate-fade-up">
               <div className="w-24 h-24 bg-amber-100 dark:bg-amber-500/10 rounded-full flex items-center justify-center mb-8 relative">
-                <div className="absolute inset-0 rounded-full bg-amber-300/40 dark:bg-amber-400/20 animate-ping duration-1000" />
-                <MailCheck className="w-12 h-12 text-amber-600 dark:text-amber-400 relative z-10" />
+                <div className="absolute inset-0 rounded-full bg-amber-300/40 dark:bg-amber-400/20 animate-ring-settle" />
+                <MailCheck className="w-12 h-12 text-amber-600 dark:text-amber-400 relative z-10 animate-ring-settle-icon" />
               </div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{t("auth.checkInbox")}</h2>
               <p className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed mb-8 px-4">
@@ -374,8 +480,8 @@ export default function LoginPage() {
           ) : isVerificationPending ? (
             <div className="flex flex-col items-center text-center p-8 rounded-3xl bg-white dark:bg-white/[0.02] border border-gray-200 dark:border-white/5 shadow-sm dark:shadow-2xl animate-fade-up">
               <div className="w-24 h-24 bg-blue-100 dark:bg-blue-500/10 rounded-full flex items-center justify-center mb-8 relative">
-                <div className="absolute inset-0 rounded-full bg-blue-300/40 dark:bg-blue-400/20 animate-ping duration-1000" />
-                <MailCheck className="w-12 h-12 text-blue-600 dark:text-blue-400 relative z-10" />
+                <div className="absolute inset-0 rounded-full bg-blue-300/40 dark:bg-blue-400/20 animate-ring-settle" />
+                <MailCheck className="w-12 h-12 text-blue-600 dark:text-blue-400 relative z-10 animate-ring-settle-icon" />
               </div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{t("auth.checkInbox")}</h2>
               <p className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed mb-8 px-4">

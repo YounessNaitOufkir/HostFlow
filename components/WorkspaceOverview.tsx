@@ -3,13 +3,16 @@
 import React from "react";
 import { useT } from "@/components/LanguageProvider";
 import { Workspace, Board } from "@/types";
-import { LayoutGrid, MoreHorizontal } from "lucide-react";
+import { LayoutGrid, Lock, MoreHorizontal } from "lucide-react";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import type { Profile } from "@/types";
 
 interface WorkspaceOverviewProps {
   workspace: Workspace | null;
   workspaces: Workspace[];
   boards: Board[];
+  profile?: Profile | null;
+  profiles?: Profile[];
   onSelectBoard: (board: Board) => void;
   onSelectWorkspace: (workspace: Workspace) => void;
   onCreateBoard?: () => void;
@@ -17,8 +20,16 @@ interface WorkspaceOverviewProps {
   onImportData?: () => void;
 }
 
-export default function WorkspaceOverview({ workspace, workspaces, boards, onSelectBoard, onSelectWorkspace, onCreateBoard, onCreateWorkspace, onImportData }: WorkspaceOverviewProps) {
+export default function WorkspaceOverview({ workspace, workspaces, boards, profile, profiles = [], onSelectBoard, onSelectWorkspace, onCreateBoard, onCreateWorkspace, onImportData }: WorkspaceOverviewProps) {
   const t = useT();
+
+  // Mirrors Sidebar's privateOwnerLabel: private workspace names collide by
+  // design (two users can both call theirs "Private"), so the owner is the
+  // only thing that tells two same-named groups apart on this page.
+  const privateOwnerLabel = (ws: Workspace): string | null => {
+    if (ws.created_by === profile?.id) return t("sidebar.you");
+    return profiles.find((p) => p.id === ws.created_by)?.full_name ?? null;
+  };
   if (!workspace) {
     return (
       <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#181b34] overflow-hidden">
@@ -64,12 +75,19 @@ export default function WorkspaceOverview({ workspace, workspaces, boards, onSel
                           onClick={() => onSelectWorkspace(ws)}
                           className="flex items-center gap-2 min-w-0 group text-left"
                         >
-                          <span className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:scale-105 transition-transform">
-                            <LayoutGrid size={16} />
+                          <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${ws.is_private ? "bg-amber-100 dark:bg-amber-900/30 text-brand-amber" : "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400"}`}>
+                            {ws.is_private ? <Lock size={15} /> : <LayoutGrid size={16} />}
                           </span>
-                          <h3 className="font-semibold text-gray-800 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                            <TruncatedText className="truncate block">{ws.name}</TruncatedText>
-                          </h3>
+                          <span className="min-w-0">
+                            <h3 className="font-semibold text-gray-800 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                              <TruncatedText className="truncate block">{ws.name}</TruncatedText>
+                            </h3>
+                            {ws.is_private && (
+                              <span className="block truncate text-[10.5px] uppercase tracking-[0.06em] text-gray-400 dark:text-slate-500">
+                                {[t("sidebar.privateSpace"), privateOwnerLabel(ws)].filter(Boolean).join(" · ")}
+                              </span>
+                            )}
+                          </span>
                         </button>
                         <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 ml-3">
                           {wsBoards.length === 1

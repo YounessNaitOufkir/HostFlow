@@ -133,6 +133,7 @@ const ItemRow = memo(function ItemRow({
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
+          data-item-id={item.id}
           className={`flex border-b border-gray-100 dark:border-slate-800/60 group/row transition-colors animate-row-in ${
             snapshot.isDragging
               ? "bg-white dark:bg-slate-800 shadow-2xl z-[100] rounded-lg ring-1 ring-indigo-500/20 relative"

@@ -83,6 +83,11 @@ import ReadabilityModal from "@/components/ReadabilityModal";
 import TaskCreateModal from "@/components/TaskCreateModal";
 
 import type { ColumnType } from "@/types";
+import { useAppHistory, type AppLocation } from "@/hooks/useAppHistory";
+
+// Views that show a single board; the rest (My Work, Trash, Overview, Search,
+// the Master Gantt) are not "on the board".
+const BOARD_VIEWS = new Set<string>(["board", "kanban", "dashboard", "calendar", "gantt", "cards", "activity"]);
 
 export default function HostFlowApp() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
@@ -392,6 +397,41 @@ export default function HostFlowApp() {
     dispatch,
   ]);
 
+  // Browser Back/Forward inside the app. Going back closes any open task panel
+  // and puts the board, workspace and view back as they were.
+  const applyHistoryLocation = useCallback(
+    (loc: AppLocation) => {
+      const board = loc.boardId ? state.boards.find((b) => b.id === loc.boardId) ?? null : null;
+      const workspace = board
+        ? state.workspaces.find((w) => w.id === board.workspace_id) ?? null
+        : loc.workspaceId
+          ? state.workspaces.find((w) => w.id === loc.workspaceId) ?? null
+          : null;
+      dispatch({ type: "SET_SELECTED_ITEM", payload: null });
+      dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: workspace });
+      if (board) {
+        if (state.activeBoard?.id !== board.id) store.switchBoard(board);
+      } else {
+        dispatch({ type: "SET_ACTIVE_BOARD", payload: null });
+      }
+      // A board view with no board behind it (deleted, or access lost since)
+      // falls back to the overview rather than an empty "Loading board...".
+      const view = board || !BOARD_VIEWS.has(loc.mainView) ? loc.mainView : "workspace_overview";
+      dispatch({ type: "SET_MAIN_VIEW", payload: view as typeof state.mainView });
+    },
+    [state.boards, state.workspaces, state.activeBoard?.id, store.switchBoard, dispatch]
+  );
+
+  const appHistory = useAppHistory({
+    ready: !authLoading && !!user && !state.loading,
+    location: {
+      boardId: state.activeBoard?.id ?? null,
+      workspaceId: state.activeWorkspace?.id ?? null,
+      mainView: state.mainView,
+    },
+    apply: applyHistoryLocation,
+  });
+
   // Remember where this user is, so the next sign-in continues rather than
   // restarting. Keyed by user id, so one account never inherits another's
   // location on a shared browser.
@@ -629,7 +669,12 @@ export default function HostFlowApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // The task a notification or My Work just sent us to; once its panel is
+  // open, the effect below scrolls its row into view and flashes it.
+  const revealItemIdRef = useRef<string | null>(null);
+
   const navigateToItem = useCallback((boardId?: string, itemId?: string) => {
+    revealItemIdRef.current = itemId ?? null;
     if (boardId) {
       if (state.activeBoard?.id !== boardId) {
         const board = state.boards.find(b => b.id === boardId);
@@ -640,6 +685,12 @@ export default function HostFlowApp() {
           }
         }
       } else if (itemId) {
+        // Already the open board, but maybe not on screen: from Overview, My
+        // Work, Trash or Search this used to open the task's panel over that
+        // page and never show the board it lives on.
+        if (!BOARD_VIEWS.has(state.mainView)) {
+          dispatch({ type: "SET_MAIN_VIEW", payload: "board" });
+        }
         const itemToSelect = state.items.find(i => i.id === itemId);
         if (itemToSelect) {
           dispatch({ type: "SET_SELECTED_ITEM", payload: itemToSelect });
@@ -648,20 +699,49 @@ export default function HostFlowApp() {
         }
       }
     }
-  }, [state.activeBoard, state.boards, state.items, store.switchBoard, dispatch]);
+  }, [state.activeBoard, state.boards, state.items, state.mainView, store.switchBoard, dispatch]);
+
+  // Rows render a moment after the panel opens (the board's items may still be
+  // loading), so look for the row over a few frames rather than once. A row in
+  // a collapsed group, or in a view with no rows (Kanban, Calendar...), simply
+  // isn't found; the open panel is still where the task is.
+  useEffect(() => {
+    const target = revealItemIdRef.current;
+    if (!target || state.selectedItem?.id !== target) return;
+    revealItemIdRef.current = null;
+    let frame = 0;
+    let raf = 0;
+    const find = () => {
+      const row = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(target)}"]`);
+      if (row) {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        row.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+        row.classList.add("row-flash");
+        window.setTimeout(() => row.classList.remove("row-flash"), 2200);
+      } else if (++frame < 90) {
+        raf = requestAnimationFrame(find);
+      }
+    };
+    raf = requestAnimationFrame(find);
+    return () => cancelAnimationFrame(raf);
+  }, [state.selectedItem]);
 
   // A notification about a person rather than a board/item (a new signup, an
   // access request) has nowhere on the board to navigate to - it routes to the
   // one place that can act on it instead: the admin panel, on the person who
   // needs something already selected.
   const handleNotificationClick = useCallback(
-    (boardId?: string, itemId?: string, relatedUserId?: string) => {
+    (boardId?: string, itemId?: string, relatedUserId?: string, messageKey?: string) => {
       if (boardId || itemId) {
         navigateToItem(boardId, itemId);
         return;
       }
       if (relatedUserId) {
-        setAdminModalTarget({ tab: "permissions", profileId: relatedUserId });
+        // An access request is someone asking to be let in, so it opens User
+        // Roles, where Team vs External is decided. A plain signup keeps
+        // opening Data Access, as before.
+        const tab = messageKey === "notif.workspaceAccessRequest" ? "users" : "permissions";
+        setAdminModalTarget({ tab, profileId: relatedUserId });
         setShowAdminSettingsModal(true);
       }
     },
@@ -746,7 +826,28 @@ export default function HostFlowApp() {
   // signed-out visitor (see its `enabled` argument above) so it would never
   // resolve — trapping them on the skeleton forever instead of ever reaching
   // the landing page.
-  if (!authLoading && !user) return <LandingPage />;
+  if (!authLoading && !user) {
+    // An expired/invalid confirmation or magic link lands here, not on
+    // /auth/callback — signUp()'s emailRedirectTo points at "/" (see
+    // app/login/page.tsx), and Supabase reports that failure by redirecting
+    // to it with `error`/`error_code` in the query string AND the hash
+    // fragment rather than exchanging a session. Silently falling through to
+    // the marketing page threw that error away; forward it to /login, which
+    // already knows how to surface an error and, for an expired link, offer
+    // to resend the confirmation email.
+    if (typeof window !== "undefined") {
+      const query = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const description = query.get("error_description") || hash.get("error_description");
+      if (description) {
+        const code = query.get("error_code") || hash.get("error_code");
+        const expiredFlag = code === "otp_expired" ? "&expired=1" : "";
+        window.location.replace(`/login?error=${encodeURIComponent(description)}${expiredFlag}`);
+        return null;
+      }
+    }
+    return <LandingPage />;
+  }
 
   if (state.loading || authLoading) {
     return (
@@ -800,6 +901,7 @@ export default function HostFlowApp() {
       ) : (
         <Sidebar
         profile={profile}
+        profiles={state.profiles}
         workspaces={state.workspaces}
         activeWorkspace={state.activeWorkspace}
         companyLogoUrl={state.organizationSettings?.logo_url ?? null}
@@ -814,6 +916,10 @@ export default function HostFlowApp() {
         onRenameBoard={store.renameBoard}
         onDeleteBoard={store.deleteBoard}
         onNotificationClick={handleNotificationClick}
+        canGoBack={appHistory.canGoBack}
+        canGoForward={appHistory.canGoForward}
+        onGoBack={appHistory.goBack}
+        onGoForward={appHistory.goForward}
         onSelectWorkspace={selectWorkspace}
         onRenameWorkspace={store.renameWorkspace}
         onDeleteWorkspace={store.deleteWorkspace}
@@ -876,6 +982,8 @@ export default function HostFlowApp() {
           <WorkspaceOverview
             workspace={state.activeWorkspace}
             workspaces={state.workspaces}
+            profile={profile}
+            profiles={state.profiles}
             boards={state.activeWorkspace ? state.boards.filter(b => b.workspace_id === state.activeWorkspace!.id) : state.boards}
             onSelectBoard={(board) => {
               if (state.activeBoard?.id === board.id) {

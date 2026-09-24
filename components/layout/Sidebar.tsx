@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search } from "lucide-react";
+import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
@@ -14,10 +14,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSpring, animated } from "@react-spring/web";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import WorkspaceMembersModal from "@/components/WorkspaceMembersModal";
+import { useRequestWorkspaceAccess, type RequestAccessResult } from "@/hooks/useRequestWorkspaceAccess";
 
 interface SidebarProps {
   // Data
   profile: Profile | null;
+  profiles: Profile[];
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   /**
@@ -45,9 +47,13 @@ interface SidebarProps {
   onOpenAdmin: () => void;
   onOpenSearch: () => void;
   onOpenProfileSettings: () => void;
-  onNotificationClick: (boardId?: string, itemId?: string, relatedUserId?: string) => void;
+  onNotificationClick: (boardId?: string, itemId?: string, relatedUserId?: string, messageKey?: string) => void;
   onDuplicateWorkspace?: (ws: Workspace) => void;
   onImportData?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  onGoBack?: () => void;
+  onGoForward?: () => void;
 }
 
 // Was animated.div: every icon on the rail — sidebar toggle, search, my work,
@@ -75,6 +81,7 @@ function SpringButton({ children, onClick, className, "aria-label": ariaLabel }:
 
 export default function Sidebar({
   profile,
+  profiles,
   workspaces,
   activeWorkspace,
   companyLogoUrl,
@@ -98,6 +105,10 @@ export default function Sidebar({
   onOpenProfileSettings,
   onNotificationClick,
   onImportData,
+  canGoBack = false,
+  canGoForward = false,
+  onGoBack,
+  onGoForward,
 }: SidebarProps) {
   const t = useT();
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
@@ -105,6 +116,22 @@ export default function Sidebar({
   const { anchorRef: wsMenuAnchor, menuRef: wsMenuRef, menuStyle: wsMenuStyle } = useAnchoredMenu(isWorkspaceMenuOpen, { align: 'left' });
   const { anchorRef: createMenuAnchor, menuRef: createMenuRef, menuStyle: createMenuStyle } = useAnchoredMenu(isCreateMenuOpen, { align: 'right' });
   const [membersModalWs, setMembersModalWs] = useState<Workspace | null>(null);
+  const { requesting, request } = useRequestWorkspaceAccess(profile);
+  const [accessRequestStatus, setAccessRequestStatus] = useState<RequestAccessResult | null>(null);
+
+  // Creating a private workspace used to make the request-access prompt
+  // vanish along with the no-workspace screen it lived on — there was
+  // nowhere left to ask once you had somewhere private to work, even though
+  // you still couldn't see Host'lik's shared workspaces. Any non-private
+  // workspace in this list means access was actually granted; a private one
+  // doesn't count; it's the fallback everyone starts with.
+  const hasSharedWorkspaceAccess = workspaces.some((ws) => !ws.is_private);
+
+  const handleRequestAccess = async () => {
+    const result = await request();
+    setAccessRequestStatus(result);
+    setTimeout(() => setAccessRequestStatus(null), 4000);
+  };
 
   // A board is only the "current" one while the board view is on screen. Without
   // the mainView check the previous board stays highlighted on Workspace
@@ -121,6 +148,14 @@ export default function Sidebar({
   const canManageWorkspace = (ws: Workspace) =>
     ws.created_by === profile?.id ||
     (!ws.is_private && profile?.role === "admin");
+
+  // Private workspace names are not unique across users by design — two
+  // people can both call theirs "Private". The owner is the only thing that
+  // tells two such workspaces apart, so every private row names one.
+  const privateOwnerLabel = (ws: Workspace): string | null => {
+    if (ws.created_by === profile?.id) return t("sidebar.you");
+    return profiles.find((p) => p.id === ws.created_by)?.full_name ?? null;
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -163,6 +198,25 @@ export default function Sidebar({
             </SpringButton>
           </Tooltip>
           <div className="w-8 border-t border-white/10 my-1"></div>
+          {/* Same stack as the browser's own Back/Forward (hooks/useAppHistory). */}
+          <div className="flex items-center gap-0.5">
+            {([
+              { label: t("sidebar.back"), Icon: ChevronLeft, enabled: canGoBack, onClick: onGoBack },
+              { label: t("sidebar.forward"), Icon: ChevronRight, enabled: canGoForward, onClick: onGoForward },
+            ] as const).map(({ label, Icon, enabled, onClick }) => (
+              <Tooltip key={label} content={label} side="right">
+                <button
+                  type="button"
+                  aria-label={label}
+                  onClick={onClick}
+                  disabled={!enabled}
+                  className="w-6 h-8 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/8 transition-colors disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-white/60 disabled:cursor-default"
+                >
+                  <Icon size={18} />
+                </button>
+              </Tooltip>
+            ))}
+          </div>
           {/* Cmd+K is invisible until you know it exists, and there is no Cmd
               on a phone. The rail carries the same thing where it can be seen. */}
           <Tooltip content={t("search.openPalette")} side="right">
@@ -298,7 +352,9 @@ export default function Sidebar({
                       whichever board brought you to this workspace. */}
                   {activeWorkspace && (
                     <span className="block truncate text-[10.5px] font-normal uppercase tracking-[0.06em] text-gray-400 dark:text-slate-500 mt-0.5">
-                      {activeWorkspace.is_private ? t("sidebar.privateSpace") : t("sidebar.organization")}
+                      {activeWorkspace.is_private
+                        ? [t("sidebar.privateSpace"), privateOwnerLabel(activeWorkspace)].filter(Boolean).join(" · ")
+                        : t("sidebar.organization")}
                     </span>
                   )}
                 </span>
@@ -366,7 +422,9 @@ export default function Sidebar({
                             <TruncatedText className="truncate block">{ws.name}</TruncatedText>
                           </span>
                           <span className={`block truncate text-[10.5px] uppercase tracking-[0.06em] text-gray-400 dark:text-slate-500 mt-0.5 ${ws.is_private ? "ml-[17px]" : ""}`}>
-                            {ws.is_private ? t("sidebar.privateSpace") : t("sidebar.organization")}
+                            {ws.is_private
+                              ? [t("sidebar.privateSpace"), privateOwnerLabel(ws)].filter(Boolean).join(" · ")
+                              : t("sidebar.organization")}
                           </span>
                         </button>
                         <div className="hidden group-hover/ws:flex items-center gap-2">
@@ -450,9 +508,9 @@ export default function Sidebar({
                   </span>
                 </button>
 
-                {/* Boards Section */}
+                {/* Boards Section (per-workspace) / Workspaces Section (all-workspaces) */}
                 <div className="px-4 mb-2 mt-5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center relative">
-                  <span>{t("sidebar.boards")}</span>
+                  <span>{activeWorkspace ? t("sidebar.boards") : t("sidebar.workspaces")}</span>
                   {/* Hidden on "All workspaces": createBoard falls back to
                       whichever workspace the database returns first, so the new
                       board would land somewhere the user never chose. */}
@@ -516,6 +574,60 @@ export default function Sidebar({
                     {t("sidebar.workspaceOverview")}
                   </span>
                 </button>
+
+                {/* On "All workspaces" there are no visibleBoards to list (see
+                    the comment above visibleBoards), so this shows the
+                    workspaces themselves instead — the same rows as the
+                    workspace picker dropdown, minus its manage actions. */}
+                {!activeWorkspace && (
+                  <div className="space-y-0.5 px-2 mt-1">
+                    <AnimatePresence initial={false}>
+                      {workspaces.map((ws, idx) => {
+                        const wsBoardCount = boards.filter((b) => b.workspace_id === ws.id).length;
+                        return (
+                          <motion.div
+                            key={ws.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, height: 0, overflow: "hidden", transition: { duration: 0.2 } }}
+                            transition={{ duration: 0.2, delay: Math.min(idx * 0.03, 0.4) }}
+                            className="flex items-center px-3 py-[7px] rounded-md transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                          >
+                            <button
+                              type="button"
+                              className="flex items-start gap-2.5 cursor-pointer flex-1 min-w-0 text-left"
+                              onClick={() => {
+                                onSelectWorkspace(ws);
+                                onSwitchBoard(null);
+                              }}
+                            >
+                              {ws.is_private ? (
+                                <Lock size={15} className="text-brand-amber shrink-0 mt-0.5" />
+                              ) : (
+                                <Briefcase size={15} className="text-gray-400 dark:text-gray-500 shrink-0 mt-0.5" />
+                              )}
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center justify-between gap-2">
+                                  <TruncatedText className="truncate text-[13px]">{ws.name}</TruncatedText>
+                                  <span className="shrink-0 text-[11px] text-gray-400 dark:text-slate-500">
+                                    {wsBoardCount === 1
+                                      ? t("ws.boardCountOne")
+                                      : t("ws.boardCount", { count: wsBoardCount })}
+                                  </span>
+                                </span>
+                                <span className="block truncate text-[10.5px] uppercase tracking-[0.06em] text-gray-400 dark:text-slate-500 mt-0.5">
+                                  {ws.is_private
+                                    ? [t("sidebar.privateSpace"), privateOwnerLabel(ws)].filter(Boolean).join(" · ")
+                                    : t("sidebar.organization")}
+                                </span>
+                              </span>
+                            </button>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                )}
 
                 <div className="space-y-0.5 px-2 mt-1">
                   <AnimatePresence initial={false}>
@@ -587,6 +699,32 @@ export default function Sidebar({
                   </AnimatePresence>
                 </div>
               </div>
+
+              {!hasSharedWorkspaceAccess && (
+                <div className="shrink-0 border-t border-gray-200 dark:border-slate-700/50 px-4 py-3">
+                  <p className="text-[12px] leading-relaxed text-gray-400 dark:text-slate-500">
+                    {t("empty.hostlikPrompt")}{" "}
+                    <button
+                      type="button"
+                      onClick={handleRequestAccess}
+                      disabled={requesting}
+                      className="font-medium text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 inline-flex items-center gap-1"
+                    >
+                      {requesting ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                      {t("empty.hostlikRequest")}
+                    </button>
+                  </p>
+                  {accessRequestStatus && (
+                    <p className={`mt-1.5 text-[11px] ${accessRequestStatus === "error" ? "text-red-500 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
+                      {accessRequestStatus === "sent"
+                        ? t("empty.requestSent")
+                        : accessRequestStatus === "already"
+                        ? t("empty.requestAlreadySent")
+                        : t("empty.requestFailed")}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

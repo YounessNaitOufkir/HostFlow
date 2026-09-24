@@ -18,9 +18,14 @@ export async function GET(request: Request) {
   const next = url.searchParams.get('next') || '/';
 
   // The provider reports a refused consent screen this way, not by omitting `code`.
+  // An expired/reused signup confirmation link reports itself the same way, with
+  // error_code=otp_expired — flagged separately so /login can offer to resend it
+  // instead of just showing an error.
   const oauthError = url.searchParams.get('error_description') || url.searchParams.get('error');
   if (oauthError) {
-    return NextResponse.redirect(`${url.origin}/login?error=${encodeURIComponent(oauthError)}`);
+    const errorCode = url.searchParams.get('error_code');
+    const expiredFlag = errorCode === 'otp_expired' ? '&expired=1' : '';
+    return NextResponse.redirect(`${url.origin}/login?error=${encodeURIComponent(oauthError)}${expiredFlag}`);
   }
 
   if (!code) {
