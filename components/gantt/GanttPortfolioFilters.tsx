@@ -5,6 +5,7 @@ import { displayStatus } from "@/lib/i18n/labels";
 import { Check, Filter, X } from "lucide-react";
 import type { Profile } from "@/types";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
+import DateField from "@/components/ui/DateField";
 import { ganttToolbarButton } from "./GanttToolbar";
 import { useT } from "@/components/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n";
@@ -161,21 +162,14 @@ export function GanttPortfolioFilters({
               />
             ))}
 
-            <div className="flex items-center gap-1.5 px-2 pt-1.5">
-              <input
-                type="date"
-                aria-label={t("master.windowFrom")}
-                value={filter.from ?? ""}
-                onChange={(e) => onChange({ ...filter, from: e.target.value || undefined })}
-                className="w-full px-1.5 py-1 text-[11px] rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
-              />
-              <span className="text-gray-400 text-[11px]">{t("master.windowTo").toLowerCase()}</span>
-              <input
-                type="date"
-                aria-label={t("master.windowTo")}
-                value={filter.to ?? ""}
-                onChange={(e) => onChange({ ...filter, to: e.target.value || undefined })}
-                className="w-full px-1.5 py-1 text-[11px] rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+            <div className="px-2 pt-1.5">
+              <DateField
+                mode="range"
+                openEnded
+                size="sm"
+                value={{ start: filter.from ?? null, end: filter.to ?? null }}
+                onChange={(v) => onChange({ ...filter, from: v.start ?? undefined, to: v.end ?? undefined })}
+                placeholder={t("date.anyDate")}
               />
             </div>
             {/* Overlap, not containment: a task running through the window is in

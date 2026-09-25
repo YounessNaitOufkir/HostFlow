@@ -30,11 +30,12 @@ export default function StatusCell({
   const isOverdue = value === "Overdue" || value === "En retard";
   const currentOptions = column.settings?.statusLabels || STATUS_OPTIONS;
   const option = currentOptions.find((opt: any) => opt.label === value);
+  const isEmpty = !isOverdue && !option;
   // The empty chip needs a dark variant. #c4c4c4 is the neutral for the light
   // theme and was applied unconditionally, so an unset Status rendered as a
   // near-white bar in dark mode - which is what it looked like: a loading
   // skeleton that never resolved.
-  const bgColor = option ? option.color : (isOverdue ? "bg-gradient-to-r from-red-600 to-rose-600" : "bg-[#c4c4c4] dark:bg-[#3e4157]");
+  const bgColor = option ? option.color : (isOverdue ? "bg-gradient-to-r from-red-600 to-rose-600" : "bg-transparent");
 
   const isOpen = activeStatusId === cellKey;
   const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(isOpen, { align: 'left' });
@@ -69,7 +70,11 @@ export default function StatusCell({
         aria-haspopup="true"
         aria-expanded={isOpen}
         className={`relative cursor-pointer w-full h-full flex items-center justify-center text-white text-[13px] hover:opacity-90 transition-all text-left ${bgColor} ${
-          isOverdue ? "shadow-sm border border-red-500/40 dark:border-red-400/50" : "border border-transparent hover:border-gray-300 dark:hover:border-slate-500"
+          isOverdue
+            ? "shadow-sm border border-red-500/40 dark:border-red-400/50"
+            : isEmpty
+            ? "border border-dashed border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500"
+            : "border border-transparent hover:border-gray-300 dark:hover:border-slate-500"
         }`}
       >
         {isOverdue && (
@@ -78,7 +83,9 @@ export default function StatusCell({
         <TruncatedText className="truncate px-2">{value === "Empty" ? "" : displayStatus(t, value as string)}</TruncatedText>
 
         {/* Fold indicator */}
-        <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
+        {!isEmpty && (
+          <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
+        )}
       </button>
 
       <AnimatePresence onExitComplete={() => setIsElevated(false)}>

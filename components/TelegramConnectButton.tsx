@@ -4,7 +4,7 @@ import React, { useState, useTransition } from "react";
 import { Profile } from "@/types";
 import { generateTelegramLink, unlinkTelegram } from "@/app/actions/telegram";
 import { toast } from "sonner";
-import { Loader2, Unplug } from "lucide-react";
+import { CheckCircle2, Loader2, Unplug } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
 
 interface TelegramConnectButtonProps {
@@ -67,8 +67,9 @@ export default function TelegramConnectButton({
             </svg>
           </div>
           <div>
-            <p className="text-sm font-semibold text-green-700 dark:text-green-300">
-              ✅ {t("telegram.connected")}
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-green-700 dark:text-green-300">
+              <CheckCircle2 size={15} aria-hidden />
+              {t("telegram.connected")}
             </p>
             <p className="text-xs text-green-600 dark:text-green-400/70">
               {t("telegram.connectedBody")}

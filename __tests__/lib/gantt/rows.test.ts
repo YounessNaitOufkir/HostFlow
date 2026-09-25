@@ -201,7 +201,9 @@ describe("collapsing", () => {
 });
 
 describe("milestones", () => {
-  it("treats a zero-length timeline as a milestone", () => {
+  it("draws a one-day timeline as a bar filling its day, not a milestone", () => {
+    // A one-day task here is ordinary work (a delivery, a visit). Only the
+    // board's milestone checkbox makes something a diamond.
     const b = board("b1", "B");
     const context: GanttBoardContext = {
       board: b,
@@ -212,7 +214,7 @@ describe("milestones", () => {
       ],
     };
     const { byItemId } = buildGanttRows({ contexts: [context] });
-    expect(byItemId.get("i1")!.isMilestone).toBe(true);
+    expect(byItemId.get("i1")!.isMilestone).toBe(false);
     expect(byItemId.get("i2")!.isMilestone).toBe(false);
   });
 

@@ -36,6 +36,8 @@ import { useBoardDataQuery } from "@/hooks/queries/useBoardDataQuery";
 import { supabase } from "@/lib/supabase";
 import { readNavState, writeNavState, clearLegacyNavKeys, isBoardIndependentView } from "@/lib/navState";
 import { readDeepLink, clearDeepLink } from "@/lib/deepLink";
+import { readShortcutView, clearShortcutView } from "@/lib/shortcutLink";
+import { requestOpenNotifications } from "@/lib/notificationsOpenSignal";
 import { useLocaleSync } from "@/hooks/useLocaleSync";
 import type { Board, Workspace } from "@/types";
 
@@ -68,6 +70,7 @@ import BoardCardsView from "@/components/views/BoardCardsView";
 import ActivityLog from "@/components/views/ActivityLog";
 import WorkspaceOverview from "@/components/WorkspaceOverview";
 import WorkspaceGanttView, { type WorkspaceGanttUpdate } from "@/components/WorkspaceGanttView";
+import PortfolioOverview from "@/components/PortfolioOverview";
 
 // Feature components
 import ItemPanel from "@/components/ItemPanel";
@@ -82,12 +85,28 @@ import AdminSettingsModal from "@/components/AdminSettingsModal";
 import ReadabilityModal from "@/components/ReadabilityModal";
 import TaskCreateModal from "@/components/TaskCreateModal";
 
-import type { ColumnType } from "@/types";
+import type { Column, ColumnType } from "@/types";
 import { useAppHistory, type AppLocation } from "@/hooks/useAppHistory";
+import { useT } from "@/components/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import { APP_NAME } from "@/lib/companyName";
+import { useAppBadge } from "@/hooks/useAppBadge";
+import { LaunchSplash } from "@/components/ui/LaunchSplash";
 
 // Views that show a single board; the rest (My Work, Trash, Overview, Search,
 // the Master Gantt) are not "on the board".
 const BOARD_VIEWS = new Set<string>(["board", "kanban", "dashboard", "calendar", "gantt", "cards", "activity"]);
+
+// Window-title label for every board-independent view. A view with no entry
+// here (e.g. "board" itself, handled separately) falls back to the plain app name.
+const VIEW_TITLE_KEYS: Partial<Record<string, TranslationKey>> = {
+  my_work: "sidebar.myWork",
+  trash: "trash.title",
+  workspace_overview: "sidebar.workspaceOverview",
+  workspace_gantt: "sidebar.masterGantt",
+  portfolio_overview: "sidebar.portfolio",
+  search: "sidebar.search",
+};
 
 export default function HostFlowApp() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
@@ -95,6 +114,8 @@ export default function HostFlowApp() {
   // Mirrors the language chosen in this browser onto the profile, so the cron
   // that sends automation emails can write to people in their own language.
   useLocaleSync(profile);
+  const t = useT();
+  useAppBadge(profile?.id);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
   // Where the admin panel should open to when it was reached by clicking a
@@ -119,6 +140,24 @@ export default function HostFlowApp() {
   const store = useBoardStore(() => setShowImportModal(true));
   const { state, dispatch } = store;
   const queryClient = useQueryClient();
+
+  // Whether this browser tab/window has ever shown the loaded app. The launch
+  // splash below is for the very first wait only — once past it, later loading
+  // moments (switching a filter, a slow query) use the ordinary skeleton, not
+  // a repeat of the splash.
+  //
+  // Set during render, not from an effect: React's own documented pattern for
+  // "remember that a condition became true," guarded so it only ever fires
+  // once — the second render sees hasShownApp already true and skips the
+  // call, so this cannot loop. A ref would read cleaner but reading `.current`
+  // during render to decide what to return is exactly what the
+  // react-hooks/refs rule exists to catch, and setting it from an effect
+  // costs an extra, visible frame of the splash after the app is already
+  // ready — precisely the flash of wrong content this exists to avoid.
+  const [hasShownApp, setHasShownApp] = useState(false);
+  if (!hasShownApp && state.mounted && !authLoading && user && !state.loading) {
+    setHasShownApp(true);
+  }
 
   const boardHiddenColumns = state.activeBoard ? (state.hiddenColumns[state.activeBoard.id] || []) : [];
   // ?? [] because boards.columns is nullable in Postgres even though the type
@@ -284,6 +323,13 @@ export default function HostFlowApp() {
         // would drag them back to the same task on every later reload.
         if (deepLink) clearDeepLink();
 
+        // A taskbar/dock right-click shortcut — see app/manifest.ts's
+        // `shortcuts` and lib/shortcutLink.ts. Same "beats resuming" reasoning
+        // as the deep link above: picking "Portfolio overview" from the icon
+        // means go there now, not wherever the last session left off.
+        const shortcutView = readShortcutView();
+        if (shortcutView) clearShortcutView();
+
         const saved = readNavState(profile?.id);
         const savedBoard = saved?.boardId
           ? boardsData.find((b) => b.id === saved.boardId) || null
@@ -301,6 +347,16 @@ export default function HostFlowApp() {
               payload: deepLink!.itemId,
             });
           }
+        } else if (shortcutView) {
+          dispatch({ type: "SET_ACTIVE_BOARD", payload: null });
+          dispatch({ type: "SET_ACTIVE_WORKSPACE", payload: null });
+          dispatch({
+            type: "SET_MAIN_VIEW",
+            payload: (shortcutView === "notifications" ? "my_work" : shortcutView) as any,
+          });
+          // Not mounted yet at this point — NotificationsMenu latches the
+          // request and consumes it as soon as it does mount.
+          if (shortcutView === "notifications") requestOpenNotifications();
         } else if (savedBoard) {
           // Carry on where they left off, including which view they were using.
           dispatch({ type: "SET_ACTIVE_BOARD", payload: savedBoard });
@@ -431,6 +487,27 @@ export default function HostFlowApp() {
     },
     apply: applyHistoryLocation,
   });
+
+  // The installed app's window title (and the browser tab's), so Alt-Tab and
+  // the taskbar preview say where you are instead of always "HostFlow" — the
+  // moment that matters is having more than one HostFlow window open.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!state.mounted || authLoading || !user) {
+      document.title = APP_NAME;
+      return;
+    }
+    let label: string | null = null;
+    if (BOARD_VIEWS.has(state.mainView) && state.activeBoard) {
+      label = state.activeWorkspace?.name
+        ? `${state.activeBoard.name} · ${state.activeWorkspace.name}`
+        : state.activeBoard.name;
+    } else {
+      const key = VIEW_TITLE_KEYS[state.mainView];
+      if (key) label = t(key);
+    }
+    document.title = label ? `${label} — ${APP_NAME}` : APP_NAME;
+  }, [state.mounted, authLoading, user, state.mainView, state.activeBoard, state.activeWorkspace, t]);
 
   // Remember where this user is, so the next sign-in continues rather than
   // restarting. Keyed by user id, so one account never inherits another's
@@ -581,8 +658,8 @@ export default function HostFlowApp() {
   );
 
   const handleAddColumn = useCallback(
-    (type: ColumnType) => {
-      if (state.activeBoard) store.addColumn(state.activeBoard, type);
+    (type: ColumnType, preset?: Pick<Column, "title" | "settings">) => {
+      if (state.activeBoard) store.addColumn(state.activeBoard, type, preset);
     },
     [state.activeBoard, store.addColumn]
   );
@@ -819,7 +896,7 @@ export default function HostFlowApp() {
     };
   }, [state.activeBoard, activeBoardWorkspace, state.profiles, boardAccessData, profile, store.grantBoardAccess]);
 
-  if (!state.mounted) return null;
+  if (!state.mounted) return <LaunchSplash />;
 
   // Checked before the loading skeleton below, not after: state.loading only
   // ever clears once useBoardsQuery resolves, and that query is disabled for a
@@ -850,6 +927,7 @@ export default function HostFlowApp() {
   }
 
   if (state.loading || authLoading) {
+    if (!hasShownApp) return <LaunchSplash />;
     return (
       <div className="flex h-screen w-screen bg-[#F4F6F8] dark:bg-[#181b34]">
         <div className="w-16 bg-[#1A2C5B] shrink-0"></div>
@@ -998,6 +1076,15 @@ export default function HostFlowApp() {
             onImportData={() => setShowImportModal(true)}
           />
         </div>
+      ) : state.mainView === "portfolio_overview" ? (
+        <PortfolioOverview
+          workspaces={state.workspaces}
+          boards={state.boards}
+          profiles={state.profiles}
+          isTeam={profile?.is_staff === true}
+          onOpenWorkspace={selectWorkspace}
+          onOpenTask={navigateToItem}
+        />
       ) : state.mainView === "workspace_gantt" ? (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <WorkspaceGanttView

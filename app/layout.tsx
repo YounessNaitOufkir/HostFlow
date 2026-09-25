@@ -8,6 +8,7 @@ import { Toaster } from "sonner";
 import { FontProvider } from "@/components/FontProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import PWAInstallPrompt from "@/components/ui/PWAInstallPrompt";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import { APP_NAME } from "@/lib/companyName";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -98,6 +99,7 @@ export default function RootLayout({
                 duration={4000}
               />
               <PWAInstallPrompt />
+              <ServiceWorkerRegistration />
             </LanguageProvider>
           </FontProvider>
         </ThemeProvider>

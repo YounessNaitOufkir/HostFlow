@@ -9,6 +9,7 @@ import {
   Flag,
   Maximize2,
   Palette,
+  Rows3,
   Route,
   SlidersHorizontal,
   Lock,
@@ -22,6 +23,7 @@ import {
   GANTT_FIELD_ORDER,
   type GanttFieldKey,
 } from "@/lib/gantt/taskFields";
+import { GANTT_ROW_SIZES, type GanttRowSize } from "@/lib/gantt/rows";
 
 export type GanttColorBy = "group" | "status";
 
@@ -68,6 +70,8 @@ interface GanttToolbarProps {
   onExport: (kind: GanttExportKind) => Promise<void> | void;
   fields: GanttFieldKey[];
   onFieldsChange: (fields: GanttFieldKey[]) => void;
+  rowSize: GanttRowSize;
+  onRowSizeChange: (size: GanttRowSize) => void;
   /** Set when the chart cannot be edited, so the reason is stated rather than left to be discovered. */
   readOnlyReason?: string;
   children?: React.ReactNode;
@@ -93,6 +97,8 @@ export function GanttToolbar({
   onExport,
   fields,
   onFieldsChange,
+  rowSize,
+  onRowSizeChange,
   readOnlyReason,
   children,
 }: GanttToolbarProps) {
@@ -339,6 +345,31 @@ export function GanttToolbar({
               >
                 {t(option === "group" ? "gantt.colorBy.group" : "gantt.colorBy.status")}
                 {colorBy === option && <Check size={13} strokeWidth={3} />}
+              </button>
+            ))}
+
+            <Divider />
+            <MenuHeading>
+              <span className="flex items-center gap-1.5">
+                <Rows3 size={12} />
+                {t("gantt.rowSize")}
+              </span>
+            </MenuHeading>
+
+            {GANTT_ROW_SIZES.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onRowSizeChange(option)}
+                aria-pressed={rowSize === option}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left text-[13px] transition-colors ${
+                  rowSize === option
+                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-semibold"
+                    : "hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                {t(`gantt.rowSize.${option}`)}
+                {rowSize === option && <Check size={13} strokeWidth={3} />}
               </button>
             ))}
           </div>

@@ -111,8 +111,14 @@ export const config = {
      *   never learns /login is disallowed and keeps indexing it anyway — this
      *   is what Search Console's "page with redirect" / "crawled - currently
      *   not indexed" report was actually seeing, not a stale report)
+     * - sw.js / offline.html (the service worker and its offline fallback
+     *   page — same failure mode as robots.txt: a signed-out visitor with no
+     *   connection is exactly who needs offline.html, and 307-ing sw.js's own
+     *   request for it, or the registration request for sw.js itself, to
+     *   /login left the "you're offline" screen unreachable for the one
+     *   visitor it exists for)
      * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|sw.js|offline.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -12,7 +12,7 @@ import {
 } from "date-fns";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter,
-  X, ArrowRight, Folder, Clock, User, Link2, Tag, CheckCircle, AlignLeft, Type, Hash, CheckSquare, MoreHorizontal, LayoutList
+  X, ArrowRight, Folder, Clock, User, Link2, Tag, CheckCircle, AlignLeft, Type, Hash, CheckSquare, MoreHorizontal, LayoutList, AlertTriangle
 } from "lucide-react";
 import { statusHexOr } from "@/lib/statusColor";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -485,7 +485,7 @@ export default function CalendarView({ board, items, groups, profiles }: Calenda
                           return (
                             <div className="w-full text-center py-1.5 text-white text-[13px] font-medium flex items-center justify-center gap-1.5" style={{ backgroundColor: bg }}>
                               <span>{displayCellLabel(t, col.type, val as string)}</span>
-                              {val === "Critical" && <span className="text-[11px] leading-none">⚠️</span>}
+                              {val === "Critical" && <AlertTriangle size={13} strokeWidth={2.25} className="shrink-0 text-amber-400" aria-hidden />}
                             </div>
                           );
                         }

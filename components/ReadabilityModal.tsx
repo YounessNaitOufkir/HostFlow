@@ -190,7 +190,7 @@ export default function ReadabilityModal({ onClose }: ReadabilityModalProps) {
               </div>
               <div className="grid grid-cols-12 items-center px-4 py-3 text-sm text-gray-800 dark:text-gray-100">
                 <div className="col-span-6 font-medium">
-                  🚀 Launch HostFlow Design Upgrade
+                  Launch HostFlow Design Upgrade
                 </div>
                 <div className="col-span-3 flex justify-center">
                   <span className="px-3 py-1 rounded bg-green-500 text-white text-xs font-semibold shadow-xs">

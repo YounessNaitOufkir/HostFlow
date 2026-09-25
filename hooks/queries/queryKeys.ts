@@ -13,6 +13,7 @@ export const queryKeys = {
   itemActivityLogs: (itemId: string) => ["activityLogs", itemId] as const,
   auditLogs: (boardId: string) => ["auditLogs", boardId] as const,
   workspaceGantt: (boardIds: string[]) => ["workspaceGantt", boardIds] as const,
+  portfolio: (boardIds: string[]) => ["portfolio", boardIds] as const,
   trashUpdates: (itemIds: string[]) => ["trashUpdates", itemIds] as const,
   adminData: () => ["adminData"] as const,
   automations: (boardId: string) => ["automations", boardId] as const,

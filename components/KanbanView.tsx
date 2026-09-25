@@ -5,7 +5,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { useT } from "@/components/LanguageProvider";
 import { displayColumnTitle, displayStatus, displayCellLabel } from "@/lib/i18n/labels";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { ChevronDown, Columns3, Link2 } from "lucide-react";
+import { CalendarDays, ChevronDown, Columns3, Link2 } from "lucide-react";
+import { formatColumnNumber } from "@/lib/numberFormat";
 
 import { Item, Column, Group, STATUS_OPTIONS, Profile } from "@/types";
 import { statusHexOr } from "@/lib/statusColor";
@@ -288,9 +289,9 @@ export default function KanbanView({
                                           return (
                                             <span
                                               key={col.id}
-                                              className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
+                                              className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
                                             >
-                                              📅{" "}
+                                              <CalendarDays size={11} aria-hidden />
                                               {shortDate(val)}
                                             </span>
                                           );
@@ -305,7 +306,7 @@ export default function KanbanView({
                                               key={col.id}
                                               className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
                                             >
-                                              {num.toLocaleString()}
+                                              {formatColumnNumber(num, col, bcp47)}
                                             </span>
                                           );
                                         }
@@ -332,9 +333,9 @@ export default function KanbanView({
                                           return (
                                             <span
                                               key={col.id}
-                                              className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
+                                              className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"
                                             >
-                                              🔗{" "}
+                                              <Link2 size={11} aria-hidden />
                                               {val.length === 1
                                                 ? t("kanban.depCountOne", { count: val.length })
                                                 : t("kanban.depCount", { count: val.length })}

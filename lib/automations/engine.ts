@@ -1,3 +1,5 @@
+import { createElement } from "react";
+import { Undo2, Zap } from "lucide-react";
 import { Board, Item, Profile, Automation, StatusOption, STATUS_OPTIONS } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { renderEmail, itemUrl, formatEmailDate } from "@/lib/emailTemplate";
@@ -253,13 +255,16 @@ export async function evaluateTimeAutomations(
           if (typeof window !== "undefined") {
             try {
               const originalValues = values;
-              toast.success(`⚡ Automation: Marked "${item.name}" as Overdue`, {
+              toast.success(`Automation: Marked "${item.name}" as Overdue`, {
+                icon: createElement(Zap, { size: 16 }),
                 duration: 10000,
                 action: {
                   label: "Revert",
                   onClick: async () => {
                     await supabase.from("items").update({ column_values: originalValues }).eq("id", item.id);
-                    toast.info(`↩️ Reverted Overdue status on "${item.name}".`);
+                    toast.info(`Reverted Overdue status on "${item.name}".`, {
+                      icon: createElement(Undo2, { size: 16 }),
+                    });
                   },
                 },
               });

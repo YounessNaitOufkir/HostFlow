@@ -1,4 +1,5 @@
-import { useCallback } from "react";
+import { createElement, useCallback } from "react";
+import { Undo2, Zap } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Board, CellValue, DependencyType, Item, ItemLink, Profile, Automation, Column } from "@/types";
@@ -232,8 +233,9 @@ export function useItemMutations({
             const originalValues = existingValues;
 
             toast.success(
-              `⚡ Automation: Moved "${itemToUpdate.name}" to ${targetGroupName}`,
+              `Automation: Moved "${itemToUpdate.name}" to ${targetGroupName}`,
               {
+                icon: createElement(Zap, { size: 16 }),
                 duration: 10000,
                 action: {
                   label: "Revert",
@@ -255,7 +257,9 @@ export function useItemMutations({
                       "Failed to revert the automation",
                       { table: "items", operation: "update", itemId }
                     );
-                    toast.info(`↩️ Reverted automation on "${itemToUpdate.name}".`);
+                    toast.info(`Reverted automation on "${itemToUpdate.name}".`, {
+                      icon: createElement(Undo2, { size: 16 }),
+                    });
                   },
                 },
               }

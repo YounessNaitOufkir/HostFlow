@@ -15,6 +15,8 @@ interface ColumnHeaderProps {
   dragHandleProps: DraggableProvidedDragHandleProps | null | undefined;
   onRename: (columnId: string, newTitle: string) => void;
   onResize: (columnId: string, width: number) => void;
+  /** Double-click on the resize handle: fit the column to its content. */
+  onAutoFit?: (columnId: string) => void;
   onDelete: (columnId: string) => void;
 }
 
@@ -23,6 +25,7 @@ export default function ColumnHeader({
   dragHandleProps,
   onRename,
   onResize,
+  onAutoFit,
   onDelete,
 }: ColumnHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -152,6 +155,11 @@ export default function ColumnHeader({
         <div 
           className={`absolute right-[-3px] top-0 bottom-0 w-[6px] cursor-col-resize z-10 flex items-center justify-center group/resizer`}
           onMouseDown={handleResizeStart}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onAutoFit?.(column.id);
+          }}
+          title={t("col.autoFitHint")}
         >
           <div className={`w-[2px] h-full transition-all duration-150 ${dragWidth !== null ? 'bg-blue-500 opacity-100' : 'bg-gray-300 dark:bg-slate-600 opacity-0 group-hover/colheader:opacity-100 group-hover/resizer:bg-blue-400 group-hover/resizer:w-[3px]'}`} />
         </div>

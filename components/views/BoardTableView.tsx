@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useCallback, useMemo } from "react";
-import { useT } from "@/components/LanguageProvider";
+import { useT, useLanguage } from "@/components/LanguageProvider";
+import { createTextMeasurer, fitColumnWidth, fitNameWidth, type FitEnv } from "@/lib/columnAutoFit";
+import { displayColumnTitle, displayPriority, displayStatus } from "@/lib/i18n/labels";
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from "@hello-pangea/dnd";
 import { Plus, Layout as LayoutIcon } from "lucide-react";
 import type { Board, Item, Column, ColumnType, Group, Profile, Automation } from "@/types";
@@ -43,7 +45,7 @@ interface BoardTableViewProps {
   onSetActiveStatusId: (id: string | null) => void;
   onSetShowAddColumnMenu: (id: string | null) => void;
   onSetItemMenuOpen: (id: string | null) => void;
-  onAddColumn: (type: ColumnType) => void;
+  onAddColumn: (type: ColumnType, preset?: Pick<Column, "title" | "settings">) => void;
   onRenameColumn: (columnId: string, title: string) => void;
   onResizeColumn: (columnId: string, width: number) => void;
   onDeleteColumn: (columnId: string) => void;
@@ -142,6 +144,35 @@ export default function BoardTableView({
     }
   }, [boardId]);
 
+  // Double-click on a resize handle: fit to the widest content across every
+  // row on the board, including collapsed groups and filtered-out rows.
+  const { bcp47, dateLocale } = useLanguage();
+  const fitEnv = useCallback(
+    (): FitEnv => ({
+      measure: createTextMeasurer(),
+      locale: dateLocale,
+      bcp47,
+      statusLabel: (label) => displayStatus(t, label),
+      priorityLabel: (label) => displayPriority(t, label),
+      profiles,
+    }),
+    [t, bcp47, dateLocale, profiles]
+  );
+
+  const handleAutoFitColumn = useCallback(
+    (columnId: string) => {
+      const column = columns.find((c) => c.id === columnId);
+      if (!column) return;
+      const width = fitColumnWidth(column, displayColumnTitle(t, column.title), allItems, fitEnv());
+      if (width !== column.width) onResizeColumn(columnId, width);
+    },
+    [columns, allItems, fitEnv, t, onResizeColumn]
+  );
+
+  const handleAutoFitItemName = useCallback(() => {
+    handleResizeItemNameColumn(fitNameWidth(itemNameColumn, allItems, fitEnv()));
+  }, [itemNameColumn, allItems, fitEnv, handleResizeItemNameColumn]);
+
   // Sort groups by position
   const sortedGroups = useMemo(() => [...groups].sort((a, b) => a.position - b.position), [groups]);
 
@@ -231,6 +262,8 @@ export default function BoardTableView({
                                 onAddColumn={onAddColumn}
                                 onRenameColumn={onRenameColumn}
                                 onResizeColumn={onResizeColumn}
+                                onAutoFitColumn={handleAutoFitColumn}
+                                onAutoFitItemName={handleAutoFitItemName}
                                 onDeleteColumn={onDeleteColumn}
                                 itemNameColumn={itemNameColumn}
                                 onRenameItemNameColumn={onRenameItemNameColumn}

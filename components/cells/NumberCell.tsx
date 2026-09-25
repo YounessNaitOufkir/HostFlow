@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Item, Column } from "@/types";
 import { useLanguage } from "@/components/LanguageProvider";
+import { formatColumnNumber } from "@/lib/numberFormat";
 
 interface NumberCellProps {
   item: Item;
@@ -28,7 +29,7 @@ export default function NumberCell({ item, column, onUpdate }: NumberCellProps) 
     if (isFocused) return localValue;
     const num = parseFloat(String(localValue));
     if (isNaN(num) || localValue === "") return "";
-    return num.toLocaleString(bcp47, { maximumFractionDigits: 2 });
+    return formatColumnNumber(num, column, bcp47);
   })();
 
   return (

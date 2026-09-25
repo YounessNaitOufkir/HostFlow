@@ -28,7 +28,12 @@ import {
   type GanttBoardContext,
   type GanttItemRow,
   type GanttRow,
+  type GanttRowSize,
+  GANTT_ROW_SIZES,
+  GANTT_ROW_SIZE_HEIGHTS,
+  GANTT_BAR_HEIGHTS,
 } from "@/lib/gantt/rows";
+import { useAuth } from "@/components/AuthProvider";
 import { addDaysOnly, today, toDateOnly, daysBetween, dayIndex } from "@/lib/gantt/dates";
 import { visibleRowRange, visiblePxWindow } from "@/lib/gantt/virtual";
 import {
@@ -167,6 +172,11 @@ export default function GanttChart({
   const [fields, setFields] = useState<GanttFieldKey[]>(DEFAULT_GANTT_FIELDS);
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rowSize, setRowSize] = useState<GanttRowSize>("default");
+  // Row size is the person's own preference, not the chart's: one key per
+  // user, shared by every board Gantt and the Master Gantt.
+  const { profile } = useAuth();
+  const rowSizeKey = `hostflow_gantt_rowsize_${profile?.id ?? "anon"}`;
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const headerTrackRef = useRef<HTMLDivElement>(null);
@@ -187,7 +197,12 @@ export default function GanttChart({
     let storedZoom: GanttZoom | null = null;
     let storedWidth: number | null = null;
     let storedFields: GanttFieldKey[] | null = null;
+    let storedRowSize: GanttRowSize | null = null;
     try {
+      const sizeValue = localStorage.getItem(rowSizeKey);
+      if (sizeValue && (GANTT_ROW_SIZES as readonly string[]).includes(sizeValue)) {
+        storedRowSize = sizeValue as GanttRowSize;
+      }
       const zoomValue = localStorage.getItem(`hostflow_gantt_zoom_${storageKey}`);
       if (zoomValue && (GANTT_ZOOMS as string[]).includes(zoomValue)) {
         storedZoom = zoomValue as GanttZoom;
@@ -208,7 +223,20 @@ export default function GanttChart({
     if (storedZoom) setZoom(storedZoom);
     if (storedWidth) setLeftWidth(storedWidth);
     if (storedFields) setFields(storedFields);
-  }, [storageKey]);
+    if (storedRowSize) setRowSize(storedRowSize);
+  }, [storageKey, rowSizeKey]);
+
+  const changeRowSize = useCallback(
+    (next: GanttRowSize) => {
+      setRowSize(next);
+      try {
+        localStorage.setItem(rowSizeKey, next);
+      } catch {
+        /* ignore */
+      }
+    },
+    [rowSizeKey]
+  );
 
   const changeFields = useCallback(
     (next: GanttFieldKey[]) => {
@@ -248,8 +276,9 @@ export default function GanttChart({
         collapsed,
         profiles,
         showProjectRows,
+        heights: GANTT_ROW_SIZE_HEIGHTS[rowSize],
       }),
-    [contexts, collapsed, profiles, showProjectRows]
+    [contexts, collapsed, profiles, showProjectRows, rowSize]
   );
 
   const { rows, itemRows, totalHeight, starts, ends } = model;
@@ -1047,6 +1076,8 @@ export default function GanttChart({
       onExport={handleExport}
       fields={fields}
       onFieldsChange={changeFields}
+      rowSize={rowSize}
+      onRowSizeChange={changeRowSize}
       readOnlyReason={readOnlyReason}
     >
       {toolbarExtras}
@@ -1129,7 +1160,13 @@ export default function GanttChart({
               type="button"
               onClick={() => setLeftCollapsed((v) => !v)}
               className="absolute z-50 flex items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-[#1e2333] border border-gray-200 dark:border-[#2d3555] shadow-md hover:bg-gray-100 dark:hover:bg-[#252a3f] transition-all"
-              style={{ right: -12, top: "50%", transform: "translateY(-50%)" }}
+              // Straddles the pane edge when open. Collapsed, the pane is 0px wide
+              // and that same offset put half the button outside the chart.
+              style={
+                leftCollapsed
+                  ? { left: 6, top: "50%", transform: "translateY(-50%)" }
+                  : { right: -12, top: "50%", transform: "translateY(-50%)" }
+              }
               title={t(leftCollapsed ? "gantt.showTaskList" : "gantt.hideTaskList")}
               aria-label={t(leftCollapsed ? "gantt.showTaskList" : "gantt.hideTaskList")}
             >
@@ -1247,6 +1284,7 @@ export default function GanttChart({
                   }
                   highlightCritical={showCriticalPath}
                   showBaseline={showBaseline}
+                  barHeight={GANTT_BAR_HEIGHTS[rowSize]}
                   onBarKeyDown={handleBarKeyDown}
                   linkable={linkable}
                   onStartLink={startLink}
@@ -1537,6 +1575,8 @@ interface TimelineRowProps {
   linkable: boolean;
   onStartLink: (e: React.PointerEvent, row: GanttItemRow, edge: BarEdge) => void;
   linkHoverEdge: BarEdge | null;
+  /** Task bar height; follows the chosen row size. */
+  barHeight: number;
 }
 
 function TimelineRow({
@@ -1557,6 +1597,7 @@ function TimelineRow({
   linkable,
   onStartLink,
   linkHoverEdge,
+  barHeight,
 }: TimelineRowProps) {
   const x = scale.xOf(row.start);
   const width = scale.widthOf(row.start, row.end);
@@ -1651,6 +1692,7 @@ function TimelineRow({
           x={scale.xOf(row.baseline.start)}
           width={scale.widthOf(row.baseline.start, row.baseline.end)}
           centerY={centerY}
+          barHeight={barHeight}
           slipDays={daysBetween(row.baseline.end, row.end)}
         />
       )}
@@ -1687,7 +1729,7 @@ function TimelineRow({
             left: barX + activeDx,
             width: Math.max(scale.pxPerDay, barWidth),
             top: centerY,
-            height: 22,
+            height: barHeight,
             transform: "translateY(-50%)",
             backgroundColor: color,
             boxShadow: `0 0 12px 1px ${color}55`,
@@ -1873,18 +1915,22 @@ function BaselineBar({
   x,
   width,
   centerY,
+  barHeight,
   slipDays,
 }: {
   x: number;
   width: number;
   centerY: number;
+  barHeight: number;
   slipDays: number;
 }) {
+  // Just under the task bar, whatever size the row is.
+  const below = centerY + barHeight / 2 + 2;
   return (
     <>
       <div
         className="absolute rounded-sm bg-gray-400/60 dark:bg-slate-500/50 pointer-events-none"
-        style={{ left: x, width, top: centerY + 13, height: 5 }}
+        style={{ left: x, width, top: below, height: 5 }}
         aria-hidden="true"
       />
       {slipDays !== 0 && (
@@ -1894,7 +1940,7 @@ function BaselineBar({
               ? "text-red-500 dark:text-red-400"
               : "text-emerald-600 dark:text-emerald-400"
           }`}
-          style={{ left: x + width + 6, top: centerY + 10 }}
+          style={{ left: x + width + 6, top: below - 3 }}
         >
           {slipDays > 0 ? `+${slipDays}d` : `${slipDays}d`}
         </span>

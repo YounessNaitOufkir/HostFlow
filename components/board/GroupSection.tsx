@@ -16,7 +16,9 @@ import {
   ArrowDown,
   X,
   Palette,
+  Banknote,
 } from "lucide-react";
+import { BUDGET_COLUMN_SETTINGS } from "@/lib/numberFormat";
 import type { Item, Column, ColumnType, Profile, Group } from "@/types";
 import ColumnHeader from "@/components/ColumnHeader";
 import GroupFooter from "@/components/GroupFooter";
@@ -55,9 +57,11 @@ export interface GroupSectionProps {
   onRenameItemNameColumn?: (newName: string) => void;
   itemNameWidth?: number;
   onResizeItemNameColumn?: (width: number) => void;
-  onAddColumn: (type: ColumnType) => void;
+  onAddColumn: (type: ColumnType, preset?: Pick<Column, "title" | "settings">) => void;
   onRenameColumn: (columnId: string, title: string) => void;
   onResizeColumn: (columnId: string, width: number) => void;
+  onAutoFitColumn?: (columnId: string) => void;
+  onAutoFitItemName?: () => void;
   onDeleteColumn: (columnId: string) => void;
   draggingId?: string | null;
   isCollapsed?: boolean;
@@ -116,6 +120,8 @@ const GroupSection = memo(function GroupSection({
   onAddColumn,
   onRenameColumn,
   onResizeColumn,
+  onAutoFitColumn,
+  onAutoFitItemName,
   onDeleteColumn,
   draggingId,
   isCollapsed = false,
@@ -471,6 +477,11 @@ const GroupSection = memo(function GroupSection({
             <div 
               className={`absolute right-[-3px] top-0 bottom-0 w-[6px] cursor-col-resize z-10 flex items-center justify-center group/resizer`}
               onMouseDown={handleResizeItemNameStart}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onAutoFitItemName?.();
+              }}
+              title={t("col.autoFitHint")}
             >
               <div className={`w-[2px] h-full transition-all duration-150 ${dragItemNameWidth !== null ? 'bg-blue-500 opacity-100' : 'bg-gray-300 dark:bg-slate-600 opacity-0 group-hover/itemname:opacity-100 group-hover/resizer:bg-blue-400 group-hover/resizer:w-[3px]'}`} />
             </div>
@@ -498,6 +509,7 @@ const GroupSection = memo(function GroupSection({
                           dragHandleProps={colProvided.dragHandleProps}
                           onRename={onRenameColumn}
                           onResize={onResizeColumn}
+                          onAutoFit={onAutoFitColumn}
                           onDelete={onDeleteColumn}
                         />
                       </div>
@@ -561,6 +573,13 @@ const GroupSection = memo(function GroupSection({
                       </button>
                     );
                   })}
+                  <button
+                    onClick={() => onAddColumn("numbers", { title: t("coltype.budgetTitle"), settings: { ...BUDGET_COLUMN_SETTINGS } })}
+                    className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
+                  >
+                    <Banknote size={14} className="mr-2.5 text-gray-400" />
+                    {t("coltype.budget")}
+                  </button>
 
                   <div className="border-t border-gray-100 dark:border-slate-700 my-1"></div>
                   <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">

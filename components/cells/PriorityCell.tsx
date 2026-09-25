@@ -7,6 +7,7 @@ import { TruncatedText } from "@/components/ui/TruncatedText";
 import { useT } from "@/components/LanguageProvider";
 import { displayPriority } from "@/lib/i18n/labels";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertTriangle } from "lucide-react";
 
 interface PriorityCellProps {
   item: Item;
@@ -58,6 +59,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
 
   const currentOptions = column.settings?.priorityLabels || PRIORITY_OPTIONS;
   const currentOption = currentOptions.find((o: any) => o.label === value) || currentOptions[currentOptions.length - 1];
+  const isEmpty = value === "Empty";
 
   const handleToggle = () => {
     if (setActiveStatusId) setActiveStatusId(isOpen ? null : cellKey);
@@ -75,7 +77,11 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
         type="button"
         aria-haspopup="true"
         aria-expanded={isOpen}
-        className={`w-full h-full flex items-center justify-center text-white text-sm cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-500 transition-colors text-left ${currentOption.color}`}
+        className={`w-full h-full flex items-center justify-center text-white text-sm cursor-pointer transition-colors text-left ${
+          isEmpty
+            ? "bg-transparent border border-dashed border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500"
+            : `border border-transparent hover:border-gray-300 dark:hover:border-slate-500 ${currentOption.color}`
+        }`}
         onClick={(e) => {
           e.stopPropagation();
           handleToggle();
@@ -83,11 +89,13 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
       >
         <span className="flex items-center">
           {value === "Empty" ? "" : displayPriority(t, value as string)}
-          {(value === "Critical" || value === "Critique") && <span className="ml-1.5 text-[11px] leading-none">⚠️</span>}
+          {(value === "Critical" || value === "Critique") && <AlertTriangle size={13} strokeWidth={2.25} className="ml-1.5 shrink-0 text-amber-400" aria-hidden />}
         </span>
-        
+
         {/* Fold indicator */}
-        <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
+        {!isEmpty && (
+          <div className="absolute top-0 right-0 w-3 h-3 bg-white/20" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}></div>
+        )}
       </button>
 
       <AnimatePresence onExitComplete={() => setIsElevated(false)}>
@@ -112,7 +120,7 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
                 className={`w-full text-left px-3 py-2 text-[13px] text-white transition-colors ${opt.color} hover:opacity-90 flex items-center justify-between`}
               >
                 <TruncatedText className="truncate">{opt.label === "Empty" ? "" : (displayPriority(t, opt.label) || "\u00A0")}</TruncatedText>
-                {(opt.label === "Critical" || opt.label === "Critique") && <span className="text-[11px] ml-1 shrink-0">⚠️</span>}
+                {(opt.label === "Critical" || opt.label === "Critique") && <AlertTriangle size={13} strokeWidth={2.25} className="ml-1 shrink-0 text-amber-400" aria-hidden />}
               </button>
             ))}
           </motion.div>

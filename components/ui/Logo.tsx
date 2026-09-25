@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 
 /**
  * The HostFlow mark — three staggered rounded bars, i.e. board rows stepping
@@ -19,7 +19,12 @@ const NAVY = "#1A2C5B";
 const AMBER = "#F5A623";
 const WHITE = "#FFFFFF";
 
-export type LogoVariant = "tile" | "bare";
+/**
+ * "app" is the installed app's desktop icon (scripts/assets/icon-desktop.svg):
+ * a rounded square with a light-from-top gradient and a faint white outline,
+ * mark slightly enlarged. Unlike "tile" it stays visible on a navy background.
+ */
+export type LogoVariant = "tile" | "bare" | "app";
 export type LogoTone = "navy" | "amber" | "light";
 
 interface ToneSpec {
@@ -60,6 +65,36 @@ export function Logo({
   title,
 }: LogoProps) {
   const { ground, bar, accent } = TONES[tone];
+  const gradientId = `hf-logo-sheen-${useId().replace(/:/g, "")}`;
+
+  if (variant === "app") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 512 512"
+        className={className}
+        role={title ? "img" : undefined}
+        aria-label={title}
+        aria-hidden={title ? undefined : true}
+      >
+        {title ? <title>{title}</title> : null}
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#2A4180" />
+            <stop offset="1" stopColor="#16244C" />
+          </linearGradient>
+        </defs>
+        <rect x="16" y="16" width="480" height="480" rx="112" fill={`url(#${gradientId})`} />
+        <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="4" />
+        <g transform="translate(256 256) scale(1.16) translate(-256 -256)">
+          <rect x="104" y="130" width="184" height="68" rx="34" fill={WHITE} />
+          <rect x="160" y="222" width="256" height="68" rx="34" fill={AMBER} />
+          <rect x="224" y="314" width="160" height="68" rx="34" fill={WHITE} />
+        </g>
+      </svg>
+    );
+  }
 
   return (
     <svg

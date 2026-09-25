@@ -3,6 +3,7 @@
 import React from "react";
 import { Column, Item } from "@/types";
 import { useLanguage } from "@/components/LanguageProvider";
+import { formatColumnNumber } from "@/lib/numberFormat";
 
 interface GroupFooterProps {
   columns: Column[];
@@ -16,21 +17,21 @@ interface GroupFooterProps {
  * For other column types, renders an empty cell.
  */
 export default function GroupFooter({ columns, items, groupColor }: GroupFooterProps) {
-  const { bcp47 } = useLanguage();
+  const { bcp47, t } = useLanguage();
   // Only render if there are numbers columns
   const hasNumbersColumn = columns.some((col) => col.type === "numbers");
   if (!hasNumbersColumn) return null;
 
   return (
-    <div className="flex border-t border-gray-200 dark:border-slate-700/50 bg-[#f9fafb] dark:bg-[#1a1d38] rounded-b-lg overflow-hidden">
+    <div className="flex min-h-[42px] border-t border-gray-200 dark:border-slate-700/50 bg-[#f9fafb] dark:bg-[#1a1d38] rounded-b-lg overflow-hidden">
       {/* Color bar spacer */}
       <div className="w-8 shrink-0 border-r border-gray-200 dark:border-slate-700/50 relative" style={{ backgroundColor: `${groupColor}10` }}>
         <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: groupColor }}></div>
       </div>
 
       {/* Item Name spacer */}
-      <div className="w-[300px] p-2 pl-4 border-r border-gray-200 dark:border-slate-700/50 shrink-0">
-        <span className="text-xs font-medium text-gray-400 dark:text-gray-500"></span>
+      <div className="w-[300px] px-2 pl-4 border-r border-gray-200 dark:border-slate-700/50 shrink-0 flex items-center">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t("footer.total")}</span>
       </div>
 
       {/* Column cells — only numbers show a sum */}
@@ -60,8 +61,8 @@ export default function GroupFooter({ columns, items, groupColor }: GroupFooterP
               className={`${widthClass} border-r border-gray-200 dark:border-slate-700/50 flex items-center justify-center px-2 shrink-0`}
               style={inlineStyle}
             >
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-                {sum !== 0 ? `Σ ${sum.toLocaleString(bcp47, { maximumFractionDigits: 2 })}` : "—"}
+              <span className="text-[13px] font-semibold tabular-nums whitespace-nowrap text-gray-700 dark:text-gray-200">
+                {sum !== 0 ? formatColumnNumber(sum, col, bcp47) : "—"}
               </span>
             </div>
           );

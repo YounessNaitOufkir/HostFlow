@@ -12,12 +12,17 @@ interface UseColumnMutationsProps {
 
 export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
   const addColumn = useCallback(
-    async (activeBoard: Board, type: ColumnType) => {
+    async (activeBoard: Board, type: ColumnType, preset?: Pick<Column, "title" | "settings">) => {
       dispatch({ type: "SET_SHOW_ADD_COLUMN_MENU", payload: null });
       const newColId = `${type}_${Date.now()}`;
-      const newColTitle = getDefaultTitle(type);
+      const newColTitle = preset?.title ?? getDefaultTitle(type);
       const currentColumns = activeBoard.columns || [];
-      const newColumn: Column = { id: newColId, title: newColTitle, type };
+      const newColumn: Column = {
+        id: newColId,
+        title: newColTitle,
+        type,
+        ...(preset?.settings ? { settings: preset.settings } : {}),
+      };
       const updatedColumns = [...currentColumns, newColumn];
       const updatedBoard = { ...activeBoard, columns: updatedColumns };
       dispatch({ type: "UPDATE_BOARD", payload: updatedBoard });

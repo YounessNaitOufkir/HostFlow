@@ -10,13 +10,26 @@ import { Notification } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
+import { useAuth } from "@/components/AuthProvider";
+import { consumePendingOpenNotifications, onOpenNotificationsRequested } from "@/lib/notificationsOpenSignal";
 
 export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string, relatedUserId?: string, messageKey?: string) => void }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const { refreshProfile } = useAuth();
+  const refreshProfileRef = useRef(refreshProfile);
+  useEffect(() => {
+    refreshProfileRef.current = refreshProfile;
+  }, [refreshProfile]);
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // The "Notifications" taskbar shortcut: opens this menu instead of just the app.
+  useEffect(() => {
+    if (consumePendingOpenNotifications()) setIsOpen(true);
+    return onOpenNotificationsRequested(() => setIsOpen(true));
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -65,6 +78,10 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
         ) {
           queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() });
           queryClient.invalidateQueries({ queryKey: ["boards"] });
+          // The Team flag lives on the profile, which is otherwise only read at sign-in.
+          if (incoming.message_key === "notif.teamAccessGranted") {
+            void refreshProfileRef.current();
+          }
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, (payload) => {

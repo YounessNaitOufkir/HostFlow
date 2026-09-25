@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { displayColumnTitle, displayCellLabel } from "@/lib/i18n/labels";
 import { useT } from "@/components/LanguageProvider";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
+import DateField from "@/components/ui/DateField";
 import { Search, Filter, X, Plus, Trash2, ArrowUpDown, Eye, EyeOff } from "lucide-react";
 import { Column, ColumnType, Profile, STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/types";
 import type { TranslationKey } from "@/lib/i18n";
@@ -386,8 +387,20 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                           </select>
                         );
                       }
-                      if ((selCol?.type === "timeline" || selCol?.type === "date" || selCol?.type === "numbers") && newOperator === "is_between") {
-                        const inputType = selCol.type === "numbers" ? "number" : "date";
+                      if ((selCol?.type === "timeline" || selCol?.type === "date") && newOperator === "is_between") {
+                        return (
+                          <DateField
+                            mode="range"
+                            value={{ start: newValue || null, end: newValueEnd || null }}
+                            onChange={(v) => {
+                              setNewValue(v.start ?? "");
+                              setNewValueEnd(v.end ?? "");
+                            }}
+                          />
+                        );
+                      }
+                      if (selCol?.type === "numbers" && newOperator === "is_between") {
+                        const inputType = "number";
                         return (
                           <div className="flex items-center gap-2">
                             <input
@@ -408,11 +421,10 @@ export default function FilterBar({ searchQuery, setSearchQuery, columns, filter
                       }
                       if (selCol?.type === "timeline" || selCol?.type === "date") {
                         return (
-                          <input
-                            type="date"
-                            value={newValue}
-                            onChange={(e) => setNewValue(e.target.value)}
-                            className="w-full py-1.5 px-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+                          <DateField
+                            mode="single"
+                            value={{ start: newValue || null, end: null }}
+                            onChange={(v) => setNewValue(v.start ?? "")}
                           />
                         );
                       }

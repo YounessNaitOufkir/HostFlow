@@ -13,12 +13,15 @@ import { computeSchedule } from "@/lib/gantt/schedule";
 import { parseDateOnly, dayIndex } from "@/lib/gantt/dates";
 
 const TIMELINE = { id: "col-timeline", title: "Works", type: "timeline" as const };
+/** The board's declared milestone checkbox: the only thing that makes a diamond. */
+const MILESTONE = { id: "col-milestone", title: "Milestone", type: "checkbox" as const };
 
 const board: Board = {
   id: "b1",
   name: "Lancement",
   description: "",
-  columns: [TIMELINE],
+  columns: [TIMELINE, MILESTONE],
+  gantt_config: { milestoneColumnId: MILESTONE.id },
 };
 
 const group: Group = {
@@ -29,21 +32,21 @@ const group: Group = {
   board_id: "b1",
 };
 
-function task(id: string, name: string, start: string, end: string, position: number): Item {
+function task(id: string, name: string, start: string, end: string, position: number, milestone = false): Item {
   return {
     id,
     name,
     group_id: "g1",
     board_id: "b1",
     position,
-    column_values: { [TIMELINE.id]: { start, end } },
+    column_values: { [TIMELINE.id]: { start, end }, [MILESTONE.id]: milestone },
   };
 }
 
 const items = [
   task("i1", "Permis de construire", "2026-03-02", "2026-03-06", 0),
   task("i2", "Devis <charpente>", "2026-03-09", "2026-03-13", 1),
-  task("i3", "Réunion", "2026-03-16", "2026-03-16", 2),
+  task("i3", "Réunion", "2026-03-16", "2026-03-16", 2, true),
 ];
 
 const contexts: GanttBoardContext[] = [{ board, groups: [group], items }];

@@ -102,7 +102,7 @@ describe("StatusCell & PriorityCell — Batch 2", () => {
     expect(screen.getByText("High")).toBeInTheDocument();
   });
 
-  it("renders grey empty state when priority value is missing", () => {
+  it("renders a dashed outline, not a grey fill, when priority is missing", () => {
     const emptyItem: Item = {
       ...mockItem,
       column_values: {},
@@ -115,7 +115,21 @@ describe("StatusCell & PriorityCell — Batch 2", () => {
       />
     );
 
-    const el = container.querySelector(".bg-\\[\\#c4c4c4\\]");
-    expect(el).toBeInTheDocument();
+    expect(container.querySelector("button.border-dashed")).toBeInTheDocument();
+    expect(container.querySelector("button.bg-\\[\\#c4c4c4\\]")).toBeNull();
+  });
+
+  it("keeps an empty status visibly different from Not Started", () => {
+    const column: Column = { id: "status", title: "Status", type: "status" };
+    const { container: empty } = render(
+      <StatusCell item={{ ...mockItem, column_values: {} }} column={column} onUpdate={vi.fn()} />
+    );
+    const { container: notStarted } = render(
+      <StatusCell item={{ ...mockItem, column_values: { status: "Not Started" } }} column={column} onUpdate={vi.fn()} />
+    );
+
+    expect(empty.querySelector("button.border-dashed")).toBeInTheDocument();
+    expect(notStarted.querySelector("button.border-dashed")).toBeNull();
+    expect(notStarted.querySelector("button.bg-\\[\\#c4c4c4\\]")).toBeInTheDocument();
   });
 });

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { supabase } from "@/lib/supabase";
 import { validateNewPassword } from "@/lib/passwordSecurity";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, KeyRound, PartyPopper } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 
 const memes = [
@@ -100,7 +100,9 @@ export default function UpdatePasswordPage() {
 
         {/* Fun header */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🔐</div>
+          <div className="mx-auto mb-4 w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center">
+            <KeyRound size={30} className="text-amber-600 dark:text-brand-amber" aria-hidden />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">New password, who dis?</h1>
           <p className="text-gray-500 dark:text-slate-400 text-sm">For your HostFlow account</p>
         </div>
@@ -126,7 +128,7 @@ export default function UpdatePasswordPage() {
                page's own "reset link sent" screen, one step later — teal was
                a colour used nowhere else in the app. */
             <div className="p-4 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20 rounded-xl text-center">
-              <div className="text-3xl mb-2">🎉</div>
+              <PartyPopper size={28} className="mx-auto mb-2 text-amber-600 dark:text-brand-amber" aria-hidden />
               <p className="text-amber-700 dark:text-brand-amber text-sm font-medium">Password updated! Redirecting...</p>
             </div>
           )}

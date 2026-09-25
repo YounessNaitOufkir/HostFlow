@@ -10,6 +10,7 @@
 // ============================================================
 
 import * as Sentry from "@sentry/nextjs";
+import { AlertTriangle } from "lucide-react";
 import { useEffect } from "react";
 
 export default function GlobalError({
@@ -27,8 +28,8 @@ export default function GlobalError({
     <html lang="en">
       <body className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950 font-sans">
         <div className="max-w-md w-full text-center p-6 space-y-6">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-3xl">
-            ⚠️
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+            <AlertTriangle size={30} className="text-red-500 dark:text-red-400" aria-hidden />
           </div>
           <div className="space-y-2">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">

@@ -29,6 +29,24 @@ export const GANTT_ROW_HEIGHTS = {
 
 export type GanttRowKind = keyof typeof GANTT_ROW_HEIGHTS;
 
+/** The row-size choice in the Gantt view menu; a per-user preference. */
+export type GanttRowSize = "compact" | "default" | "comfortable";
+export const GANTT_ROW_SIZES = ["compact", "default", "comfortable"] as const;
+
+/** Row heights per size. "comfortable" is what every Gantt used before the choice existed. */
+export const GANTT_ROW_SIZE_HEIGHTS: Record<GanttRowSize, Record<GanttRowKind, number>> = {
+  compact: { project: 36, group: 30, item: 36 },
+  default: { project: 44, group: 36, item: 48 },
+  comfortable: GANTT_ROW_HEIGHTS,
+};
+
+/** Task bar height inside a row of this size. */
+export const GANTT_BAR_HEIGHTS: Record<GanttRowSize, number> = {
+  compact: 18,
+  default: 22,
+  comfortable: 22,
+};
+
 interface RowBase {
   id: string;
   kind: GanttRowKind;
@@ -91,6 +109,8 @@ export interface BuildRowsOptions {
   profiles?: Profile[];
   /** Master Gantt: emit a swimlane header per board. */
   showProjectRows?: boolean;
+  /** Row heights to lay out with; defaults to GANTT_ROW_HEIGHTS. */
+  heights?: Record<GanttRowKind, number>;
 }
 
 export interface GanttRowModel {
@@ -191,13 +211,15 @@ function baselineOf(item: Item): { start: Date; end: Date } | null {
   return start && end ? { start, end: end < start ? start : end } : null;
 }
 
-function isMilestone(item: Item, board: Board, plotted: PlottedDates): boolean {
+/**
+ * Only a task ticked in the board's declared milestone checkbox is a milestone.
+ * A one-day timeline used to count as one automatically, but on these boards a
+ * one-day task is ordinary work (a delivery, a visit) and read as a diamond it
+ * looked like a marker rather than a task that fills its day.
+ */
+function isMilestone(item: Item, board: Board): boolean {
   const column = resolveMilestoneColumn(board);
-  if (column && item.column_values?.[column.id] === true) return true;
-  // A zero-length timeline is a milestone by definition. A bare `date` column
-  // is left as a one-day bar: it is usually a due date on ordinary work, and
-  // turning every one into a diamond would redraw boards nobody asked about.
-  return plotted.colType === "timeline" && plotted.start.getTime() === plotted.end.getTime();
+  return !!column && item.column_values?.[column.id] === true;
 }
 
 export function buildGanttRows({
@@ -205,6 +227,7 @@ export function buildGanttRows({
   collapsed,
   profiles,
   showProjectRows = false,
+  heights = GANTT_ROW_HEIGHTS,
 }: BuildRowsOptions): GanttRowModel {
   const collapsedSet =
     collapsed instanceof Set ? collapsed : new Set(collapsed ?? []);
@@ -250,7 +273,7 @@ export function buildGanttRows({
           kind: "item",
           depth: baseDepth + 1,
           y: 0,
-          height: GANTT_ROW_HEIGHTS.item,
+          height: heights.item,
           start: plotted.start,
           end: plotted.end,
           color: groupColor,
@@ -261,7 +284,7 @@ export function buildGanttRows({
           group,
           columnId: plotted.columnId,
           colType: plotted.colType,
-          isMilestone: isMilestone(item, board, plotted),
+          isMilestone: isMilestone(item, board),
           statusColor: statusColorOf(board, item),
           groupColor,
           assigneeNames: assigneeNamesOf(item, board, profiles),
@@ -290,7 +313,7 @@ export function buildGanttRows({
           kind: "group",
           depth: baseDepth,
           y: 0,
-          height: GANTT_ROW_HEIGHTS.group,
+          height: heights.group,
           start: groupStart,
           end: groupEnd,
           color: group.color || GANTT_DEFAULT_COLOR,
@@ -312,7 +335,7 @@ export function buildGanttRows({
         kind: "project",
         depth: 0,
         y: 0,
-        height: GANTT_ROW_HEIGHTS.project,
+        height: heights.project,
         start: projectStart,
         end: projectEnd,
         color: GANTT_DEFAULT_COLOR,

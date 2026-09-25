@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>You're offline — HostFlow</title>
+<!--
+  A static, unbuilt file: sw.js serves this with no network at all, so it
+  cannot pull in Next's CSS/JS bundles or Google Fonts. Everything it needs
+  is inline, and the moment the connection is back it reloads on its own.
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; background: #0E1733; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 24px;
+  }
+  .icon { width: 72px; height: 72px; filter: drop-shadow(0 10px 24px rgba(0,0,0,.45)); }
+  h1 { font-size: 17px; font-weight: 700; margin: 0; }
+  p { font-size: 13.5px; color: rgba(255,255,255,.65); margin: 0; max-width: 32ch; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #F5A623; display: inline-block; margin-right: 6px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; opacity: .8; } }
+</style>
+</head>
+<body>
+  <!-- Same as scripts/assets/icon-desktop.svg: the app icon, drawn inline
+       because nothing else can be fetched while offline. -->
+  <svg class="icon" viewBox="0 0 512 512" aria-hidden="true">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A4180"/><stop offset="1" stop-color="#16244C"/></linearGradient></defs>
+    <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#g)"/>
+    <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="4"/>
+    <g transform="translate(256 256) scale(1.16) translate(-256 -256)">
+      <rect x="104" y="130" width="184" height="68" rx="34" fill="#FFFFFF"/>
+      <rect x="160" y="222" width="256" height="68" rx="34" fill="#F5A623"/>
+      <rect x="224" y="314" width="160" height="68" rx="34" fill="#FFFFFF"/>
+    </g>
+  </svg>
+  <h1>You're offline</h1>
+  <p><span class="dot" aria-hidden="true"></span>We'll reconnect automatically as soon as you're back online.</p>
+  <script>
+    // No React, no bundler here — this file is served by the service worker
+    // with no network reachable at all, so it can only use what the browser
+    // itself provides.
+    window.addEventListener("online", function () { window.location.reload(); });
+  </script>
+</body>
+</html>

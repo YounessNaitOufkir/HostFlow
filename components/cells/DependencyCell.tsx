@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { Item, Column } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
-import { Link2, AlertCircle, X, CalendarClock } from "lucide-react";
+import { Link2, AlertCircle, AlertTriangle, X, CalendarClock } from "lucide-react";
 import { useBoardStore } from "@/hooks/useBoardStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
@@ -333,7 +333,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
                         : "bg-[#cce5ff] text-[#323338] dark:bg-[#cce5ff]/20 dark:text-[#cce5ff]"
                 }`}
               >
-                {dep.hasConflict && "⚠️ "}
+                {dep.hasConflict && <AlertTriangle size={12} strokeWidth={2.25} className="inline-block align-[-2px] mr-1" aria-hidden />}
                 {/* The board is always named for anything off-board, and the
                     property joins it once the link crosses one - three boards
                     are called "Lancement", so the board alone stops

@@ -10,12 +10,15 @@ import type { GanttBoardContext } from "@/lib/gantt/rows";
 
 const TIMELINE: Column = { id: "col-timeline", title: "Works", type: "timeline" };
 const DEP: Column = { id: "col-dep", title: "Depends on", type: "dependency" };
+/** The board's declared milestone checkbox: the only thing that makes a diamond. */
+const MILESTONE: Column = { id: "col-milestone", title: "Milestone", type: "checkbox" };
 
 const board: Board = {
   id: "b1",
   name: "Lancement",
   description: "",
-  columns: [TIMELINE, DEP],
+  columns: [TIMELINE, DEP, MILESTONE],
+  gantt_config: { milestoneColumnId: MILESTONE.id },
 };
 
 const group: Group = {
@@ -26,22 +29,22 @@ const group: Group = {
   board_id: "b1",
 };
 
-function task(id: string, name: string, start: string, end: string, position: number): Item {
+function task(id: string, name: string, start: string, end: string, position: number, milestone = false): Item {
   return {
     id,
     name,
     group_id: "g1",
     board_id: "b1",
     position,
-    column_values: { [TIMELINE.id]: { start, end } },
+    column_values: { [TIMELINE.id]: { start, end }, [MILESTONE.id]: milestone },
   };
 }
 
-/** Permis runs Mar 2–6, Devis Mar 9–13 and depends on it, Reunion is a one-day milestone. */
+/** Permis runs Mar 2–6, Devis Mar 9–13 and depends on it, Reunion is a milestone. */
 const items: Item[] = [
   task("i1", "Permis", "2026-03-02", "2026-03-06", 0),
   task("i2", "Devis", "2026-03-09", "2026-03-13", 1),
-  task("i3", "Reunion", "2026-03-16", "2026-03-16", 2),
+  task("i3", "Reunion", "2026-03-16", "2026-03-16", 2, true),
 ];
 
 const itemLinks: ItemLink[] = [
@@ -195,11 +198,31 @@ describe("GanttChart rows", () => {
     expect(summaryOf()).not.toBeNull();
   });
 
-  it("renders a zero-length timeline as a milestone rather than a one-day bar", () => {
+  it("renders a task ticked as a milestone as a diamond", () => {
     renderChart();
     expect(
       screen.getByRole("button", { name: /^Milestone: Reunion/ })
     ).toBeInTheDocument();
+  });
+
+  it("renders a one-day task as a bar filling its day", () => {
+    const oneDay = task("i4", "Livraison", "2026-03-18", "2026-03-18", 3);
+    renderChart({ contexts: [{ board, groups: [group], items: [...items, oneDay] }] });
+    const bar = screen.getByRole("button", { name: /^Livraison,/ });
+    expect(screen.queryByRole("button", { name: /^Milestone: Livraison/ })).toBeNull();
+    expect(parseFloat(bar.style.width)).toBeGreaterThanOrEqual(PX_PER_DAY.day);
+  });
+
+  it("sizes rows and bars by the chosen row size", async () => {
+    const user = userEvent.setup();
+    renderChart();
+    const rowOf = () => screen.getByRole("button", { name: /^Permis,/ }).parentElement as HTMLElement;
+    expect(parseFloat(rowOf().style.height)).toBe(48);
+
+    await user.click(screen.getByRole("button", { name: /View/ }));
+    await user.click(screen.getByRole("button", { name: "Compact" }));
+    expect(parseFloat(rowOf().style.height)).toBe(36);
+    expect(screen.getByRole("button", { name: /^Permis,/ }).style.height).toBe("18px");
   });
 
   it("hides a collapsed group's tasks but keeps the group", () => {

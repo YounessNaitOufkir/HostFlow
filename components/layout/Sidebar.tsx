@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, Loader2, ChevronLeft, ChevronRight, PieChart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
@@ -507,6 +507,22 @@ export default function Sidebar({
                     {t("sidebar.masterGantt")}
                   </span>
                 </button>
+
+                {!activeWorkspace && profile?.is_staff && (
+                  <button
+                    type="button"
+                    className={`group w-full text-left flex items-center px-4 py-2 cursor-pointer transition-colors ${mainView === 'portfolio_overview' ? 'bg-[#cce5ff] dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
+                    onClick={() => {
+                      onSwitchBoard(null);
+                      onSetMainView("portfolio_overview");
+                    }}
+                  >
+                    <PieChart size={15} className={`mr-2 ${mainView === 'portfolio_overview' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                    <span className={`text-[13px] truncate ${mainView === 'portfolio_overview' ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {t("sidebar.portfolio")}
+                    </span>
+                  </button>
+                )}
 
                 {/* Boards Section (per-workspace) / Workspaces Section (all-workspaces) */}
                 <div className="px-4 mb-2 mt-5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center relative">
