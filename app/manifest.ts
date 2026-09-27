@@ -29,16 +29,31 @@ export default function manifest(): MetadataRoute.Manifest {
         type: 'image/png',
         purpose: 'any',
       },
-      // The phone icon, unchanged: the mark sits inside the maskable safe
-      // zone, so it survives an OS crop and still looks right uncropped.
       {
         src: '/icon.svg',
         sizes: 'any',
         type: 'image/svg+xml',
         purpose: 'any',
       },
+      // The phone home-screen icon. Its own asset rather than icon.svg: Android
+      // launchers show only the central ~68% of a maskable icon, where
+      // icon.svg's mark filled ~90% of the tile and crowded its edges. This
+      // one draws the mark smaller (see public/icon-maskable.svg). PNGs first
+      // because not every Android installer rasterizes SVG manifest icons.
       {
-        src: '/icon.svg',
+        src: '/icon-maskable-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icon-maskable-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icon-maskable.svg',
         sizes: 'any',
         type: 'image/svg+xml',
         purpose: 'maskable',
