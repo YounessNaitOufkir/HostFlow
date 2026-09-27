@@ -6,6 +6,7 @@ import { Calendar, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { parseDateOnly } from "@/lib/gantt/dates";
 import DatePopover from "@/components/ui/DatePopover";
+import { STATUS_BEFORE_DONE } from "@/lib/doneLink";
 
 interface DateCellProps {
   item: Item;
@@ -18,7 +19,10 @@ export default function DateCell({ item, column, onUpdate }: DateCellProps) {
   const value: string = item.column_values[column.id] || "";
   const date = parseDateOnly(value);
   const formatted = date ? date.toLocaleDateString(bcp47, { month: "short", day: "numeric" }) : null;
-  const isOverdue = Object.values(item.column_values || {}).includes("Overdue");
+  // Not the status a ticked task had before it was done: that is history.
+  const isOverdue = Object.entries(item.column_values || {}).some(
+    ([key, v]) => key !== STATUS_BEFORE_DONE && v === "Overdue"
+  );
 
   return (
     <DatePopover

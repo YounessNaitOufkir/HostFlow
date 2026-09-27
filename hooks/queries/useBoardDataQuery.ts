@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { queryKeys } from "./queryKeys";
 import { Group, Item, ItemLink, Automation } from "@/types";
 import { fetchAllRows, chunkIds } from "@/lib/supabasePaging";
+import { fetchSettled } from "@/lib/pendingWrites";
 
 export interface BoardDataQueryResult {
   groups: Group[];
@@ -17,7 +18,8 @@ export interface BoardDataQueryResult {
 export function useBoardDataQuery(boardId: string | null, enabled = true) {
   return useQuery<BoardDataQueryResult>({
     queryKey: queryKeys.boardData(boardId || ""),
-    queryFn: async () => {
+    // After your own saves, so an edit you just made never flickers back.
+    queryFn: () => fetchSettled(async () => {
       if (!boardId) {
         return {
           groups: [],
@@ -84,7 +86,7 @@ export function useBoardDataQuery(boardId: string | null, enabled = true) {
         automations: (automationsRes.data || []) as Automation[],
         itemLinks: fetchedLinks,
       };
-    },
+    }),
     enabled: Boolean(boardId && enabled),
   });
 }

@@ -11,6 +11,7 @@ import CellRenderer from "@/components/cells/CellRenderer";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { useT } from "@/components/LanguageProvider";
+import { COMMENTS_CHANGED_EVENT, RESYNC_EVENT } from "@/hooks/useLiveSync";
 
 interface ItemRowProps {
   item: Item;
@@ -73,31 +74,29 @@ const ItemRow = memo(function ItemRow({
     }
     fetchCount();
 
-    const channelName = `updates-count-${item.id}-${Math.random()}`;
-    const channel = supabase.channel(channelName)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'updates', filter: `item_id=eq.${item.id}` }, () => {
-        if (isMounted) fetchCount(); // Refetch to be safe, or just +1 since inserts are rarely soft-deleted initially
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'updates', filter: `item_id=eq.${item.id}` }, () => {
-        if (isMounted) fetchCount(); // Could be a soft-delete or restore
-      })
-      .subscribe();
-
+    // A colleague's comment arrives through useLiveSync, and after a gap in
+    // the connection every row recounts.
     const handleLocalUpdate = (e: any) => {
       if (e.detail?.itemId === item.id && isMounted) {
         fetchCount();
       }
     };
+    const handleResync = () => {
+      if (isMounted) fetchCount();
+    };
     window.addEventListener('update-added', handleLocalUpdate);
     window.addEventListener('update-deleted', handleLocalUpdate);
     window.addEventListener('update-restored', handleLocalUpdate);
+    window.addEventListener(COMMENTS_CHANGED_EVENT, handleLocalUpdate);
+    window.addEventListener(RESYNC_EVENT, handleResync);
 
     return () => { 
-      isMounted = false; 
-      supabase.removeChannel(channel);
+      isMounted = false;
       window.removeEventListener('update-added', handleLocalUpdate);
       window.removeEventListener('update-deleted', handleLocalUpdate);
       window.removeEventListener('update-restored', handleLocalUpdate);
+      window.removeEventListener(COMMENTS_CHANGED_EVENT, handleLocalUpdate);
+      window.removeEventListener(RESYNC_EVENT, handleResync);
     };
   }, [item.id]);
 

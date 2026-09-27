@@ -4,6 +4,7 @@ import React from "react";
 import { Column, Item } from "@/types";
 import { useLanguage } from "@/components/LanguageProvider";
 import { formatColumnNumber } from "@/lib/numberFormat";
+import { getColumnWidth } from "@/lib/columnRegistry";
 
 interface GroupFooterProps {
   columns: Column[];
@@ -36,16 +37,8 @@ export default function GroupFooter({ columns, items, groupColor }: GroupFooterP
 
       {/* Column cells — only numbers show a sum */}
       {columns.map((col) => {
-        const widthMap: Record<string, string> = {
-          text: "w-48",
-          people: "w-36",
-          timeline: "w-48",
-          tags: "w-48",
-          priority: "w-36",
-          files: "w-40",
-          dependency: "w-48",
-        };
-        const defaultWidthClass = widthMap[col.type] || "w-32";
+        // The registry's width, as the header and cells use.
+        const defaultWidthClass = getColumnWidth(col.type);
         const widthClass = col.width ? '' : defaultWidthClass;
         const inlineStyle = col.width ? { width: `${col.width}px` } : undefined;
 

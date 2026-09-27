@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { BUDGET_COLUMN_SETTINGS } from "@/lib/numberFormat";
 import type { Item, Column, ColumnType, Profile, Group } from "@/types";
-import ColumnHeader from "@/components/ColumnHeader";
+import ColumnHeader, { type ColumnDoneLink } from "@/components/ColumnHeader";
 import GroupFooter from "@/components/GroupFooter";
 import ItemRow from "@/components/board/ItemRow";
 import { getColumnsByCategory } from "@/lib/columnRegistry";
@@ -59,6 +59,7 @@ export interface GroupSectionProps {
   onResizeItemNameColumn?: (width: number) => void;
   onAddColumn: (type: ColumnType, preset?: Pick<Column, "title" | "settings">) => void;
   onRenameColumn: (columnId: string, title: string) => void;
+  doneLinkFor?: (column: Column) => ColumnDoneLink | undefined;
   onResizeColumn: (columnId: string, width: number) => void;
   onAutoFitColumn?: (columnId: string) => void;
   onAutoFitItemName?: () => void;
@@ -119,6 +120,7 @@ const GroupSection = memo(function GroupSection({
   onResizeItemNameColumn,
   onAddColumn,
   onRenameColumn,
+  doneLinkFor,
   onResizeColumn,
   onAutoFitColumn,
   onAutoFitItemName,
@@ -508,6 +510,7 @@ const GroupSection = memo(function GroupSection({
                           column={col}
                           dragHandleProps={colProvided.dragHandleProps}
                           onRename={onRenameColumn}
+                          doneLink={doneLinkFor?.(col)}
                           onResize={onResizeColumn}
                           onAutoFit={onAutoFitColumn}
                           onDelete={onDeleteColumn}

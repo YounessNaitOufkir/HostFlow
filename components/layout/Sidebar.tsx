@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, ChevronLeft, ChevronRight, PieChart } from "lucide-react";
+import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, ChevronLeft, ChevronRight, PieChart, LayoutTemplate } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
@@ -37,6 +37,8 @@ interface SidebarProps {
   onSwitchBoard: (board: Board | null) => void;
   onSetMainView: (view: any) => void;
   onCreateBoard: () => void;
+  /** Shared workspaces only: start a board from one of the company's templates. */
+  onCreateBoardFromTemplate?: () => void;
   onRenameBoard: (board: Board) => void;
   onDeleteBoard: (board: Board) => void;
   onSelectWorkspace: (ws: Workspace | null) => void;
@@ -93,6 +95,7 @@ export default function Sidebar({
   onSwitchBoard,
   onSetMainView,
   onCreateBoard,
+  onCreateBoardFromTemplate,
   onRenameBoard,
   onDeleteBoard,
   onSelectWorkspace,
@@ -553,6 +556,18 @@ export default function Sidebar({
                           >
                             <LayoutGrid size={14} className="mr-2" /> {t("sidebar.blankBoard")}
                           </button>
+                          {onCreateBoardFromTemplate && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onCreateBoardFromTemplate();
+                                setIsCreateMenuOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] text-gray-700 dark:text-gray-300 flex items-center cursor-pointer transition-colors"
+                            >
+                              <LayoutTemplate size={14} className="mr-2" /> {t("sidebar.fromTemplate")}
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {

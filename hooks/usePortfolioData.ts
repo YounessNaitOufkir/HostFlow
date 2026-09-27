@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Board, Item } from "@/types";
 import { queryKeys } from "./queries/queryKeys";
@@ -29,8 +29,6 @@ export function fetchPortfolioItems(boardIds: string[]): Promise<Item[]> {
  * cannot open returns nothing from it rather than an error.
  */
 export function usePortfolioData(boards: Board[]) {
-  const queryClient = useQueryClient();
-
   // Sorted so the cache key does not change when the same boards arrive in a different order.
   const boardIdKey = useMemo(() => boards.map((b) => b.id).sort().join(","), [boards]);
   const boardIds = useMemo(() => boardIdKey.split(",").filter(Boolean), [boardIdKey]);
@@ -42,29 +40,7 @@ export function usePortfolioData(boards: Board[]) {
     enabled: boardIds.length > 0,
   });
 
-  // No board is open on this page, so the board-scoped realtime channel is not running.
-  useEffect(() => {
-    if (boardIds.length === 0) return;
-    const boardIdSet = new Set(boardIds);
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const channel = supabase
-      .channel("portfolio-overview")
-      .on("postgres_changes", { event: "*", schema: "public", table: "items" }, (payload) => {
-        const row = (payload.new as { board_id?: string } | null) ?? (payload.old as { board_id?: string } | null);
-        const boardId = row?.board_id;
-        if (typeof boardId === "string" && !boardIdSet.has(boardId)) return;
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => queryClient.invalidateQueries({ queryKey: ["portfolio"] }), 200);
-      })
-      .subscribe();
-
-    return () => {
-      if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardIdKey, queryClient]);
+  // Kept current by useLiveSync, which refreshes it whenever a task changes.
 
   return {
     items: boardIds.length > 0 ? data : NO_ITEMS,

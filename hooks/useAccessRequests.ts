@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { queryKeys } from "@/hooks/queries/queryKeys";
@@ -41,8 +41,6 @@ async function fetchAccessRequests(withPeople: boolean) {
 export function useAccessRequests(userId: string | null | undefined, { withPeople = false } = {}) {
   const t = useT();
   const queryClient = useQueryClient();
-  // Its own channel: the bell and Admin settings can both be open at once.
-  const instance = useId();
 
   const { data } = useQuery({
     queryKey: queryKeys.accessRequests(userId ?? "", withPeople),
@@ -50,19 +48,8 @@ export function useAccessRequests(userId: string | null | undefined, { withPeopl
     queryFn: () => fetchAccessRequests(withPeople),
   });
 
-  // Another admin's decision, or the answer to your own request, arrives live.
-  useEffect(() => {
-    if (!userId) return;
-    const channel = supabase
-      .channel(`access-requests-${instance}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "access_requests" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["accessRequests"] });
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, instance, queryClient]);
+  // Another admin's decision, or the answer to your own request, arrives
+  // through useLiveSync.
 
   const requests = useMemo(() => data?.requests ?? [], [data]);
   const people = useMemo(() => new Map((data?.people ?? []).map((p) => [p.id, p])), [data]);

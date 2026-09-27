@@ -75,8 +75,16 @@ export function boardReducer(
     }
     case "ADD_WORKSPACE":
       return { ...state, workspaces: [...state.workspaces, action.payload] };
-    case "SET_BOARDS":
-      return { ...state, boards: action.payload };
+    case "SET_BOARDS": {
+      // The open board is its own copy of a row in the list. Refreshed from the
+      // new list, so a column a colleague added shows on the board they are
+      // both looking at. A board no longer listed is left for app/page.tsx,
+      // which moves the person off it and says why.
+      const fresh = state.activeBoard
+        ? action.payload.find((b) => b.id === state.activeBoard!.id)
+        : undefined;
+      return { ...state, boards: action.payload, activeBoard: fresh ?? state.activeBoard };
+    }
     case "SET_ACTIVE_BOARD":
       return { 
         ...state, 

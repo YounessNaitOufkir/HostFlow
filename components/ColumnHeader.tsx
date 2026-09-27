@@ -6,11 +6,23 @@ import { displayColumnTitle } from "@/lib/i18n/labels";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { Column } from "@/types";
-import { GripVertical, Pencil, Trash2, X, Check } from "lucide-react";
+import { getColumnWidth } from "@/lib/columnRegistry";
+import { GripVertical, Pencil, Trash2, X, Check, CircleCheck } from "lucide-react";
+import type { DoneLinkAvailability } from "@/lib/doneLink";
 import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
+
+/** A checkbox column's link to the task's status - see lib/doneLink.ts. */
+export interface ColumnDoneLink {
+  enabled: boolean;
+  /** Whether the board has a status column with a "done" label to set. */
+  availability: DoneLinkAvailability;
+  onToggle: (on: boolean) => void;
+}
 
 interface ColumnHeaderProps {
   column: Column;
+  /** Checkbox columns only. */
+  doneLink?: ColumnDoneLink;
   /** Drag handle props from the parent Draggable wrapper */
   dragHandleProps: DraggableProvidedDragHandleProps | null | undefined;
   onRename: (columnId: string, newTitle: string) => void;
@@ -22,6 +34,7 @@ interface ColumnHeaderProps {
 
 export default function ColumnHeader({
   column,
+  doneLink,
   dragHandleProps,
   onRename,
   onResize,
@@ -81,16 +94,10 @@ export default function ColumnHeader({
     onDelete(column.id);
   };
 
-  const widthMap: Record<string, string> = {
-    text: "w-48",
-    people: "w-36",
-    timeline: "w-48",
-    tags: "w-48",
-    priority: "w-36",
-    files: "w-40",
-    dependency: "w-48",
-  };
-  const defaultWidthClass = widthMap[column.type] || "w-32";
+  // From the registry, the same width the cells below use. A list of its own
+  // here left out checkbox, formula, link and relation, so an unresized
+  // column's header and cells were different widths.
+  const defaultWidthClass = getColumnWidth(column.type);
 
   const handleResizeStart = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -213,6 +220,43 @@ export default function ColumnHeader({
                 <Pencil size={14} className="mr-2.5 text-gray-400 dark:text-gray-500" />
                 {t("col.renameColumn")}
               </button>
+              {doneLink && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={doneLink.enabled && doneLink.availability === "ok"}
+                  disabled={doneLink.availability !== "ok"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    doneLink.onToggle(!doneLink.enabled);
+                  }}
+                  className="flex items-start w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+                >
+                  <CircleCheck size={14} className="mr-2.5 mt-0.5 shrink-0 text-gray-400 dark:text-gray-500" />
+                  <span className="flex-1 min-w-0">
+                    <span className={`block ${doneLink.availability !== "ok" ? "text-gray-400 dark:text-gray-500" : ""}`}>
+                      {t("col.marksDone")}
+                    </span>
+                    {doneLink.availability !== "ok" && (
+                      <span className="block text-[11.5px] leading-snug text-gray-400 dark:text-gray-500 mt-0.5">
+                        {doneLink.availability === "noStatus" ? t("col.marksDoneNoStatus") : t("col.marksDoneNoLabel")}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    aria-hidden
+                    className={`ml-2 mt-0.5 w-7 h-4 rounded-full shrink-0 relative transition-colors ${
+                      doneLink.enabled && doneLink.availability === "ok" ? "bg-[#00c875]" : "bg-gray-300 dark:bg-slate-600"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-all ${
+                        doneLink.enabled && doneLink.availability === "ok" ? "left-3.5" : "left-0.5"
+                      }`}
+                    />
+                  </span>
+                </button>
+              )}
               <div className="border-t border-gray-100 dark:border-slate-800 my-1"></div>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(); }}

@@ -74,6 +74,11 @@ export interface ColumnSettings {
   linkDisplay?: "url" | "button";
   /** Rating max stars */
   ratingMax?: number;
+  /**
+   * Checkbox columns: ticking marks the task done, and the box follows the
+   * status. Unset means "decide by name" - see lib/doneLink.ts.
+   */
+  marksDone?: boolean;
 }
 
 // ============================================================

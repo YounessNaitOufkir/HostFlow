@@ -7,6 +7,7 @@ import { displayColumnTitle, displayPriority, displayStatus } from "@/lib/i18n/l
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from "@hello-pangea/dnd";
 import { Plus, Layout as LayoutIcon } from "lucide-react";
 import type { Board, Item, Column, ColumnType, Group, Profile, Automation } from "@/types";
+import type { ColumnDoneLink } from "@/components/ColumnHeader";
 import GroupSection from "@/components/board/GroupSection";
 import { Tooltip } from "@/components/ui/Tooltip";
 
@@ -47,6 +48,8 @@ interface BoardTableViewProps {
   onSetItemMenuOpen: (id: string | null) => void;
   onAddColumn: (type: ColumnType, preset?: Pick<Column, "title" | "settings">) => void;
   onRenameColumn: (columnId: string, title: string) => void;
+  /** Checkbox columns: the "ticking marks the task done" switch. */
+  doneLinkFor?: (column: Column) => ColumnDoneLink | undefined;
   onResizeColumn: (columnId: string, width: number) => void;
   onDeleteColumn: (columnId: string) => void;
   onChangeGroupColor: (groupId: string, color: string) => void;
@@ -96,6 +99,7 @@ export default function BoardTableView({
   onSetItemMenuOpen,
   onAddColumn,
   onRenameColumn,
+  doneLinkFor,
   onResizeColumn,
   onDeleteColumn,
   onChangeGroupColor,
@@ -261,6 +265,7 @@ export default function BoardTableView({
                                 onChangeGroupColor={onChangeGroupColor}
                                 onAddColumn={onAddColumn}
                                 onRenameColumn={onRenameColumn}
+                                doneLinkFor={doneLinkFor}
                                 onResizeColumn={onResizeColumn}
                                 onAutoFitColumn={handleAutoFitColumn}
                                 onAutoFitItemName={handleAutoFitItemName}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { queryKeys } from "@/hooks/queries/queryKeys";
@@ -37,10 +37,6 @@ export interface DelayNotesApi {
 export function useDelayNotes(boardIds: string[]): DelayNotesApi {
   const queryClient = useQueryClient();
   const key = queryKeys.delayNotes(boardIds);
-  const idsKey = key[1].join(",");
-  // Its own channel: the task panel and the Gantt can watch the same board at
-  // once, and sharing a channel name would let one close the other's.
-  const instance = useId();
 
   const { data: notes = [] } = useQuery({
     queryKey: key,
@@ -48,23 +44,7 @@ export function useDelayNotes(boardIds: string[]): DelayNotesApi {
     queryFn: () => fetchDelayNotes(boardIds),
   });
 
-  // Someone else's note arrives without a reload.
-  useEffect(() => {
-    if (!idsKey) return;
-    const ids = new Set(idsKey.split(","));
-    const channel = supabase
-      .channel(`delay-notes-${instance}-${idsKey}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "delay_notes" }, (payload) => {
-        const row = (payload.new ?? payload.old) as { board_id?: string } | undefined;
-        if (!row?.board_id || ids.has(row.board_id)) {
-          queryClient.invalidateQueries({ queryKey: ["delayNotes"] });
-        }
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [idsKey, instance, queryClient]);
+  // Someone else's note arrives through useLiveSync.
 
   const byItem = useMemo(() => {
     const map = new Map<string, DelayNote[]>();

@@ -6,7 +6,8 @@
 //
 // This file is now a thin orchestrator (~250 lines) that composes:
 // - useBoardStore (state management)
-// - useRealtimeSync (realtime subscriptions)
+// - useLiveSync (live updates from the database)
+// - useRealtimeSync (same-browser tab sync)
 // - useFilters (filter/sort logic)
 // - Layout components (Sidebar, BoardHeader)
 // - View components (BoardTableView, KanbanView, etc.)
@@ -20,7 +21,9 @@ import { AnimatePresence, motion } from "framer-motion";
 
 // Hooks
 import { useBoardStore } from "@/hooks/useBoardStore";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { useRealtimeSync, notifyTabSyncBoards } from "@/hooks/useRealtimeSync";
+import { useLiveSync } from "@/hooks/useLiveSync";
+import { ReconnectingIndicator } from "@/components/ReconnectingIndicator";
 import { useFilters } from "@/hooks/useFilters";
 import { useAuth } from "@/components/AuthProvider";
 import { useQueryClient } from "@tanstack/react-query";
@@ -42,6 +45,10 @@ import { useLocaleSync } from "@/hooks/useLocaleSync";
 import type { Board, Workspace } from "@/types";
 
 import { duplicateBoard, duplicateWorkspace } from "@/lib/templateUtils";
+import { createBoardFromTemplate } from "@/lib/companyTemplates";
+import { doneLinkAvailability, marksDone } from "@/lib/doneLink";
+import { SaveTemplateDialog } from "@/components/templates/SaveTemplateDialog";
+import { NewBoardDialog } from "@/components/templates/NewBoardDialog";
 import { executeImport } from "@/lib/importUtils";
 import ImportModal, { ImportConfig } from "@/components/ImportModal";
 import { AssignablePeopleContext } from "@/components/AssignablePeopleContext";
@@ -205,6 +212,44 @@ export default function HostFlowApp() {
       reportMutationError(err, "Failed to duplicate board");
     } finally {
       setIsDuplicating(false);
+    }
+  };
+
+  // ---- Company templates: only boards in shared workspaces.
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [newBoardIn, setNewBoardIn] = useState<string | null>(null);
+  const isShared = (boardOrWorkspace: { is_private?: boolean | null } | null | undefined) =>
+    !!boardOrWorkspace && !boardOrWorkspace.is_private;
+  const activeBoardIsShared =
+    isShared(state.activeBoard) &&
+    isShared(state.workspaces.find((w) => w.id === state.activeBoard?.workspace_id));
+
+  /** "+ New board": a shared workspace offers the company's templates first. */
+  const handleCreateBoard = () => {
+    const ws = state.activeWorkspace;
+    if (ws && isShared(ws)) setNewBoardIn(ws.id);
+    else store.createBoard(ws?.id, profile);
+  };
+
+  const handleCreateBoardFromDialog = async (name: string, templateId: string | null) => {
+    const workspaceId = newBoardIn;
+    if (!workspaceId) return;
+    if (!templateId) {
+      await store.createBoard(workspaceId, profile, name);
+      setNewBoardIn(null);
+      return;
+    }
+    try {
+      const board = await createBoardFromTemplate(templateId, workspaceId, name);
+      dispatch({ type: "ADD_BOARD", payload: board });
+      queryClient.invalidateQueries({ queryKey: queryKeys.boards() });
+      notifyTabSyncBoards();
+      store.switchBoard(board);
+      setNewBoardIn(null);
+    } catch (err) {
+      reportMutationError(err, t("ctpl.createFailed"), { table: "boards", operation: "insert" });
+      // Whatever was created before the failure is real; show it.
+      queryClient.invalidateQueries({ queryKey: queryKeys.boards() });
     }
   };
 
@@ -549,6 +594,30 @@ export default function HostFlowApp() {
     clearLegacyNavKeys();
   }, []);
 
+  // Access to the open board taken away (or the board deleted) by someone
+  // else: move to My Work and say why, rather than leave an empty board on
+  // screen. Only a board that WAS listed and no longer is counts - a board
+  // just created here is open before the list has caught up with it.
+  const listedBoardIds = useRef<Set<string> | null>(null);
+  const activeBoardRef = useRef(state.activeBoard);
+  useEffect(() => {
+    activeBoardRef.current = state.activeBoard;
+  }, [state.activeBoard]);
+  useEffect(() => {
+    if (!boardsData) return;
+    const ids = new Set(boardsData.map((b) => b.id));
+    const before = listedBoardIds.current;
+    listedBoardIds.current = ids;
+    if (!before) return;
+    // The list above is only replaced when it has boards in it.
+    if (ids.size === 0 && before.size > 0) dispatch({ type: "SET_BOARDS", payload: [] });
+    const active = activeBoardRef.current;
+    if (!active || ids.has(active.id) || !before.has(active.id)) return;
+    dispatch({ type: "SET_ACTIVE_BOARD", payload: null });
+    dispatch({ type: "SET_MAIN_VIEW", payload: "my_work" });
+    toast.info(t("live.boardGone"));
+  }, [boardsData, dispatch, t]);
+
   const { data: boardData, isLoading: isBoardDataLoading } = useBoardDataQuery(state.activeBoard?.id || null);
   useEffect(() => {
     if (boardData && state.activeBoard) {
@@ -596,28 +665,13 @@ export default function HostFlowApp() {
     [queryClient]
   );
 
-  const handleGlobalSettingsChanged = useCallback(
-    () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.globalSettings() });
-    },
-    [queryClient]
-  );
-
-  const handleAuditLogChanged = useCallback(
-    (boardId: string) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.auditLogs(boardId) });
-    },
-    [queryClient]
-  );
-
   useRealtimeSync({
     activeBoard: state.activeBoard,
     onBoardDataChanged: handleBoardDataChanged,
     onBoardsChanged: handleBoardsChanged,
     onWorkspacesChanged: handleWorkspacesChanged,
-    onGlobalSettingsChanged: handleGlobalSettingsChanged,
-    onAuditLogChanged: handleAuditLogChanged,
   });
+  const live = useLiveSync({ userId: user?.id, profile, refreshProfile });
 
   // ============================================================
   // Memoized Callbacks for child components
@@ -786,6 +840,20 @@ export default function HostFlowApp() {
       if (state.activeBoard) store.renameColumn(state.activeBoard, columnId, title);
     },
     [state.activeBoard, store.renameColumn]
+  );
+
+  // A checkbox column's "ticking marks the task done" switch - lib/doneLink.ts.
+  const doneLinkFor = useCallback(
+    (column: Column) => {
+      const board = state.activeBoard;
+      if (!board || column.type !== "checkbox") return undefined;
+      return {
+        enabled: marksDone(column, board),
+        availability: doneLinkAvailability(board),
+        onToggle: (on: boolean) => store.setColumnSettings(board, column.id, { marksDone: on }),
+      };
+    },
+    [state.activeBoard, store.setColumnSettings]
   );
 
   const handleDeleteColumn = useCallback(
@@ -1107,7 +1175,13 @@ export default function HostFlowApp() {
         onToggleSidebar={() => dispatch({ type: "SET_SHOW_SIDEBAR", payload: !state.showWorkspaceSidebar })}
         onSwitchBoard={store.switchBoard}
         onSetMainView={(view) => dispatch({ type: "SET_MAIN_VIEW", payload: view })}
+        // "Blank Board" is blank wherever it is; templates have their own item.
         onCreateBoard={() => store.createBoard(state.activeWorkspace?.id, profile)}
+        onCreateBoardFromTemplate={
+          state.activeWorkspace && isShared(state.activeWorkspace)
+            ? () => setNewBoardIn(state.activeWorkspace!.id)
+            : undefined
+        }
         onRenameBoard={store.renameBoard}
         onDeleteBoard={store.deleteBoard}
         onNotificationClick={handleNotificationClick}
@@ -1188,7 +1262,7 @@ export default function HostFlowApp() {
               }
             }}
             onSelectWorkspace={selectWorkspace}
-            onCreateBoard={() => store.createBoard(state.activeWorkspace?.id, profile)}
+            onCreateBoard={handleCreateBoard}
             onCreateWorkspace={() => store.createWorkspace(profile)}
             onImportData={() => setShowImportModal(true)}
           />
@@ -1266,7 +1340,12 @@ export default function HostFlowApp() {
                 hiddenColumns={boardHiddenColumns}
                 onToggleColumnVisibility={(colId) => store.toggleColumnVisibility(state.activeBoard!.id, colId)}
                 onAddTask={() => setShowTaskModal(true)}
-                onDuplicateBoard={handleDuplicateBoard}
+                // Shared boards become company templates, and are never copied
+                // in place; private ones keep Duplicate.
+                onDuplicateBoard={activeBoardIsShared ? undefined : handleDuplicateBoard}
+                onSaveAsTemplate={
+                  activeBoardIsShared && profile?.role === "admin" ? () => setSavingTemplate(true) : undefined
+                }
                 onImportData={() => setShowImportModal(true)}
               />
 
@@ -1312,6 +1391,7 @@ export default function HostFlowApp() {
                   onSetItemMenuOpen={(id) => dispatch({ type: "SET_ITEM_MENU_OPEN", payload: id })}
                   onAddColumn={handleAddColumn}
                   onRenameColumn={handleRenameColumn}
+                  doneLinkFor={doneLinkFor}
                   onResizeColumn={(colId, width) => store.resizeColumn(state.activeBoard!, colId, width)}
                   onDeleteColumn={handleDeleteColumn}
                   onChangeGroupColor={store.changeGroupColor}
@@ -1595,6 +1675,21 @@ export default function HostFlowApp() {
 
       {/* A declined request to join the team, told once. */}
       <AccessDeclinedPopup profile={profile} />
+      <ReconnectingIndicator show={live.reconnecting} />
+      {savingTemplate && state.activeBoard && (
+        <SaveTemplateDialog
+          boardId={state.activeBoard.id}
+          boardName={state.activeBoard.name}
+          onClose={() => setSavingTemplate(false)}
+        />
+      )}
+      {newBoardIn && (
+        <NewBoardDialog
+          canManageTemplates={profile?.role === "admin"}
+          onClose={() => setNewBoardIn(null)}
+          onCreate={handleCreateBoardFromDialog}
+        />
+      )}
     </div>
     </BoardAccessContext.Provider>
     </AssignablePeopleContext.Provider>

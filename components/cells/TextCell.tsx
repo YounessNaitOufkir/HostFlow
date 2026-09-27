@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Item, Column } from "@/types";
 import { useTruncationTooltip } from "@/components/ui/TruncatedText";
 
@@ -12,11 +12,17 @@ interface TextCellProps {
 
 export default function TextCell({ item, column, onUpdate }: TextCellProps) {
   const [localValue, setLocalValue] = useState(item.column_values[column.id] || "");
+  const [isFocused, setIsFocused] = useState(false);
+  // The text when the cell was entered. Leaving without changing it saves
+  // nothing, so a colleague's edit that arrived meanwhile is not put back.
+  const valueOnFocus = useRef("");
 
-  // Sync with external changes (e.g. realtime updates from other tabs)
+  // Sync with external changes (a colleague's edit, another tab) - but never
+  // while typing here, which would throw away what is being typed. Leaving the
+  // cell saves this text over theirs, as the last edit made.
   useEffect(() => {
-    setLocalValue(item.column_values[column.id] || "");
-  }, [item.column_values[column.id]]);
+    if (!isFocused) setLocalValue(item.column_values[column.id] || "");
+  }, [item.column_values[column.id], isFocused]);
 
   // An input clips its overflow without an ellipsis, so long values are just as
   // unreadable as truncated text. Reveal them on hover, but not while editing.
@@ -33,10 +39,15 @@ export default function TextCell({ item, column, onUpdate }: TextCellProps) {
         onMouseEnter={handlers.onMouseEnter}
         onMouseLeave={handlers.onMouseLeave}
         onBlur={() => {
+          setIsFocused(false);
           handlers.onBlur();
-          onUpdate(item.id, column.id, localValue);
+          if (localValue !== valueOnFocus.current) onUpdate(item.id, column.id, localValue);
         }}
-        onFocus={handlers.onMouseLeave}
+        onFocus={() => {
+          valueOnFocus.current = localValue;
+          setIsFocused(true);
+          handlers.onMouseLeave();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             (e.target as HTMLInputElement).blur();

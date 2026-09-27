@@ -11,10 +11,20 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
+import { useAuth } from "@/components/AuthProvider";
 import { BOARD_TEMPLATES, type TemplateId } from "@/lib/boardTemplates";
+import { useBoardTemplates } from "@/hooks/useBoardTemplates";
+import { BLANK, CompanyTemplatePicker } from "@/components/templates/CompanyTemplatePicker";
 
-/** Either a template to start from, or "skip the board and let me import one". */
-export type StartWith = { kind: "template"; templateId: TemplateId } | { kind: "import" };
+/**
+ * Where the first board starts: a built-in starting point (private
+ * workspaces, and Blank), one of the company's templates (shared workspaces),
+ * or "skip the board and let me import one".
+ */
+export type StartWith =
+  | { kind: "template"; templateId: TemplateId }
+  | { kind: "company"; templateId: string }
+  | { kind: "import" };
 
 export interface WorkspaceDraft {
   name: string;
@@ -68,7 +78,12 @@ export default function WorkspaceDialog({
   const [name, setName] = useState("");
   const [isPrivate, setIsPrivate] = useState(true);
   const [templateId, setTemplateId] = useState<TemplateId>("project");
+  // Shared workspaces start from the company's templates instead.
+  const [companyChoice, setCompanyChoice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { profile } = useAuth();
+  const shared = !isPrivate && canCreateShared;
+  const { templates, loading: templatesLoading } = useBoardTemplates(isOpen && shared);
 
   useEffect(() => {
     if (isOpen) {
@@ -77,6 +92,7 @@ export default function WorkspaceDialog({
       setName("");
       setIsPrivate(true);
       setTemplateId("project");
+      setCompanyChoice(null);
       setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [isOpen]);
@@ -85,8 +101,18 @@ export default function WorkspaceDialog({
 
   const trimmed = name.trim();
   const canAdvance = trimmed.length > 0;
+  // The first company template until one is picked, and Blank when there are
+  // none - or when the one picked has since been deleted.
+  const companyStillThere = companyChoice === BLANK || templates.some((tpl) => tpl.id === companyChoice);
+  const companySelected = companyChoice && companyStillThere ? companyChoice : templates[0]?.id ?? BLANK;
   const submit = () => {
-    if (canAdvance) onSubmit({ name: trimmed, isPrivate, startWith: { kind: "template", templateId } });
+    if (!canAdvance) return;
+    const startWith: StartWith = !shared
+      ? { kind: "template", templateId }
+      : companySelected === BLANK
+        ? { kind: "template", templateId: "blank" }
+        : { kind: "company", templateId: companySelected };
+    onSubmit({ name: trimmed, isPrivate, startWith });
   };
   const submitImportInstead = () => {
     if (canAdvance) onSubmit({ name: trimmed, isPrivate, startWith: { kind: "import" } });
@@ -234,9 +260,23 @@ export default function WorkspaceDialog({
               {t("tpl.heading", { name: trimmed })}
             </h3>
             <p className="mt-1 text-[13px] text-gray-500 dark:text-slate-400">
-              {t("tpl.subheading")}
+              {shared ? t("ctpl.wsSub") : t("tpl.subheading")}
             </p>
 
+            {shared ? (
+              <div className="mt-5 space-y-2">
+                <CompanyTemplatePicker
+                  templates={templates}
+                  loading={templatesLoading}
+                  selected={companySelected}
+                  onSelect={setCompanyChoice}
+                  canManage={profile?.role === "admin"}
+                />
+                {companySelected !== BLANK && (
+                  <p className="text-[12px] text-gray-500 dark:text-slate-400">{t("ctpl.datesNote")}</p>
+                )}
+              </div>
+            ) : (
             <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {BOARD_TEMPLATES.map((tpl) => {
                 const { Icon, tone } = TEMPLATE_LOOK[tpl.id];
@@ -278,6 +318,7 @@ export default function WorkspaceDialog({
                 );
               })}
             </div>
+            )}
           </div>
         )}
 

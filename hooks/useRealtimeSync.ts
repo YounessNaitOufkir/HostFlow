@@ -1,19 +1,20 @@
 "use client";
 
 // ============================================================
-// useRealtimeSync — Board-scoped realtime subscriptions
+// useRealtimeSync — same-browser tab sync
 // ============================================================
 //
-// Replaces the global wildcard subscription with targeted,
-// board-scoped channels that apply granular patches.
+// Changes from the database arrive through useLiveSync, which runs whatever
+// screen is open. This is the instant path between two tabs of the same
+// browser: a tab that saved something tells the others straight away, before
+// the database's own broadcast arrives.
 // ============================================================
 
 import { useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
 import type { Board } from "@/types";
 
 interface RealtimeSyncOptions {
-  /** The currently active board (null = unsubscribe) */
+  /** The currently active board */
   activeBoard: Board | null;
   /** Callback when board data should be refreshed */
   onBoardDataChanged: (boardId: string) => void;
@@ -21,62 +22,25 @@ interface RealtimeSyncOptions {
   onBoardsChanged: () => void;
   /** Callback when the workspace list should be refreshed */
   onWorkspacesChanged?: () => void;
-  /** Callback when global settings should be refreshed */
-  onGlobalSettingsChanged?: () => void;
-  /** Callback when a new audit-log row lands on the active board */
-  onAuditLogChanged?: (boardId: string) => void;
 }
 
-/**
- * Manages realtime Supabase subscriptions scoped to the active board.
- * Automatically unsubscribes/resubscribes when the active board changes.
- */
 export function useRealtimeSync({
   activeBoard,
   onBoardDataChanged,
   onBoardsChanged,
   onWorkspacesChanged,
-  onGlobalSettingsChanged,
-  onAuditLogChanged,
 }: RealtimeSyncOptions) {
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const globalChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  // Read from the multi-tab effect below without making it re-subscribe its
-  // BroadcastChannel on every board switch — see that effect's own comment.
+  // Read from the effect below without making it re-subscribe its
+  // BroadcastChannel on every board switch.
   const activeBoardIdRef = useRef<string | null>(activeBoard?.id ?? null);
 
   useEffect(() => {
     activeBoardIdRef.current = activeBoard?.id ?? null;
   }, [activeBoard?.id]);
 
-  useEffect(() => {
-    // Setup global settings channel (runs once or when callback changes)
-    if (onGlobalSettingsChanged && !globalChannelRef.current) {
-      const globalChannel = supabase
-        .channel('global-settings')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'organization_settings' }, onGlobalSettingsChanged)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, onGlobalSettingsChanged)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members' }, onGlobalSettingsChanged)
-        .subscribe();
-
-      globalChannelRef.current = globalChannel;
-    }
-
-    return () => {
-      if (globalChannelRef.current) {
-        supabase.removeChannel(globalChannelRef.current);
-        globalChannelRef.current = null;
-      }
-    };
-  }, [onGlobalSettingsChanged]);
-
-  // Same-origin multi-tab sync (BroadcastChannel), independent of whether a
-  // board is currently open. A rename made from a tab sitting on My Work,
-  // Trash, or Workspace Overview must still reach a tab that has no active
-  // board — the old version of this effect lived inside the board-gated one
-  // below and returned before ever subscribing when `activeBoard` was null,
-  // so those views never received cross-tab updates at all.
+  // Independent of whether a board is open: a rename made from a tab sitting
+  // on My Work, Trash, or Workspace Overview must still reach a tab that has
+  // no active board.
   useEffect(() => {
     if (typeof window === "undefined" || !window.BroadcastChannel) return;
 
@@ -110,71 +74,6 @@ export function useRealtimeSync({
       }
     };
   }, [onBoardDataChanged, onBoardsChanged, onWorkspacesChanged]);
-
-  useEffect(() => {
-    // Clean up previous channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-
-    if (!activeBoard) return;
-
-    const boardId = activeBoard.id;
-
-    // Debounced refresh to batch rapid-fire events
-    const debouncedRefresh = () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        onBoardDataChanged(boardId);
-      }, 150);
-    };
-
-    // Create board-scoped channel
-    const channel = supabase
-      .channel(`board-${boardId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "items", filter: `board_id=eq.${boardId}` },
-        debouncedRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "groups", filter: `board_id=eq.${boardId}` },
-        debouncedRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "boards" },
-        () => onBoardsChanged()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "automations", filter: `board_id=eq.${boardId}` },
-        debouncedRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "item_links" },
-        debouncedRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "audit_logs", filter: `board_id=eq.${boardId}` },
-        () => onAuditLogChanged?.(boardId)
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [activeBoard?.id, onBoardDataChanged, onBoardsChanged, onAuditLogChanged]);
 }
 
 /**

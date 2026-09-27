@@ -5,6 +5,7 @@ import { useT } from "@/components/LanguageProvider";
 import { notificationText } from "@/lib/notificationText";
 import { Bell, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { RESYNC_EVENT } from "@/hooks/useLiveSync";
 import { runWrite } from "@/lib/errorReporting";
 import { Notification } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -117,10 +118,13 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
       .subscribe();
 
     window.addEventListener('notification-added', fetchNotifications);
+    // Back after a gap in the connection: notifications sent meanwhile were missed.
+    window.addEventListener(RESYNC_EVENT, fetchNotifications);
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('notification-added', fetchNotifications);
+      window.removeEventListener(RESYNC_EVENT, fetchNotifications);
     };
   }, [userId, queryClient]);
 

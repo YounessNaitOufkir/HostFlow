@@ -414,24 +414,8 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
     };
   }, [isResizing]);
 
-  useEffect(() => {
-    // Subscribe to realtime updates for this specific item
-    const channel = supabase
-      .channel(`item-updates-${item.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "updates", filter: `item_id=eq.${item.id}` },
-        (payload) => {
-          setUpdates((prev) => [payload.new as Update, ...prev]);
-          queryClient.invalidateQueries({ queryKey: queryKeys.itemUpdates(item.id) });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [item.id, setUpdates, queryClient]);
+  // A colleague's comment arrives through useLiveSync, which refreshes this
+  // task's comments and history while the panel is open.
 
   // ---- Close on Escape ----
   useEffect(() => {

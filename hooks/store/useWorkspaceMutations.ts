@@ -9,6 +9,8 @@ import { notifyTabSyncWorkspaces } from "@/hooks/useRealtimeSync";
 import { useT } from "@/components/LanguageProvider";
 import { buildBoardFromTemplate, getTemplate, type TemplateId } from "@/lib/boardTemplates";
 import type { StartWith } from "@/components/WorkspaceDialog";
+import { createBoardFromTemplate } from "@/lib/companyTemplates";
+import { toast } from "sonner";
 
 interface UseWorkspaceMutationsProps {
   dispatch: BoardStoreDispatch;
@@ -151,9 +153,31 @@ export function useWorkspaceMutations({
       // remove, so the first board is built in the same action. A failure here
       // is reported but not rolled back: the workspace is real and usable, and
       // deleting it to undo a missing board would be the worse outcome.
+      if (startWith.kind === "company") {
+        // A shared workspace starting from one of the company's templates. A
+        // large plan takes a moment, and the dialog has already closed.
+        const progress = toast.loading(t("ctpl.creating"));
+        try {
+          const board = await createBoardFromTemplate(startWith.templateId, data.id, name);
+          dispatch({ type: "ADD_BOARD", payload: board });
+          dispatch({ type: "SET_ACTIVE_BOARD", payload: board });
+          dispatch({ type: "SET_GROUPS", payload: [] });
+          dispatch({ type: "SET_ITEMS", payload: [] });
+          dispatch({ type: "SET_MAIN_VIEW", payload: "board" });
+          getQueryClient().invalidateQueries({ queryKey: queryKeys.boards() });
+        } catch (err) {
+          reportMutationError(err, t("ctpl.createFailed"), { table: "boards", operation: "insert" });
+          // Whatever was created is still worth showing.
+          getQueryClient().invalidateQueries({ queryKey: queryKeys.boards() });
+        } finally {
+          toast.dismiss(progress);
+        }
+        return;
+      }
+
       await createFirstBoard(data.id, name, startWith.templateId);
     },
-    [dispatch, requestWorkspace, createFirstBoard, onNeedsImport]
+    [dispatch, requestWorkspace, createFirstBoard, onNeedsImport, t]
   );
 
   const renameWorkspace = useCallback(

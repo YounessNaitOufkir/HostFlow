@@ -14,6 +14,7 @@ import { collectDependencies } from "@/lib/gantt/dependencies";
 import { rescheduleFrom } from "@/lib/gantt/reschedule";
 import { resolveMoveTargetGroup } from "@/lib/automations/moveTarget";
 import { queryKeys } from "@/hooks/queries/queryKeys";
+import { applyDoneLink } from "@/lib/doneLink";
 
 
 interface UseItemMutationsProps {
@@ -161,7 +162,10 @@ export function useItemMutations({
 
       const itemToUpdate = currentItems[itemIndex];
       const existingValues = itemToUpdate.column_values || {};
-      const updatedValues = { ...existingValues, [columnId]: newValue };
+      // A "Done" checkbox and the status move together: ticking one changes
+      // the other in this same save - see lib/doneLink.ts.
+      const doneLink = applyDoneLink(activeBoard, existingValues, columnId, newValue);
+      const updatedValues = doneLink.values as typeof existingValues;
 
       const updatedItem = { ...itemToUpdate, column_values: updatedValues };
       dispatch({ type: "UPDATE_ITEM", payload: updatedItem });
@@ -182,7 +186,7 @@ export function useItemMutations({
         let targetGroupId = itemToUpdate.group_id;
 
         // Check event-driven automation rules (move_group for Done/Completed and Cancelled/Closed, etc.)
-        const eventAutomation = evaluateEventAutomations(
+        let eventAutomation = evaluateEventAutomations(
           activeBoard,
           itemToUpdate,
           columnId,
@@ -190,6 +194,18 @@ export function useItemMutations({
           newValue,
           boardAutomations
         );
+        // Ticking the box set the status: a rule on the status fires exactly as
+        // if Done had been chosen by hand.
+        if (!eventAutomation.targetGroupId && doneLink.statusChange) {
+          eventAutomation = evaluateEventAutomations(
+            activeBoard,
+            itemToUpdate,
+            doneLink.statusChange.columnId,
+            doneLink.statusChange.from,
+            doneLink.statusChange.to,
+            boardAutomations
+          );
+        }
 
         if (eventAutomation.targetGroupId) {
           // Check the group is really there before writing it.
@@ -379,6 +395,20 @@ export function useItemMutations({
           "Change saved, but it could not be recorded in the activity log",
           { table: "activity_logs", operation: "insert", itemId }
         );
+        if (doneLink.statusChange) {
+          const statusName =
+            activeBoard.columns?.find((c) => c.id === doneLink.statusChange!.columnId)?.title || "Status";
+          await runWrite(
+            supabase.from("activity_logs").insert({
+              item_id: itemId,
+              board_id: activeBoard.id,
+              user_id: profile.id,
+              action: `Changed "${statusName}" from "${doneLink.statusChange.from || "Empty"}" to "${doneLink.statusChange.to || "Empty"}"`,
+            }),
+            "Change saved, but it could not be recorded in the activity log",
+            { table: "activity_logs", operation: "insert", itemId }
+          );
+        }
 
         if (newlyAssigned.length > 0) {
           // Authorised server-side: a recipient is notified only if they can see

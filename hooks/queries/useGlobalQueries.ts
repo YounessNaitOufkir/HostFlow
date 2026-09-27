@@ -12,6 +12,7 @@ import {
   Item,
 } from "@/types";
 import { fetchAllRows } from "@/lib/supabasePaging";
+import { fetchSettled } from "@/lib/pendingWrites";
 
 export function useGlobalSettingsQuery(enabled = true) {
   return useQuery({
@@ -60,11 +61,13 @@ export function useProfilesQuery(enabled = true) {
 export function useBoardsQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.boards(),
-    queryFn: async () => {
-      return fetchAllRows<Board>((from, to) =>
-        supabase.from("boards").select("*").order("id").range(from, to)
-      );
-    },
+    // After your own saves: a column you just added must not vanish and come back.
+    queryFn: () =>
+      fetchSettled(() =>
+        fetchAllRows<Board>((from, to) =>
+          supabase.from("boards").select("*").order("id").range(from, to)
+        )
+      ),
     enabled,
   });
 }
@@ -87,8 +90,10 @@ export function useMyWorkQuery(
       // assignment lives in a per-board JSONB key, so it cannot be filtered
       // server-side - which means it was both capped at 1000 rows and listing
       // tasks that had been deleted.
-      const allItems = await fetchAllRows<Item>((from, to) =>
-        supabase.from("items").select("*").is("deleted_at", null).range(from, to)
+      const allItems = await fetchSettled(() =>
+        fetchAllRows<Item>((from, to) =>
+          supabase.from("items").select("*").is("deleted_at", null).range(from, to)
+        )
       );
 
       return allItems.filter((item) => {

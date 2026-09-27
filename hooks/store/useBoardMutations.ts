@@ -29,8 +29,9 @@ export function useBoardMutations({
   );
 
   const createBoard = useCallback(
-    async (workspaceId?: string, currentProfile?: Profile | null) => {
-      const boardName = await requestPrompt("Enter new board name:");
+    async (workspaceId?: string, currentProfile?: Profile | null, name?: string) => {
+      // A name already chosen in the new-board dialog skips the prompt.
+      const boardName = name ?? (await requestPrompt("Enter new board name:"));
       if (!boardName) return;
       const wsId =
         workspaceId ||

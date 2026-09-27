@@ -834,23 +834,6 @@ body {
   outline-color: #F5A623;
 }
 
-/* Premium Dropdown/Menu */
-.dropdown-premium {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.14),
-              0 4px 8px -4px rgba(15, 23, 42, 0.06);
-  border-radius: 12px;
-}
-.dark .dropdown-premium {
-  background: rgba(30, 41, 59, 0.92);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.4),
-              0 4px 8px -4px rgba(0, 0, 0, 0.2);
-}
-
 /* Micro-interaction: Subtle press */
 .press-effect:active {
   transform: scale(0.97);
@@ -1108,14 +1091,4 @@ body {
 .hf-today .hf-day-btn::after {
   content: ""; position: absolute; left: 50%; bottom: 4px; width: 4px; height: 4px;
   border-radius: 9999px; background: currentColor; transform: translateX(-50%);
-}
-
-/* Launch splash loading bar (components/ui/LaunchSplash.tsx). */
-@keyframes launchBar {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(250%); }
-}
-.animate-launch-bar { animation: launchBar 1.1s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .animate-launch-bar { animation: none; transform: translateX(75%); }
 }

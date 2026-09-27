@@ -39,7 +39,10 @@ interface BoardHeaderProps {
   hiddenColumns?: string[];
   onToggleColumnVisibility?: (columnId: string) => void;
   onAddTask?: () => void;
+  /** Boards outside shared workspaces: copy the board in place. */
   onDuplicateBoard?: () => void;
+  /** Boards in shared workspaces, for admins: save as a company template. */
+  onSaveAsTemplate?: () => void;
   onImportData?: () => void;
 }
 
@@ -58,6 +61,7 @@ export default function BoardHeader({
   onToggleColumnVisibility,
   onAddTask,
   onDuplicateBoard,
+  onSaveAsTemplate,
   onImportData,
 }: BoardHeaderProps) {
   const t = useT();
@@ -85,7 +89,8 @@ export default function BoardHeader({
               {boardName}
             </h1>
             <div className="relative" ref={(el) => { menuRef.current = el; anchorRef.current = el; }}>
-              <Tooltip content={t("board.options")} side="bottom">
+              {/* Hidden while the menu is open: it sat over the first item. */}
+              <Tooltip content={t("board.options")} side="bottom" disabled={isMenuOpen}>
                 <button 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500 transition-colors"
@@ -94,16 +99,29 @@ export default function BoardHeader({
                 </button>
               </Tooltip>
               {isMenuOpen && (
-                <div ref={popupRef} style={menuStyle} className="w-48 dropdown-premium z-[60] py-1.5">
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      if (onDuplicateBoard) onDuplicateBoard();
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-lg mx-0"
-                  >
-                    {t("board.saveAsTemplate")}
-                  </button>
+                <div ref={popupRef} style={menuStyle} className="w-60 rounded-xl shadow-xl bg-white dark:bg-[#252849] border border-gray-200 dark:border-slate-700/50 z-[60] py-1.5">
+                  {onSaveAsTemplate && (
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onSaveAsTemplate();
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-lg mx-0"
+                    >
+                      {t("board.saveAsTemplate")}
+                    </button>
+                  )}
+                  {onDuplicateBoard && (
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onDuplicateBoard();
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors rounded-lg mx-0"
+                    >
+                      {t("board.duplicateBoard")}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);

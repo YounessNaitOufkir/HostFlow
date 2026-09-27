@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import type { Board, Column, ColumnType } from "@/types";
+import type { Board, Column, ColumnSettings, ColumnType } from "@/types";
 import type { BoardStoreDispatch } from "./types";
 import { getDefaultTitle } from "@/lib/columnRegistry";
 import { runWrite } from "@/lib/errorReporting";
@@ -56,6 +56,31 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
           .update({ columns: updatedColumns })
           .eq("id", activeBoard.id),
         "Failed to rename column", {
+          table: "boards",
+          operation: "update",
+        }
+      );
+      if (ok) notifyTabSyncBoards();
+    },
+    [dispatch]
+  );
+
+  /** Merges settings into one column, such as a checkbox's "marks done". */
+  const setColumnSettings = useCallback(
+    async (activeBoard: Board, columnId: string, patch: Partial<ColumnSettings>) => {
+      const updatedColumns = (activeBoard.columns || []).map((col) =>
+        col.id === columnId ? { ...col, settings: { ...(col.settings ?? {}), ...patch } } : col
+      );
+      dispatch({
+        type: "UPDATE_BOARD",
+        payload: { ...activeBoard, columns: updatedColumns },
+      });
+      const ok = await runWrite(
+        supabase
+          .from("boards")
+          .update({ columns: updatedColumns })
+          .eq("id", activeBoard.id),
+        "Failed to change the column's settings", {
           table: "boards",
           operation: "update",
         }
@@ -152,6 +177,7 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
   return {
     addColumn,
     renameColumn,
+    setColumnSettings,
     resizeColumn,
     deleteColumn,
     reorderColumns,

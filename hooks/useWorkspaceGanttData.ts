@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Automation, Board, Item, Group, ItemLink } from "@/types";
@@ -117,62 +117,8 @@ export function useWorkspaceGanttData(boards: Board[]): WorkspaceGanttData {
       );
   }, [data.automations]);
 
-  // The board-scoped realtime channel only runs when a board is open, and the
-  // Master Gantt deliberately opens none - so without this the chart showed
-  // whatever was true when it mounted and never moved again.
-  useEffect(() => {
-    if (boardIds.length === 0) return;
-
-    const boardIdSet = new Set(boardIds);
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const refresh = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey });
-      }, 200);
-    };
-
-    type ChangePayload = {
-      new?: Record<string, unknown>;
-      old?: Record<string, unknown>;
-    };
-
-    const touchesSelectedBoard = (payload: ChangePayload) => {
-      const boardId = payload?.new?.board_id ?? payload?.old?.board_id;
-      return typeof boardId !== "string" || boardIdSet.has(boardId);
-    };
-
-    const channel = supabase
-      .channel("workspace-gantt")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "items" },
-        (payload) => {
-          if (touchesSelectedBoard(payload)) refresh();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "groups" },
-        (payload) => {
-          if (touchesSelectedBoard(payload)) refresh();
-        }
-      )
-      // Links carry no board_id, so any change to one is worth a refresh.
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "item_links" },
-        refresh
-      )
-      .subscribe();
-
-    return () => {
-      if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardIdKey, queryClient]);
+  // Kept current by useLiveSync, which refreshes it for any task, group or
+  // link change while it is on screen.
 
   const refresh = useCallback(
     () => queryClient.invalidateQueries({ queryKey }),

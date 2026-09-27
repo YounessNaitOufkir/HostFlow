@@ -142,6 +142,7 @@ export function useBoardStore(onNeedsImport?: () => void) {
     // Column operations
     addColumn: columnMutations.addColumn,
     renameColumn: columnMutations.renameColumn,
+    setColumnSettings: columnMutations.setColumnSettings,
     resizeColumn: columnMutations.resizeColumn,
     deleteColumn: columnMutations.deleteColumn,
     reorderColumns: columnMutations.reorderColumns,

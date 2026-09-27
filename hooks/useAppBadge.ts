@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { RESYNC_EVENT } from "@/hooks/useLiveSync";
 
 /**
  * The OS taskbar/dock badge on the installed app's icon — the unread
@@ -51,9 +52,12 @@ export function useAppBadge(userId: string | null | undefined): void {
         scheduleRefresh
       )
       .subscribe();
+    // Back after a gap in the connection: the count may have moved meanwhile.
+    window.addEventListener(RESYNC_EVENT, scheduleRefresh);
 
     return () => {
       cancelled = true;
+      window.removeEventListener(RESYNC_EVENT, scheduleRefresh);
       if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
       navigator.clearAppBadge?.().catch(() => {});

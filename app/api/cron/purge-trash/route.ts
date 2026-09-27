@@ -3,7 +3,9 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { startCronRun, finishCronRun } from "@/lib/cronHeartbeat";
 import type { Column } from "@/types";
 
-const RETENTION_DAYS = 30;
+// Three months: long enough to notice a task went missing on a project that
+// runs for weeks, before it is gone for good.
+const RETENTION_DAYS = 90;
 const ATTACHMENTS_BUCKET = "attachments";
 
 /**
