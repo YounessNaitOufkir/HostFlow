@@ -171,6 +171,8 @@ export interface GanttConfig {
   leftColumns?: string[];
   showBaseline?: boolean;
   showCriticalPath?: boolean;
+  /** "yyyy-MM-dd": the date the board has to be finished by. Measured against by the critical path. */
+  targetFinish?: string;
 }
 
 export interface Board {

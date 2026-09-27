@@ -67,6 +67,18 @@ vi.mock("@/hooks/useWorkspaceGanttData", () => ({
   useWorkspaceGanttData: () => ganttData,
 }));
 
+// Delay notes are fetched with react-query; this screen's tests are about the
+// board picker and lanes, so they get an empty set.
+vi.mock("@/hooks/useDelayNotes", () => ({
+  useDelayNotes: () => ({
+    notes: [],
+    byItem: new Map(),
+    add: async () => true,
+    update: async () => true,
+    remove: async () => true,
+  }),
+}));
+
 beforeEach(() => {
   localStorage.clear();
 });

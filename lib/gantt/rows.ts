@@ -14,9 +14,12 @@
 
 import type { Board, Group, Item, Profile } from "@/types";
 import { parseDateOnly } from "./dates";
+import { statusSemanticOf } from "@/lib/statusSemantics";
+import { personColor } from "@/lib/personColor";
 import {
   candidateDateColumns,
   resolveMilestoneColumn,
+  resolveStatusColumn,
   statusColorOf,
   GANTT_DEFAULT_COLOR,
 } from "./config";
@@ -85,9 +88,15 @@ export interface GanttItemRow extends RowBase {
   columnId: string;
   colType: "date" | "timeline";
   isMilestone: boolean;
+  /** Its status says the work is finished, read in its own board's words. */
+  isDone: boolean;
   statusColor: string;
   groupColor: string;
   assigneeNames: string;
+  /** The people behind `assigneeNames`, for their photos. Unknown ids are left out. */
+  assignees: Profile[];
+  /** Each assignee's colour, in the same order, for colouring by assignee. */
+  assigneeColors: string[];
   /** The agreed plan for this task, when one has been captured. */
   baseline: { start: Date; end: Date } | null;
 }
@@ -111,6 +120,12 @@ export interface BuildRowsOptions {
   showProjectRows?: boolean;
   /** Row heights to lay out with; defaults to GANTT_ROW_HEIGHTS. */
   heights?: Record<GanttRowKind, number>;
+  /**
+   * Keeps only the items this accepts, as if the rest had no dates: they get
+   * no row, and a group or board left with nothing is dropped. Used to show
+   * only the critical path.
+   */
+  includeItem?: (itemId: string) => boolean;
 }
 
 export interface GanttRowModel {
@@ -196,11 +211,19 @@ export function assigneeIdsOf(item: Item, board: Board): string[] {
   return Array.from(new Set(ids));
 }
 
-function assigneeNamesOf(item: Item, board: Board, profiles?: Profile[]): string {
-  if (!profiles?.length) return "";
-  const names = assigneeIdsOf(item, board)
-    .map((id) => profiles.find((p) => p.id === id)?.full_name)
-    .filter((n): n is string => !!n);
+/**
+ * The assignees still on file. A person deleted from the workspace leaves an
+ * id behind in the cell; that is left out rather than drawn as a stranger.
+ */
+function assigneesOf(item: Item, board: Board, profiles?: Profile[]): Profile[] {
+  if (!profiles?.length) return [];
+  return assigneeIdsOf(item, board)
+    .map((id) => profiles.find((p) => p.id === id))
+    .filter((p): p is Profile => !!p);
+}
+
+function assigneeNamesOf(assignees: Profile[]): string {
+  const names = assignees.map((p) => p.full_name).filter((n): n is string => !!n);
   return Array.from(new Set(names)).join(", ");
 }
 
@@ -222,12 +245,25 @@ function isMilestone(item: Item, board: Board): boolean {
   return !!column && item.column_values?.[column.id] === true;
 }
 
+/**
+ * Finished, according to the status column that colours the bar - the same
+ * column, so a bar painted in the "Done" colour is never still critical.
+ */
+function isDone(item: Item, board: Board): boolean {
+  const column = resolveStatusColumn(board);
+  if (!column) return false;
+  return (
+    statusSemanticOf(item.column_values?.[column.id], column.settings?.statusLabels) === "done"
+  );
+}
+
 export function buildGanttRows({
   contexts,
   collapsed,
   profiles,
   showProjectRows = false,
   heights = GANTT_ROW_HEIGHTS,
+  includeItem,
 }: BuildRowsOptions): GanttRowModel {
   const collapsedSet =
     collapsed instanceof Set ? collapsed : new Set(collapsed ?? []);
@@ -264,10 +300,12 @@ export function buildGanttRows({
       const plottedRows: GanttItemRow[] = [];
 
       for (const item of groupItems) {
+        if (includeItem && !includeItem(item.id)) continue;
         const plotted = plotItemDates(item, board);
         if (!plotted) continue;
 
         const groupColor = group.color || GANTT_DEFAULT_COLOR;
+        const assignees = assigneesOf(item, board, profiles);
         const row: GanttItemRow = {
           id: item.id,
           kind: "item",
@@ -285,9 +323,12 @@ export function buildGanttRows({
           columnId: plotted.columnId,
           colType: plotted.colType,
           isMilestone: isMilestone(item, board),
+          isDone: isDone(item, board),
           statusColor: statusColorOf(board, item),
           groupColor,
-          assigneeNames: assigneeNamesOf(item, board, profiles),
+          assigneeNames: assigneeNamesOf(assignees),
+          assignees,
+          assigneeColors: assignees.map(personColor),
           baseline: baselineOf(item),
         };
 

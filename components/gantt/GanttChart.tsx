@@ -11,13 +11,19 @@ import React, {
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { CellValue, DependencyType, Item, ItemLink, Profile } from "@/types";
+import type { CellValue, DependencyType, GanttConfig, Item, ItemLink, Profile } from "@/types";
 import { TruncatedText, useTruncationTooltip } from "@/components/ui/TruncatedText";
+import { Avatar } from "@/components/ui/Avatar";
+import { personColor } from "@/lib/personColor";
+import { slipParts, unexplainedDays, type DelayNote, type SlipParts } from "@/lib/delays";
+import type { DelayNoteValues } from "@/components/delays/DelayNoteForm";
+import { GanttDelayPopover } from "./GanttDelayPopover";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { TranslateVars, TranslationKey } from "@/lib/i18n";
 import {
   createGanttScale,
   ganttBounds,
+  fitGanttScale,
   PX_PER_DAY,
   GANTT_ZOOMS,
   type GanttZoom,
@@ -46,7 +52,18 @@ import {
   type GanttFieldKey,
 } from "@/lib/gantt/taskFields";
 import { collectDependencies } from "@/lib/gantt/dependencies";
-import { computeSchedule, type TaskSchedule } from "@/lib/gantt/schedule";
+import {
+  GANTT_NEUTRAL_COLOR,
+  ganttConfigOf,
+  targetFinishOf,
+} from "@/lib/gantt/config";
+import {
+  computeSchedule,
+  CRITICAL_PATH_SCOPES,
+  CRITICAL_THRESHOLDS,
+  type CriticalPathScope,
+  type TaskSchedule,
+} from "@/lib/gantt/schedule";
 import { rescheduleFrom } from "@/lib/gantt/reschedule";
 import {
   describeViolation,
@@ -56,7 +73,12 @@ import {
 } from "@/lib/gantt/linking";
 import { GanttHeader, GANTT_HEADER_HEIGHT } from "./GanttHeader";
 import { GanttLinks } from "./GanttLinks";
-import { GanttToolbar, type GanttColorBy } from "./GanttToolbar";
+import {
+  GanttToolbar,
+  CRITICAL_DISPLAYS,
+  type CriticalDisplay,
+  type GanttColorBy,
+} from "./GanttToolbar";
 import { GanttLinkEditor } from "./GanttLinkEditor";
 import type { GanttDependency } from "@/lib/gantt/dependencies";
 import type { GanttExportKind } from "./GanttExportMenu";
@@ -73,8 +95,28 @@ import {
 } from "@/lib/gantt/export";
 import { GANTT_HEADER_HEIGHT as HEADER_H } from "./GanttHeader";
 
+export interface GanttDelays {
+  byItem: Map<string, DelayNote[]>;
+  currentUserId?: string | null;
+  onAdd?: (item: Item, values: DelayNoteValues) => Promise<boolean>;
+  onUpdate?: (id: string, values: DelayNoteValues) => Promise<boolean>;
+  onRemove?: (id: string) => Promise<boolean>;
+}
+
 export interface GanttChartProps {
   contexts: GanttBoardContext[];
+  /**
+   * The whole plan, when `contexts` is a filtered view of it. Slack and the
+   * critical path are computed over this, so a filter changes what is shown,
+   * never what is critical. Defaults to `contexts`.
+   */
+  planContexts?: GanttBoardContext[];
+  /**
+   * A single board's chart, for someone allowed to change the board: saves
+   * a change to its Gantt settings (target finish, work week). Absent, those
+   * are shown but not editable.
+   */
+  onUpdateGanttConfig?: (patch: Partial<GanttConfig>) => Promise<boolean> | void;
   itemLinks?: ItemLink[];
   profiles?: Profile[];
   /** Master Gantt: one swimlane per board, so a row's project is never in doubt. */
@@ -107,6 +149,13 @@ export interface GanttChartProps {
   onDeleteLink?: (linkId: string) => void;
   onMoveItem?: (sourceId: string, targetId: string) => void;
   onSelectItem?: (item: Item) => void;
+  /**
+   * Delay notes on the tasks shown, and how to change them. With these the
+   * baseline's "+4d" becomes a button that says why.
+   */
+  delays?: GanttDelays;
+  /** Renames a task from a double-click on its name. Only used where the chart is editable. */
+  onRenameItem?: (item: Item, name: string) => Promise<void> | void;
   /** Distinguishes each chart's saved zoom and pane width in localStorage. */
   storageKey: string;
   /** Names the exported file and titles the printed sheet. */
@@ -118,6 +167,21 @@ export interface GanttChartProps {
 
 /** The critical chain, in the same red the rest of the product uses for trouble. */
 const CRITICAL_COLOR = "#e2445c";
+/** Segments in a bar coloured by assignee. Past six they are too narrow to tell apart. */
+const MAX_STRIPES = 6;
+
+/** Equal segments side by side, one per colour, left to right along the bar. */
+function stripesGradient(colors: string[]): string {
+  const step = 100 / colors.length;
+  return `linear-gradient(to right, ${colors
+    .map((c, i) => `${c} ${(i * step).toFixed(2)}% ${((i + 1) * step).toFixed(2)}%`)
+    .join(", ")})`;
+}
+
+/** How long a click on a task name waits to see whether it is a double-click. */
+const RENAME_CLICK_DELAY = 250;
+/** How far a task off a highlighted critical path fades back. */
+const DIMMED_OPACITY = 0.3;
 
 const MIN_LEFT_WIDTH = 180;
 const MAX_LEFT_WIDTH = 900;
@@ -141,6 +205,8 @@ function capturePointer(e: React.PointerEvent) {
 
 export default function GanttChart({
   contexts,
+  planContexts,
+  onUpdateGanttConfig,
   itemLinks = [],
   profiles,
   showProjectRows = false,
@@ -154,6 +220,8 @@ export default function GanttChart({
   onDeleteLink,
   onMoveItem,
   onSelectItem,
+  onRenameItem,
+  delays,
   storageKey,
   exportTitle = "Gantt chart",
   readOnlyReason,
@@ -164,11 +232,20 @@ export default function GanttChart({
   const editable = Boolean(onUpdateItem);
 
   const [zoom, setZoom] = useState<GanttZoom>("day");
-  /** Set by Fit; cleared whenever the zoom is chosen explicitly. */
-  const [fitPxPerDay, setFitPxPerDay] = useState<number | null>(null);
+  /**
+   * Fit is a mode, not a one-off measurement: while it is on the chart keeps
+   * the whole plan in the window as the window, the plan or a moved bar change
+   * its size. Choosing a zoom turns it off.
+   */
+  const [fitted, setFitted] = useState(false);
   const [colorBy, setColorBy] = useState<GanttColorBy>("group");
   const [showCriticalPath, setShowCriticalPath] = useState(false);
+  const [criticalScope, setCriticalScope] = useState<CriticalPathScope>("project");
+  const [criticalDisplay, setCriticalDisplay] = useState<CriticalDisplay>("highlight");
+  const [criticalThreshold, setCriticalThreshold] = useState(0);
   const [showBaseline, setShowBaseline] = useState(false);
+  /** The task whose delay notes are open, and where its chip was. */
+  const [openDelay, setOpenDelay] = useState<{ itemId: string; left: number; top: number } | null>(null);
   const [fields, setFields] = useState<GanttFieldKey[]>(DEFAULT_GANTT_FIELDS);
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -198,7 +275,37 @@ export default function GanttChart({
     let storedWidth: number | null = null;
     let storedFields: GanttFieldKey[] | null = null;
     let storedRowSize: GanttRowSize | null = null;
+    let storedScope: CriticalPathScope | null = null;
+    let storedDisplay: CriticalDisplay | null = null;
+    let storedThreshold: number | null = null;
+    let storedBaseline: boolean | null = null;
+    let storedCritical: boolean | null = null;
+    let storedColorBy: GanttColorBy | null = null;
     try {
+      // What the chart shows is remembered like its zoom: switching the
+      // baseline on and leaving used to lose it on the way back.
+      const baselineValue = localStorage.getItem(`hostflow_gantt_baseline_${storageKey}`);
+      if (baselineValue === "1" || baselineValue === "0") storedBaseline = baselineValue === "1";
+      const criticalValue = localStorage.getItem(`hostflow_gantt_critical_${storageKey}`);
+      if (criticalValue === "1" || criticalValue === "0") storedCritical = criticalValue === "1";
+      const colorValue = localStorage.getItem(`hostflow_gantt_colorby_${storageKey}`);
+      if (colorValue === "group" || colorValue === "status" || colorValue === "assignee") {
+        storedColorBy = colorValue;
+      }
+      const thresholdValue = Number(
+        localStorage.getItem(`hostflow_gantt_cpthreshold_${storageKey}`)
+      );
+      if ((CRITICAL_THRESHOLDS as readonly number[]).includes(thresholdValue)) {
+        storedThreshold = thresholdValue;
+      }
+      const displayValue = localStorage.getItem(`hostflow_gantt_cpdisplay_${storageKey}`);
+      if (displayValue && (CRITICAL_DISPLAYS as string[]).includes(displayValue)) {
+        storedDisplay = displayValue as CriticalDisplay;
+      }
+      const scopeValue = localStorage.getItem(`hostflow_gantt_cpscope_${storageKey}`);
+      if (scopeValue && (CRITICAL_PATH_SCOPES as string[]).includes(scopeValue)) {
+        storedScope = scopeValue as CriticalPathScope;
+      }
       const sizeValue = localStorage.getItem(rowSizeKey);
       if (sizeValue && (GANTT_ROW_SIZES as readonly string[]).includes(sizeValue)) {
         storedRowSize = sizeValue as GanttRowSize;
@@ -224,6 +331,12 @@ export default function GanttChart({
     if (storedWidth) setLeftWidth(storedWidth);
     if (storedFields) setFields(storedFields);
     if (storedRowSize) setRowSize(storedRowSize);
+    if (storedScope) setCriticalScope(storedScope);
+    if (storedDisplay) setCriticalDisplay(storedDisplay);
+    if (storedThreshold !== null) setCriticalThreshold(storedThreshold);
+    if (storedBaseline !== null) setShowBaseline(storedBaseline);
+    if (storedCritical !== null) setShowCriticalPath(storedCritical);
+    if (storedColorBy) setColorBy(storedColorBy);
   }, [storageKey, rowSizeKey]);
 
   const changeRowSize = useCallback(
@@ -236,6 +349,74 @@ export default function GanttChart({
       }
     },
     [rowSizeKey]
+  );
+
+  const changeCriticalScope = useCallback(
+    (next: CriticalPathScope) => {
+      setCriticalScope(next);
+      try {
+        localStorage.setItem(`hostflow_gantt_cpscope_${storageKey}`, next);
+      } catch {
+        /* ignore */
+      }
+    },
+    [storageKey]
+  );
+
+  const remember = useCallback(
+    (key: string, value: string) => {
+      try {
+        localStorage.setItem(`hostflow_gantt_${key}_${storageKey}`, value);
+      } catch {
+        /* ignore */
+      }
+    },
+    [storageKey]
+  );
+  const changeShowBaseline = useCallback(
+    (next: boolean) => {
+      setShowBaseline(next);
+      remember("baseline", next ? "1" : "0");
+    },
+    [remember]
+  );
+  const changeShowCriticalPath = useCallback(
+    (next: boolean) => {
+      setShowCriticalPath(next);
+      remember("critical", next ? "1" : "0");
+    },
+    [remember]
+  );
+  const changeColorBy = useCallback(
+    (next: GanttColorBy) => {
+      setColorBy(next);
+      remember("colorby", next);
+    },
+    [remember]
+  );
+
+  const changeCriticalThreshold = useCallback(
+    (next: number) => {
+      setCriticalThreshold(next);
+      try {
+        localStorage.setItem(`hostflow_gantt_cpthreshold_${storageKey}`, String(next));
+      } catch {
+        /* ignore */
+      }
+    },
+    [storageKey]
+  );
+
+  const changeCriticalDisplay = useCallback(
+    (next: CriticalDisplay) => {
+      setCriticalDisplay(next);
+      try {
+        localStorage.setItem(`hostflow_gantt_cpdisplay_${storageKey}`, next);
+      } catch {
+        /* ignore */
+      }
+    },
+    [storageKey]
   );
 
   const changeFields = useCallback(
@@ -257,7 +438,7 @@ export default function GanttChart({
   const changeZoom = useCallback(
     (next: GanttZoom) => {
       setZoom(next);
-      setFitPxPerDay(null);
+      setFitted(false);
       try {
         localStorage.setItem(`hostflow_gantt_zoom_${storageKey}`, next);
       } catch {
@@ -267,32 +448,19 @@ export default function GanttChart({
     [storageKey]
   );
 
-  // ---------------------------------------------------------------- model
+  /** A board's own chart - the one place its target can be set. */
+  const singleBoard =
+    !showProjectRows && contexts.length === 1 ? contexts[0].board : null;
 
-  const model = useMemo(
-    () =>
-      buildGanttRows({
-        contexts,
-        collapsed,
-        profiles,
-        showProjectRows,
-        heights: GANTT_ROW_SIZE_HEIGHTS[rowSize],
-      }),
-    [contexts, collapsed, profiles, showProjectRows, rowSize]
-  );
-
-  const { rows, itemRows, totalHeight, starts, ends } = model;
-
-  const scale = useMemo(() => {
-    const { chartStart, chartEnd } = ganttBounds(starts, ends, zoom);
-    return createGanttScale({
-      zoom,
-      chartStart,
-      chartEnd,
-      pxPerDay: fitPxPerDay ?? undefined,
-      dateLocale,
-    });
-  }, [starts, ends, zoom, fitPxPerDay, dateLocale]);
+  /** Each board's target finish, read from the boards in the plan. */
+  const targets = useMemo(() => {
+    const map = new Map<string, Date>();
+    for (const context of planContexts ?? contexts) {
+      const target = targetFinishOf(context.board);
+      if (target) map.set(context.board.id, target);
+    }
+    return map;
+  }, [planContexts, contexts]);
 
   // ---------------------------------------------------------------- schedule
 
@@ -305,22 +473,163 @@ export default function GanttChart({
     );
   }, [contexts, itemLinks]);
 
+  // The whole plan, before any filter, collapse or "only critical" hides a
+  // row - what the schedule, the baseline and task names are read from.
+  const planItemRows = useMemo(
+    () => buildGanttRows({ contexts: planContexts ?? contexts }).byItemId,
+    [planContexts, contexts]
+  );
+  const planDependencies = useMemo(() => {
+    if (!planContexts) return dependencies;
+    const boardsById = new Map(planContexts.map((c) => [c.board.id, c.board]));
+    return collectDependencies(
+      planContexts.flatMap((c) => c.items),
+      boardsById,
+      itemLinks
+    );
+  }, [planContexts, dependencies, itemLinks]);
+
   /**
    * Float and the critical path are computed over every plotted task, not just
-   * the visible ones: collapsing a group must not change which chain drives the
-   * finish date.
+   * the visible ones: collapsing a group or filtering the Master Gantt must not
+   * change which chain drives the finish date.
    */
+  // Read on every render, so the forecast moves on once the date changes.
+  const todayIndex = dayIndex(today());
   const schedule = useMemo(
     () =>
       computeSchedule(
-        Array.from(model.byItemId.values()).map((row) => ({
+        Array.from(planItemRows.values()).map((row) => ({
           id: row.item.id,
           start: dayIndex(row.start),
           end: dayIndex(row.end),
+          // Each board is its own project: on the Master Gantt, the apartment
+          // finishing last must not set every other apartment's slack.
+          scopeId: row.board.id,
+          done: row.isDone,
+          // Unfinished work cannot finish in the past: an overdue task counts
+          // as ending today, and what waits on it moves with it.
+          finishNoEarlierThan: todayIndex,
+          targetFinish: targets.has(row.board.id)
+            ? dayIndex(targets.get(row.board.id)!)
+            : undefined,
         })),
-        dependencies
+        planDependencies,
+        { scope: criticalScope, criticalThreshold }
       ),
-    [model.byItemId, dependencies]
+    [planItemRows, planDependencies, criticalScope, criticalThreshold, todayIndex, targets]
+  );
+
+  // ---------------------------------------------------------------- model
+
+  const onlyCritical = showCriticalPath && criticalDisplay === "only";
+
+  const model = useMemo(
+    () =>
+      buildGanttRows({
+        contexts,
+        collapsed,
+        profiles,
+        showProjectRows,
+        heights: GANTT_ROW_SIZE_HEIGHTS[rowSize],
+        includeItem: onlyCritical
+          ? (itemId) => schedule.criticalIds.has(itemId)
+          : undefined,
+      }),
+    [contexts, collapsed, profiles, showProjectRows, rowSize, onlyCritical, schedule.criticalIds]
+  );
+
+  const { rows, itemRows, totalHeight, starts } = model;
+
+  // Stretched to take in the targets of the boards on screen, so a target
+  // past the last bar still has somewhere to be drawn.
+  const ends = useMemo(() => {
+    const onScreen = new Set(contexts.map((c) => c.board.id));
+    const extra = Array.from(targets)
+      .filter(([boardId]) => onScreen.has(boardId))
+      .map(([, date]) => date);
+    return extra.length ? [...model.ends, ...extra] : model.ends;
+  }, [model.ends, targets, contexts]);
+
+  // Fitting waits for the body to be measured; until then the chosen zoom.
+  const fit = useMemo(
+    () => (fitted && viewport.width > 0 ? fitGanttScale(starts, ends, viewport.width) : null),
+    [fitted, viewport.width, starts, ends]
+  );
+  const shownZoom = fit?.zoom ?? zoom;
+
+  const scale = useMemo(() => {
+    const { chartStart, chartEnd } = fit ?? ganttBounds(starts, ends, zoom);
+    return createGanttScale({
+      zoom: shownZoom,
+      chartStart,
+      chartEnd,
+      pxPerDay: fit?.pxPerDay,
+      dateLocale,
+    });
+  }, [fit, starts, ends, zoom, shownZoom, dateLocale]);
+
+  /**
+   * Days past its target each board on screen is forecast to finish, for the
+   * boards that are. Read from unfinished work only, like the finish itself.
+   */
+  const targetOvershoot = useMemo(() => {
+    const onScreen = new Set(contexts.map((c) => c.board.id));
+    const forecast = new Map<string, number>();
+    for (const row of planItemRows.values()) {
+      const task = schedule.tasks.get(row.item.id);
+      if (!task || task.done) continue;
+      const current = forecast.get(row.board.id);
+      if (current === undefined || task.earlyFinish > current) {
+        forecast.set(row.board.id, task.earlyFinish);
+      }
+    }
+    const late = new Map<string, number>();
+    for (const [boardId, target] of targets) {
+      if (!onScreen.has(boardId)) continue;
+      const finish = forecast.get(boardId);
+      if (finish !== undefined && finish > dayIndex(target)) {
+        late.set(boardId, finish - dayIndex(target));
+      }
+    }
+    return late;
+  }, [contexts, planItemRows, schedule.tasks, targets]);
+
+  /** Where each target line runs: down the rows of its own board only. */
+  const targetLines = useMemo(() => {
+    const lines: { boardId: string; x: number; top: number; bottom: number; late: boolean }[] = [];
+    for (const [boardId, target] of targets) {
+      let top = Infinity;
+      let bottom = -Infinity;
+      for (const row of rows) {
+        if (row.board.id !== boardId) continue;
+        top = Math.min(top, row.y);
+        bottom = Math.max(bottom, row.y + row.height);
+      }
+      if (top === Infinity) continue;
+      lines.push({
+        boardId,
+        x: scale.xOf(target) + scale.pxPerDay,
+        top,
+        bottom,
+        late: targetOvershoot.has(boardId),
+      });
+    }
+    return lines;
+  }, [targets, rows, scale, targetOvershoot]);
+
+  // Counted and walked only where both ends are on screen: a broken link
+  // between two filtered-out tasks is not one you can go to.
+  const visibleViolations = useMemo(
+    () =>
+      schedule.violations.filter(
+        (v) => model.byItemId.has(v.sourceId) && model.byItemId.has(v.targetId)
+      ),
+    [schedule.violations, model.byItemId]
+  );
+  const visibleCriticalCount = useMemo(
+    () => Array.from(schedule.criticalIds).filter((id) => model.byItemId.has(id)).length,
+    [schedule.criticalIds, model.byItemId]
   );
 
   const violatedDependencyIds = useMemo(
@@ -330,28 +639,51 @@ export default function GanttChart({
 
   const baselineCount = useMemo(
     () =>
-      Array.from(model.byItemId.values()).filter((r) => r.baseline !== null).length,
-    [model.byItemId]
+      Array.from(planItemRows.values()).filter((r) => r.baseline !== null).length,
+    [planItemRows]
   );
 
   const captureBaseline = useCallback(() => {
     if (!onCaptureBaseline) return;
     onCaptureBaseline(
-      Array.from(model.byItemId.values()).map((row) => ({
+      Array.from(planItemRows.values()).map((row) => ({
         itemId: row.item.id,
         start: toDateOnly(row.start),
         end: toDateOnly(row.end),
       }))
     );
-    setShowBaseline(true);
-  }, [onCaptureBaseline, model.byItemId]);
+    changeShowBaseline(true);
+  }, [onCaptureBaseline, planItemRows, changeShowBaseline]);
+
+  /**
+   * How much of each task's slip is its own and how much late tasks before
+   * it pushed onto it - only the own part asks for a reason.
+   */
+  const slipPartsById = useMemo(
+    () =>
+      slipParts(
+        Array.from(planItemRows.values()).map((r) => ({
+          id: r.item.id,
+          start: r.start,
+          end: r.end,
+          baseStart: r.baseline?.start ?? null,
+          baseEnd: r.baseline?.end ?? null,
+        })),
+        planDependencies
+      ),
+    [planItemRows, planDependencies]
+  );
+
+  // Read from the plan, so a note stays open while a filter hides its task.
+  const openDelayRow = openDelay ? planItemRows.get(openDelay.itemId) ?? null : null;
+  const closeDelay = useCallback(() => setOpenDelay(null), []);
 
   const itemNames = useMemo(
     () =>
       new Map(
-        Array.from(model.byItemId.values()).map((r) => [r.item.id, r.label])
+        Array.from(planItemRows.values()).map((r) => [r.item.id, r.label])
       ),
-    [model.byItemId]
+    [planItemRows]
   );
 
   // Turning on a column widens the pane rather than crushing the task names,
@@ -424,21 +756,14 @@ export default function GanttChart({
     if (now >= scale.chartStart && now <= scale.chartEnd) scrollToToday();
   }, [storageKey, viewport.width, rows.length, scale, scrollToToday]);
 
+  // The zoom that goes with the density - a year in 1200px wants month bands,
+  // not 365 unreadable day columns - is chosen in fitGanttScale.
   const fitToWindow = useCallback(() => {
+    setFitted(true);
     const el = bodyRef.current;
-    if (!el || scale.totalDays === 0) return;
-    const needed = el.clientWidth / scale.totalDays;
-
-    // Keep the band structure sensible for the resulting density: a year fitted
-    // into 1200px wants month bands, not 365 unreadable day columns.
-    const best = GANTT_ZOOMS.reduce((a, b) =>
-      Math.abs(PX_PER_DAY[b] - needed) < Math.abs(PX_PER_DAY[a] - needed) ? b : a
-    );
-    setZoom(best);
-    setFitPxPerDay(needed);
-    el.scrollLeft = 0;
+    if (el) el.scrollLeft = 0;
     syncPanes();
-  }, [scale.totalDays, syncPanes]);
+  }, [syncPanes]);
 
   // ---------------------------------------------------------------- windowing
 
@@ -506,8 +831,10 @@ export default function GanttChart({
         return;
       }
 
+      // The whole plan, not just the rows on screen: a successor hidden by a
+      // filter, a collapsed group or "only critical" still has to be pushed.
       const positions = new Map(
-        Array.from(model.byItemId.values()).map((r) => [
+        Array.from(planItemRows.values()).map((r) => [
           r.item.id,
           { start: dayIndex(r.start), end: dayIndex(r.end) },
         ])
@@ -515,13 +842,13 @@ export default function GanttChart({
 
       const { moves, cycleDetected } = rescheduleFrom({
         tasks: positions,
-        dependencies,
+        dependencies: planDependencies,
         movedId: row.item.id,
         movedTo: { start: dayIndex(start), end: dayIndex(end) },
       });
 
       const changes = Array.from(moves.entries()).flatMap(([itemId, position]) => {
-        const target = model.byItemId.get(itemId);
+        const target = planItemRows.get(itemId);
         if (!target) return [];
         const shift = position.start - dayIndex(target.start);
         const newStart = addDaysOnly(target.start, shift);
@@ -544,7 +871,7 @@ export default function GanttChart({
         cycleDetected,
       });
     },
-    [onUpdateItem, onRescheduleItems, cellValueFor, model.byItemId, dependencies]
+    [onUpdateItem, onRescheduleItems, cellValueFor, planItemRows, planDependencies]
   );
 
   useEffect(() => {
@@ -731,7 +1058,8 @@ export default function GanttChart({
       if (!drag?.hover || !onCreateLink) return;
 
       const { targetId, edge } = drag.hover;
-      const check = validateNewLink(dependencies, drag.sourceId, targetId);
+      // Against the whole plan: a loop through a hidden task is still a loop.
+      const check = validateNewLink(planDependencies, drag.sourceId, targetId);
       if (!check.ok) {
         // Refusing silently would look like the drag simply missed.
         toast.error(t(check.messageKey ?? "gantt.linkFailed"));
@@ -758,7 +1086,7 @@ export default function GanttChart({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [linkDrag, dependencies, onCreateLink, hitTestBar, t]);
+  }, [linkDrag, planDependencies, onCreateLink, hitTestBar, t]);
 
   /** The point the rubber band is tied to - the edge of the bar it left. */
   const linkAnchor = useMemo(() => {
@@ -800,7 +1128,7 @@ export default function GanttChart({
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
 
   const goToNextViolation = useCallback(() => {
-    const violations = schedule.violations;
+    const violations = visibleViolations;
     if (violations.length === 0) return;
 
     const violation = violations[violationCursor % violations.length];
@@ -822,7 +1150,7 @@ export default function GanttChart({
     if (collapsed.has(lane)) onToggleCollapse(lane);
 
     setPendingFocus(violation.targetId);
-  }, [schedule.violations, violationCursor, model.byItemId, collapsed, onToggleCollapse, t]);
+  }, [visibleViolations, violationCursor, model.byItemId, collapsed, onToggleCollapse, t]);
 
   /**
    * Runs once the row it wants actually exists.
@@ -1057,21 +1385,29 @@ export default function GanttChart({
 
   const toolbar = (
     <GanttToolbar
-      zoom={zoom}
+      zoom={fitted ? null : shownZoom}
+      fitted={fitted}
       onZoomChange={changeZoom}
       colorBy={colorBy}
-      onColorByChange={setColorBy}
+      onColorByChange={changeColorBy}
       onScrollToToday={scrollToToday}
       onFitToWindow={fitToWindow}
       showCriticalPath={showCriticalPath}
-      onShowCriticalPathChange={setShowCriticalPath}
+      onShowCriticalPathChange={changeShowCriticalPath}
+      criticalScope={criticalScope}
+      onCriticalScopeChange={changeCriticalScope}
+      criticalDisplay={criticalDisplay}
+      onCriticalDisplayChange={changeCriticalDisplay}
+      criticalThreshold={criticalThreshold}
+      onCriticalThresholdChange={changeCriticalThreshold}
       showBaseline={showBaseline}
-      onShowBaselineChange={setShowBaseline}
+      onShowBaselineChange={changeShowBaseline}
       baselineCount={baselineCount}
       onCaptureBaseline={onCaptureBaseline ? captureBaseline : undefined}
-      criticalCount={schedule.criticalIds.size}
-      violationCount={schedule.violations.length}
-      onGoToViolation={schedule.violations.length > 0 ? goToNextViolation : undefined}
+      suggestBaseline={Boolean(singleBoard) && baselineCount === 0 && planItemRows.size > 0}
+      criticalCount={visibleCriticalCount}
+      violationCount={visibleViolations.length}
+      onGoToViolation={visibleViolations.length > 0 ? goToNextViolation : undefined}
       cycleCount={schedule.cycleIds.size}
       onExport={handleExport}
       fields={fields}
@@ -1079,6 +1415,21 @@ export default function GanttChart({
       rowSize={rowSize}
       onRowSizeChange={changeRowSize}
       readOnlyReason={readOnlyReason}
+      target={
+        singleBoard && (onUpdateGanttConfig || targets.has(singleBoard.id))
+          ? {
+              value: ganttConfigOf(singleBoard).targetFinish ?? null,
+              onChange: onUpdateGanttConfig
+                ? (date) => void onUpdateGanttConfig({ targetFinish: date ?? undefined })
+                : undefined,
+            }
+          : undefined
+      }
+      targetMissed={
+        singleBoard
+          ? { days: targetOvershoot.get(singleBoard.id) }
+          : { boards: targetOvershoot.size }
+      }
     >
       {toolbarExtras}
     </GanttToolbar>
@@ -1090,7 +1441,18 @@ export default function GanttChart({
         {toolbar}
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center bg-white dark:bg-slate-900 p-8 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm max-w-md">
-            {emptyMessage ?? (
+            {/* Emptied by "only critical", not by a plan without dates: say
+                which, and how to get the tasks back. */}
+            {onlyCritical && planItemRows.size > 0 ? (
+              <>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                  {t("gantt.noCriticalTitle")}
+                </h2>
+                <p className="text-gray-500 dark:text-gray-400">
+                  {t("gantt.noCriticalBody")}
+                </p>
+              </>
+            ) : emptyMessage ?? (
               <>
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                   {t("gantt.nothingToPlotTitle")}
@@ -1210,11 +1572,13 @@ export default function GanttChart({
                         row.kind === "item"
                           ? schedule.tasks.get(row.item.id)
                           : undefined,
-                      dependencies,
+                      // A predecessor filtered off screen still names itself.
+                      dependencies: planDependencies,
                       nameById: itemNames,
                     }}
                     onToggleCollapse={onToggleCollapse}
                     onSelectItem={onSelectItem}
+                    onRename={editable ? onRenameItem : undefined}
                     reorderable={Boolean(onMoveItem)}
                     draggedRowId={draggedRowId}
                     dropTargetId={dropTargetId}
@@ -1255,6 +1619,30 @@ export default function GanttChart({
                 />
               )}
 
+              {/* Each board's target: the day its work has to be finished by.
+                  Red once the forecast runs past it, grey while it holds. */}
+              {targetLines.map((line) => (
+                <div
+                  key={`target-${line.boardId}`}
+                  data-testid="gantt-target-line"
+                  className={`absolute w-0 border-l-2 border-dashed pointer-events-none z-20 ${
+                    line.late ? "border-red-500/80" : "border-gray-400/80 dark:border-slate-500/80"
+                  }`}
+                  style={{ left: line.x, top: line.top, height: line.bottom - line.top }}
+                  aria-hidden="true"
+                >
+                  <span
+                    className={`absolute top-0.5 left-1 px-1 rounded text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap ${
+                      line.late
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-300"
+                        : "bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-gray-400"
+                    }`}
+                  >
+                    {t("gantt.target")}
+                  </span>
+                </div>
+              ))}
+
               {visibleRows.map((row) => (
                 <TimelineRow
                   key={row.id}
@@ -1284,6 +1672,14 @@ export default function GanttChart({
                   }
                   highlightCritical={showCriticalPath}
                   showBaseline={showBaseline}
+                  delayNotes={row.kind === "item" ? delays?.byItem.get(row.item.id) : undefined}
+                  slipPart={row.kind === "item" ? slipPartsById.get(row.item.id) : undefined}
+                  onOpenDelay={
+                    delays
+                      ? (itemId, rect) =>
+                          setOpenDelay({ itemId, left: rect.left, top: rect.bottom + 6 })
+                      : undefined
+                  }
                   barHeight={GANTT_BAR_HEIGHTS[rowSize]}
                   onBarKeyDown={handleBarKeyDown}
                   linkable={linkable}
@@ -1353,11 +1749,11 @@ export default function GanttChart({
           dependency={openLink.dependency}
           at={openLink.at}
           sourceName={
-            model.byItemId.get(openLink.dependency.sourceId)?.label ??
+            planItemRows.get(openLink.dependency.sourceId)?.label ??
             t("master.unknownTask")
           }
           targetName={
-            model.byItemId.get(openLink.dependency.targetId)?.label ??
+            planItemRows.get(openLink.dependency.targetId)?.label ??
             t("master.unknownTask")
           }
           // A link recorded only on an item's dependency column has no row to
@@ -1369,6 +1765,26 @@ export default function GanttChart({
             setSelectedLink(null);
           }}
           onClose={() => setSelectedLink(null)}
+        />
+      )}
+
+      {openDelayRow && delays && (
+        <GanttDelayPopover
+          taskName={openDelayRow.label}
+          slip={
+            openDelayRow.baseline
+              ? daysBetween(openDelayRow.baseline.end, openDelayRow.end)
+              : null
+          }
+          inherited={slipPartsById.get(openDelayRow.item.id)?.inherited ?? 0}
+          notes={delays.byItem.get(openDelayRow.item.id) ?? []}
+          anchor={openDelay!}
+          profiles={profiles}
+          currentUserId={delays.currentUserId}
+          onAdd={delays.onAdd ? (values) => delays.onAdd!(openDelayRow.item, values) : undefined}
+          onUpdate={delays.onUpdate}
+          onRemove={delays.onRemove}
+          onClose={closeDelay}
         />
       )}
     </div>
@@ -1385,6 +1801,7 @@ interface TaskPaneRowProps {
   context: GanttFieldContext;
   onToggleCollapse: (id: string) => void;
   onSelectItem?: (item: Item) => void;
+  onRename?: (item: Item, name: string) => Promise<void> | void;
   reorderable: boolean;
   draggedRowId: string | null;
   dropTargetId: string | null;
@@ -1409,6 +1826,7 @@ function TaskPaneRow({
   context,
   onToggleCollapse,
   onSelectItem,
+  onRename,
   reorderable,
   draggedRowId,
   dropTargetId,
@@ -1416,6 +1834,41 @@ function TaskPaneRow({
   setDropTargetId,
   onMoveItem,
 }: TaskPaneRowProps) {
+  const { t } = context;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  // A click on the name waits this long before opening the task, so the first
+  // click of a double-click - a rename - does not open the panel as well.
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (clickTimer.current) clearTimeout(clickTimer.current);
+    },
+    []
+  );
+  const renamable = row.kind === "item" && Boolean(onRename);
+  // Set once Enter, Escape or a blur has settled the edit: the input's removal
+  // can blur it again, which would save a second time - or save after Escape.
+  const settled = useRef(false);
+
+  const startRename = () => {
+    if (row.kind !== "item" || !onRename) return;
+    if (clickTimer.current) clearTimeout(clickTimer.current);
+    clickTimer.current = null;
+    settled.current = false;
+    setDraft(row.label);
+    setEditing(true);
+  };
+
+  const finishRename = (save: boolean) => {
+    if (settled.current) return;
+    settled.current = true;
+    setEditing(false);
+    if (!save || row.kind !== "item" || !onRename) return;
+    const name = draft.trim();
+    // Blank would leave a bar with no name anywhere; unchanged is no write.
+    if (name && name !== row.label) void onRename(row.item, name);
+  };
   const base =
     "absolute left-0 flex items-stretch border-b border-gray-200 dark:border-[#1e2333] overflow-hidden";
   const style: React.CSSProperties = { top: row.y, height: row.height, width };
@@ -1431,6 +1884,9 @@ function TaskPaneRow({
         return (
           <div
             key={key}
+            data-gantt-name={isName ? "" : undefined}
+            onDoubleClick={isName && renamable ? startRename : undefined}
+            title={isName && renamable && !editing ? t("gantt.renameHint") : undefined}
             className={`flex items-center px-2 min-w-0 ${
               field.align === "right" ? "justify-end" : ""
             } ${isName ? "" : "border-l border-gray-200/60 dark:border-[#1e2333]"}`}
@@ -1458,6 +1914,27 @@ function TaskPaneRow({
                 )}
               </>
             )}
+            {isName && editing ? (
+              <input
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
+                onBlur={() => finishRename(true)}
+                onKeyDown={(e) => {
+                  // The chart listens for keys too; typing a name must not
+                  // nudge a bar or jump the view.
+                  e.stopPropagation();
+                  if (e.key === "Enter") finishRename(true);
+                  if (e.key === "Escape") finishRename(false);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                aria-label={t("gantt.renameTask")}
+                className="flex-1 min-w-0 -my-1 px-1.5 py-0.5 rounded border border-blue-500 bg-white dark:bg-[#151a29] text-[12.5px] text-gray-800 dark:text-gray-100 outline-none ring-2 ring-blue-500/20"
+              />
+            ) : (
             <TruncatedText
               className={`truncate ${
                 field.numeric ? "tabular-nums" : ""
@@ -1471,6 +1948,7 @@ function TaskPaneRow({
             >
               {text}
             </TruncatedText>
+            )}
             {isName && isSummary && (
               <span className="ml-auto pl-2 shrink-0 text-[11px] font-semibold tabular-nums text-gray-400 dark:text-gray-500">
                 {row.itemCount}
@@ -1504,7 +1982,7 @@ function TaskPaneRow({
 
   return (
     <div
-      draggable={reorderable}
+      draggable={reorderable && !editing}
       onDragStart={(e) => {
         setDraggedRowId(row.item.id);
         e.dataTransfer.effectAllowed = "move";
@@ -1526,13 +2004,76 @@ function TaskPaneRow({
         setDropTargetId(null);
         setDraggedRowId(null);
       }}
-      onClick={() => onSelectItem?.(row.item)}
+      onClick={(e) => {
+        if (editing || !onSelectItem) return;
+        const onName = (e.target as HTMLElement).closest("[data-gantt-name]");
+        if (!renamable || !onName) {
+          onSelectItem(row.item);
+          return;
+        }
+        // Second click of a double-click: the rename handles it.
+        if (e.detail > 1) return;
+        if (clickTimer.current) clearTimeout(clickTimer.current);
+        const item = row.item;
+        clickTimer.current = setTimeout(() => {
+          clickTimer.current = null;
+          onSelectItem(item);
+        }, RENAME_CLICK_DELAY);
+      }}
       className={`${base} bg-gray-50 dark:bg-[#0e111a] hover:bg-white dark:hover:bg-[#131722] transition-colors ${
         isDropTarget ? "border-t-2 border-t-blue-500 bg-blue-50 dark:bg-blue-900/20" : ""
       } ${draggedRowId === row.item.id ? "opacity-50" : ""}`}
       style={{ ...style, cursor: reorderable ? "grab" : onSelectItem ? "pointer" : "default" }}
     >
       {cells}
+    </div>
+  );
+}
+
+/**
+ * Who is on a task, as faces beside its bar. Three at most, then a count: past
+ * that the stack is wider than most bars and says less than the number does.
+ */
+const MAX_FACES = 3;
+
+function AssigneeStack({
+  people,
+  size,
+  style,
+}: {
+  people: Profile[];
+  size: number;
+  style: React.CSSProperties;
+}) {
+  const shown = people.slice(0, MAX_FACES);
+  const extra = people.length - shown.length;
+  return (
+    <div
+      data-testid="gantt-assignees"
+      className="absolute flex items-center -space-x-1.5"
+      style={style}
+    >
+      {shown.map((person) => (
+        <Avatar
+          key={person.id}
+          name={person.full_name}
+          initials={person.avatar_initials}
+          url={person.avatar_url}
+          // Their colour, so a face without a photo matches its stripe.
+          color={personColor(person)}
+          size={size}
+          className="ring-2 ring-gray-50 dark:ring-[#0e111a]"
+        />
+      ))}
+      {extra > 0 && (
+        <span
+          className="rounded-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 ring-2 ring-gray-50 dark:ring-[#0e111a]"
+          style={{ width: size, height: size, fontSize: Math.max(9, Math.round(size * 0.38)) }}
+          title={people.slice(MAX_FACES).map((p) => p.full_name).join(", ")}
+        >
+          +{extra}
+        </span>
+      )}
     </div>
   );
 }
@@ -1571,6 +2112,10 @@ interface TimelineRowProps {
   t: (key: TranslationKey, vars?: TranslateVars) => string;
   dateLocale: GanttFieldContext["dateLocale"];
   showBaseline: boolean;
+  delayNotes?: DelayNote[];
+  slipPart?: SlipParts;
+  /** Present when delay notes can be read here: the "+4d" chip opens them. */
+  onOpenDelay?: (itemId: string, chip: DOMRect) => void;
   onBarKeyDown: (e: React.KeyboardEvent, row: GanttItemRow) => void;
   linkable: boolean;
   onStartLink: (e: React.PointerEvent, row: GanttItemRow, edge: BarEdge) => void;
@@ -1593,6 +2138,9 @@ function TimelineRow({
   t,
   dateLocale,
   showBaseline,
+  delayNotes,
+  slipPart,
+  onOpenDelay,
   onBarKeyDown,
   linkable,
   onStartLink,
@@ -1604,13 +2152,42 @@ function TimelineRow({
 
   // Float is the one number that says how much room a task has, and it is only
   // knowable from the whole network - so it is worth saying out loud.
-  const floatLabel = taskSchedule?.inCycle
+  const slackLabel = taskSchedule?.inCycle
     ? t("gantt.inLoopShort")
-    : taskSchedule && taskSchedule.totalFloat > 0
-      ? t("gantt.slack", { days: taskSchedule.totalFloat })
-      : taskSchedule
-        ? t("gantt.noSlack")
-        : "";
+    : taskSchedule?.done
+      ? t("gantt.doneOffPath")
+      : taskSchedule?.unlinked
+      ? t("gantt.notLinked")
+      : taskSchedule && taskSchedule.totalFloat > 0
+        ? t("gantt.slack", { days: taskSchedule.totalFloat })
+        : taskSchedule && taskSchedule.totalFloat < 0
+          ? t("gantt.pastTarget", { days: -taskSchedule.totalFloat })
+        : taskSchedule
+          ? t("gantt.noSlack")
+          : "";
+  const isLate = !!taskSchedule?.late;
+  // Where it is now forecast to end: today at the soonest, later still if
+  // what it waits on is late too.
+  const forecastEnd =
+    row.kind === "item" && taskSchedule
+      ? addDaysOnly(row.end, taskSchedule.earlyFinish - dayIndex(row.end))
+      : null;
+  // Free slack is only worth saying when it is the tighter number: a task with
+  // ten days before the finish but one before the next task has one day.
+  const freeSlackNote =
+    taskSchedule &&
+    !taskSchedule.done &&
+    !taskSchedule.unlinked &&
+    !taskSchedule.inCycle &&
+    taskSchedule.totalFloat > 0 &&
+    taskSchedule.freeFloat < taskSchedule.totalFloat
+      ? t("gantt.freeSlack", { days: taskSchedule.freeFloat })
+      : "";
+  const withFree = freeSlackNote ? `${slackLabel}, ${freeSlackNote}` : slackLabel;
+  const floatLabel =
+    isLate && forecastEnd
+      ? `${t("gantt.overdueForecast", { date: format(forecastEnd, "d MMM", { locale: dateLocale }) })}, ${withFree}`
+      : withFree;
 
   /**
    * A bar carries no text of its own, so the hover is the only place its name
@@ -1675,12 +2252,55 @@ function TimelineRow({
   }
 
   const isCritical = highlightCritical && !!taskSchedule?.isCritical;
+  // With the path highlighted, everything off it steps back so the chain reads.
+  const dimmed = highlightCritical && !isCritical && !drag?.moved && !resize;
+  // By assignee, each person on the task is a segment of the bar. The
+  // critical path still overrides: when it is shown, red is the point.
+  const stripes =
+    !isCritical && colorBy === "assignee" ? row.assigneeColors.slice(0, MAX_STRIPES) : [];
   const color = isCritical
     ? CRITICAL_COLOR
     : colorBy === "status"
       ? row.statusColor
-      : row.groupColor;
+      : colorBy === "assignee"
+        ? (stripes[0] ?? GANTT_NEUTRAL_COLOR)
+        : row.groupColor;
+  const stripeImage = stripes.length > 1 ? stripesGradient(stripes) : undefined;
   const centerY = row.height / 2;
+
+  // Hidden while the bar is being moved: it would describe the old position.
+  const lateStretch =
+    isLate && forecastEnd && !row.isMilestone && !drag?.moved && !resize
+      ? (() => {
+          const left = x + width;
+          const right = Math.min(scale.width, scale.xOf(forecastEnd) + scale.pxPerDay);
+          return right > left ? { left, width: right - left } : null;
+        })()
+      : null;
+  const labelX = Math.max(
+    barX + activeDx + Math.max(scale.pxPerDay, barWidth),
+    lateStretch ? lateStretch.left + lateStretch.width : 0
+  );
+
+  // The slack bar: how far this task could run on before the finish moves,
+  // drawn from where it is now forecast to end - after any late stretch or a
+  // push from what it waits on. Only while the path is shown, since that is
+  // when the question is being asked.
+  const slackBar =
+    highlightCritical &&
+    taskSchedule &&
+    taskSchedule.totalFloat > 0 &&
+    !taskSchedule.done &&
+    !taskSchedule.unlinked &&
+    !taskSchedule.inCycle &&
+    !drag?.moved &&
+    !resize
+      ? (() => {
+          const left = scale.xOf(forecastEnd!) + scale.pxPerDay;
+          const right = Math.min(scale.width, left + taskSchedule.totalFloat * scale.pxPerDay);
+          return right > left ? { left, width: right - left } : null;
+        })()
+      : null;
 
   return (
     <div
@@ -1694,7 +2314,51 @@ function TimelineRow({
           centerY={centerY}
           barHeight={barHeight}
           slipDays={daysBetween(row.baseline.end, row.end)}
+          noteCount={delayNotes?.length ?? 0}
+          unexplained={unexplainedDays(
+            slipPart && slipPart.slip > 0 ? Math.max(0, slipPart.own) : daysBetween(row.baseline.end, row.end),
+            delayNotes ?? []
+          )}
+          onOpen={onOpenDelay ? (rect) => onOpenDelay(row.item.id, rect) : undefined}
+          t={t}
         />
+      )}
+
+      {/* How far past its end an unfinished task is already running: from the
+          day after its entered end through today. Faint and outlined, because
+          it is a forecast, not a date anyone typed. */}
+      {lateStretch && (
+        <div
+          aria-hidden
+          data-testid="gantt-late-stretch"
+          className="absolute rounded-r-[3px] border border-dashed pointer-events-none"
+          style={{
+            left: lateStretch.left,
+            width: lateStretch.width,
+            top: centerY,
+            height: barHeight,
+            transform: "translateY(-50%)",
+            borderColor: `${color}99`,
+            backgroundColor: `${color}22`,
+            opacity: dimmed ? DIMMED_OPACITY : undefined,
+          }}
+        />
+      )}
+
+      {slackBar && (
+        <div
+          aria-hidden
+          data-testid="gantt-slack-bar"
+          className="absolute pointer-events-none border-r-2 border-gray-400 dark:border-slate-500"
+          style={{
+            left: slackBar.left,
+            width: slackBar.width,
+            top: centerY + barHeight / 2 - 5,
+            height: 5,
+          }}
+        >
+          <div className="absolute left-0 right-0 bottom-0 h-0.5 bg-gray-400 dark:bg-slate-500" />
+        </div>
       )}
 
       {row.isMilestone ? (
@@ -1706,6 +2370,8 @@ function TimelineRow({
           date={row.start}
           editable={editable}
           floatLabel={floatLabel}
+          dimmed={dimmed}
+          stripeImage={stripeImage}
           t={t}
           dateLocale={dateLocale}
           onPointerDown={(e) => onStartDrag(e, row.item.id)}
@@ -1732,7 +2398,9 @@ function TimelineRow({
             height: barHeight,
             transform: "translateY(-50%)",
             backgroundColor: color,
+            backgroundImage: stripeImage,
             boxShadow: `0 0 12px 1px ${color}55`,
+            opacity: dimmed ? DIMMED_OPACITY : undefined,
             transitionDuration: drag || resize ? "0ms" : "150ms",
             // Without this a finger on a bar scrolls the chart instead of
             // moving the task: the browser claims the gesture before the
@@ -1795,13 +2463,17 @@ function TimelineRow({
         />
       )}
 
-      {!row.isMilestone && row.assigneeNames && (
-        <span
-          className="absolute text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap pointer-events-none"
-          style={{ left: barX + activeDx + Math.max(scale.pxPerDay, barWidth) + 8, top: centerY, transform: "translateY(-50%)" }}
-        >
-          {row.assigneeNames}
-        </span>
+      {!row.isMilestone && row.assignees.length > 0 && (
+        <AssigneeStack
+          people={row.assignees}
+          size={barHeight + 2}
+          style={{
+            left: (slackBar ? Math.max(labelX, slackBar.left + slackBar.width) : labelX) + 8,
+            top: centerY,
+            transform: "translateY(-50%)",
+            opacity: dimmed ? DIMMED_OPACITY : undefined,
+          }}
+        />
       )}
 
       {barTipNode}
@@ -1917,12 +2589,22 @@ function BaselineBar({
   centerY,
   barHeight,
   slipDays,
+  noteCount = 0,
+  unexplained = 0,
+  onOpen,
+  t,
 }: {
   x: number;
   width: number;
   centerY: number;
   barHeight: number;
   slipDays: number;
+  noteCount?: number;
+  /** Days of the slip no note explains yet. */
+  unexplained?: number;
+  /** Opens the task's delay notes; absent, the chip is only a number. */
+  onOpen?: (chip: DOMRect) => void;
+  t?: (key: TranslationKey, vars?: TranslateVars) => string;
 }) {
   // Just under the task bar, whatever size the row is.
   const below = centerY + barHeight / 2 + 2;
@@ -1933,7 +2615,7 @@ function BaselineBar({
         style={{ left: x, width, top: below, height: 5 }}
         aria-hidden="true"
       />
-      {slipDays !== 0 && (
+      {slipDays !== 0 && !onOpen && (
         <span
           className={`absolute text-[10px] font-semibold tabular-nums pointer-events-none ${
             slipDays > 0
@@ -1944,6 +2626,33 @@ function BaselineBar({
         >
           {slipDays > 0 ? `+${slipDays}d` : `${slipDays}d`}
         </span>
+      )}
+      {/* The slip says how far; its notes say why. Outlined while some of
+          it is unexplained, dotted once there is a note to read. */}
+      {slipDays !== 0 && onOpen && (
+        <button
+          type="button"
+          data-testid="gantt-slip-chip"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen(e.currentTarget.getBoundingClientRect());
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          title={t?.("delay.chipHint")}
+          className={`absolute flex items-center gap-1 px-1 rounded text-[10px] font-semibold tabular-nums leading-[14px] z-10 transition-colors ${
+            slipDays > 0
+              ? "text-red-500 dark:text-red-400"
+              : "text-emerald-600 dark:text-emerald-400"
+          } ${
+            unexplained !== 0
+              ? "border border-dashed border-amber-400 bg-amber-50/80 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+              : "border border-transparent hover:bg-gray-100 dark:hover:bg-slate-800"
+          }`}
+          style={{ left: x + width + 4, top: below - 5 }}
+        >
+          {slipDays > 0 ? `+${slipDays}d` : `${slipDays}d`}
+          {noteCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" aria-hidden />}
+        </button>
       )}
     </>
   );
@@ -2020,11 +2729,17 @@ function Milestone({
   dateLocale,
   onPointerDown,
   onKeyDown,
+  dimmed = false,
+  stripeImage,
 }: {
   x: number;
   centerY: number;
   color: string;
   label: string;
+  /** Faded behind a highlighted critical path it is not on. */
+  dimmed?: boolean;
+  /** Coloured by assignee with several people on it: one stripe each. */
+  stripeImage?: string;
   date: Date;
   editable: boolean;
   /** Said out loud here too: a milestone has float like any other task. */
@@ -2058,14 +2773,18 @@ ${floatLabel}` : ""
           marginLeft: -8,
           transform: "translateY(-50%) rotate(45deg)",
           backgroundColor: color,
+          // Turned back by the diamond's own 45°, so the segments split it
+          // left to right on screen, as they split the bars.
+          backgroundImage: stripeImage?.replace("to right", "45deg"),
           boxShadow: `0 0 10px 1px ${color}66`,
           borderRadius: 2,
           touchAction: "none",
+          opacity: dimmed ? DIMMED_OPACITY : undefined,
         }}
       />
       <span
         className="absolute text-[11px] font-semibold text-gray-700 dark:text-slate-300 whitespace-nowrap pointer-events-none"
-        style={{ left: x + 14, top: centerY, transform: "translateY(-50%)" }}
+        style={{ left: x + 14, top: centerY, transform: "translateY(-50%)", opacity: dimmed ? DIMMED_OPACITY : undefined }}
       >
         {label}
       </span>

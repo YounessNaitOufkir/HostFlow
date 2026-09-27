@@ -34,6 +34,8 @@ interface Edge {
   target: GanttItemRow;
   color: string;
   emphasis: boolean;
+  /** Off a highlighted critical path, so it steps back with its bars. */
+  dimmed: boolean;
 }
 
 /**
@@ -80,6 +82,8 @@ export function GanttLinks({
         target,
         color: violated ? VIOLATION_COLOR : critical ? CRITICAL_COLOR : source.color,
         emphasis: violated || critical,
+        // A broken link stays loud even then: it is a problem, not context.
+        dimmed: highlightCritical && !critical && !violated,
       });
     }
 
@@ -142,7 +146,7 @@ export function GanttLinks({
         ))}
       </defs>
 
-      {visible.map(({ dependency, source, target, color, emphasis }) => {
+      {visible.map(({ dependency, source, target, color, emphasis, dimmed }) => {
         const [x1, x2] = anchors(dependency.type, source, target, scale);
         const y1 = rowCenterY(source);
         const y2 = rowCenterY(target);
@@ -176,7 +180,7 @@ export function GanttLinks({
               strokeWidth={selected || emphasis ? 2.5 : 2}
               strokeLinejoin="round"
               markerEnd={`url(#gantt-arrow-${cssId(selected ? "#0073ea" : color)})`}
-              opacity={selected || emphasis ? 1 : 0.8}
+              opacity={selected || emphasis ? 1 : dimmed ? 0.25 : 0.8}
               style={{ pointerEvents: "none" }}
             />
           </g>

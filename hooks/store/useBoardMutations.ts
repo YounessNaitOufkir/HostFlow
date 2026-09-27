@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import type { Board, Profile, Column } from "@/types";
+import type { Board, Profile, Column, GanttConfig } from "@/types";
 import type { BoardStoreDispatch } from "./types";
 import { reportMutationError, runWrite } from "@/lib/errorReporting";
 import { getQueryClient } from "@/components/QueryProvider";
@@ -182,6 +182,43 @@ export function useBoardMutations({
   );
 
   /**
+   * Merges a change into the board's Gantt settings.
+   *
+   * Merged over what the board already carries, so saving one key never wipes
+   * another. `.select("id")` for the same reason as the grant below: an update
+   * RLS refuses (`Boards: Update`, gated by can_manage_board()) matches no row
+   * and returns no error, which would otherwise leave a date on screen that was
+   * never saved.
+   */
+  const updateBoardGanttConfig = useCallback(
+    async (board: Board, patch: Partial<GanttConfig>): Promise<boolean> => {
+      const next: GanttConfig = { ...(board.gantt_config ?? {}), ...patch };
+      for (const key of Object.keys(next) as (keyof GanttConfig)[]) {
+        if (next[key] === undefined || next[key] === null) delete next[key];
+      }
+      dispatch({ type: "UPDATE_BOARD", payload: { ...board, gantt_config: next } });
+
+      const { data, error } = await supabase
+        .from("boards")
+        .update({ gantt_config: next })
+        .eq("id", board.id)
+        .select("id");
+      if (error || !data || data.length === 0) {
+        reportMutationError(error, "Could not save the Gantt setting", {
+          table: "boards",
+          operation: "update",
+        });
+        dispatch({ type: "UPDATE_BOARD", payload: board });
+        return false;
+      }
+      getQueryClient().invalidateQueries({ queryKey: queryKeys.boards() });
+      notifyTabSyncBoards();
+      return true;
+    },
+    [dispatch]
+  );
+
+  /**
    * Grants one person access to a board, for the assignee access guard.
    *
    * `.select("id")` matters here exactly as it does everywhere else in this
@@ -212,6 +249,7 @@ export function useBoardMutations({
     renameBoard,
     deleteBoard,
     updateBoardItemNameColumn,
+    updateBoardGanttConfig,
     grantBoardAccess,
   };
 }

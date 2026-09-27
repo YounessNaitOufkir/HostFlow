@@ -96,6 +96,67 @@ function svg(overrides: Partial<Parameters<typeof renderGanttSvg>[0]> = {}) {
 }
 
 describe("renderGanttSvg", () => {
+  it("draws the late stretch of an overdue task, as the chart does", () => {
+    // Mar 10: Permis (due Mar 6) is still open, so it runs on to today.
+    const { model, scale, dependencies } = build();
+    const lateSchedule = computeSchedule(
+      Array.from(model.byItemId.values()).map((r) => ({
+        id: r.item.id,
+        start: dayIndex(r.start),
+        end: dayIndex(r.end),
+        finishNoEarlierThan: dayIndex(new Date(2026, 2, 10)),
+      })),
+      dependencies
+    );
+    const output = renderGanttSvg({
+      rows: model.rows,
+      dependencies,
+      scale,
+      title: "Lancement",
+      colorBy: "group",
+      schedules: lateSchedule.tasks,
+      criticalIds: lateSchedule.criticalIds,
+      violatedDependencyIds: new Set(),
+      highlightCritical: false,
+      taskColumnWidth: 300,
+    });
+
+    const doc = new DOMParser().parseFromString(output, "image/svg+xml");
+    const stretches = Array.from(doc.querySelectorAll("rect[stroke-dasharray]"));
+    expect(stretches).toHaveLength(1);
+    const left = Number(stretches[0].getAttribute("x"));
+    const right = left + Number(stretches[0].getAttribute("width"));
+    // From the day after Mar 6 through the end of Mar 10.
+    expect(left).toBeCloseTo(300 + scale.xOf(new Date(2026, 2, 7)), 3);
+    expect(right).toBeCloseTo(300 + scale.xOf(new Date(2026, 2, 11)), 3);
+  });
+
+  it("stripes a bar by assignee, as the chart does", () => {
+    const { model, scale, dependencies, schedule } = build();
+    const rows = model.rows.map((r) =>
+      r.kind === "item" && r.item.id === "i1" ? { ...r, assigneeColors: ["#00a36c", "#7c3aed"] } : r
+    );
+    const output = renderGanttSvg({
+      rows,
+      dependencies,
+      scale,
+      title: "Lancement",
+      colorBy: "assignee",
+      schedules: schedule.tasks,
+      criticalIds: schedule.criticalIds,
+      violatedDependencyIds: new Set(),
+      highlightCritical: false,
+    });
+    expect(output).toContain('fill="#00a36c"');
+    expect(output).toContain('fill="#7c3aed"');
+    // Nobody on Devis: grey.
+    expect(output).toContain('fill="#c4c4c4"');
+  });
+
+  it("draws no late stretch when nothing is overdue", () => {
+    expect(svg()).not.toContain("stroke-dasharray=\"3 2\"");
+  });
+
   it("produces a standalone SVG document", () => {
     const output = svg();
     expect(output.startsWith("<svg xmlns=")).toBe(true);
@@ -226,7 +287,7 @@ describe("ganttToTable", () => {
     const { model, dependencies, schedule } = build();
     const table = ganttToTable(model.rows, dependencies, schedule.tasks);
     const devis = table.find((r) => r[4] === "Devis <charpente>")!;
-    expect(devis[12]).toBe("Permis de construire (FS+2d)");
+    expect(devis[GANTT_TABLE_HEADERS.indexOf("Predecessors")]).toBe("Permis de construire (FS+2d)");
   });
 
   it("marks a milestone", () => {
@@ -240,6 +301,7 @@ describe("ganttToTable", () => {
     const table = ganttToTable(model.rows, dependencies, schedule.tasks);
     const permis = table.find((r) => r[4] === "Permis de construire")!;
     expect(typeof permis[10]).toBe("number");
+    expect(typeof permis[GANTT_TABLE_HEADERS.indexOf("Free float (days)")]).toBe("number");
   });
 
   it("includes the summary rows, with no task-only fields filled in", () => {

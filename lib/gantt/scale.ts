@@ -298,3 +298,37 @@ export function ganttBounds(
 
   return { chartStart, chartEnd };
 }
+
+/**
+ * The zoom and density that show the whole plan in `width` pixels.
+ *
+ * Each zoom pads the plan differently and has its own minimum span, so the
+ * days to fit depend on the zoom chosen. Fit used to measure against the range
+ * of whatever zoom was showing, then switch zoom - and the new range no longer
+ * fitted: the chart overflowed, or stopped short, and pressing Fit again gave a
+ * different answer. Here each zoom is measured against its own range.
+ *
+ * The finest zoom that stays readable wins: its columns at least
+ * FIT_MIN_DENSITY of their usual width. Finest, because the coarser zooms have
+ * long minimum spans - a three-week plan fitted at week zoom fills a third of
+ * the window. Readable, because a year of day columns is 365 slivers.
+ */
+const FIT_MIN_DENSITY = 0.4;
+
+export function fitGanttScale(
+  starts: Date[],
+  ends: Date[],
+  width: number
+): { zoom: GanttZoom; chartStart: Date; chartEnd: Date; pxPerDay: number } {
+  const measure = (zoom: GanttZoom) => {
+    const { chartStart, chartEnd } = ganttBounds(starts, ends, zoom);
+    const days = Math.max(1, daysBetween(chartStart, chartEnd) + 1);
+    // A pixel short of the width, so rounding never adds a horizontal scrollbar.
+    return { zoom, chartStart, chartEnd, pxPerDay: Math.max(0.1, (width - 1) / days) };
+  };
+  for (const zoom of GANTT_ZOOMS) {
+    const fit = measure(zoom);
+    if (fit.pxPerDay >= PX_PER_DAY[zoom] * FIT_MIN_DENSITY) return fit;
+  }
+  return measure(GANTT_ZOOMS[GANTT_ZOOMS.length - 1]);
+}

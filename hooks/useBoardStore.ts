@@ -165,6 +165,7 @@ export function useBoardStore(onNeedsImport?: () => void) {
     renameBoard: boardMutations.renameBoard,
     deleteBoard: boardMutations.deleteBoard,
     updateBoardItemNameColumn: boardMutations.updateBoardItemNameColumn,
+    updateBoardGanttConfig: boardMutations.updateBoardGanttConfig,
     grantBoardAccess: boardMutations.grantBoardAccess,
     // Group operations
     renameGroup: groupMutations.renameGroup,

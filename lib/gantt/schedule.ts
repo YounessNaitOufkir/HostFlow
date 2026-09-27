@@ -12,7 +12,7 @@
  * does - that chain is the critical path, and it is the thing a Gantt exists to
  * make visible. Without it every bar looks equally important.
  *
- * Everything is integer day offsets from an arbitrary epoch. Working days are
+ * Everything is integer day offsets from a fixed epoch. Working days are
  * deliberately not modelled: this plan's durations are calendar days, and
  * pretending otherwise would report float the dates do not support.
  */
@@ -25,7 +25,61 @@ export interface ScheduleTaskInput {
   /** Day offsets from a common epoch, inclusive of both ends. */
   start: number;
   end: number;
+  /**
+   * The project this task belongs to - its board. Tasks sharing a scope share a
+   * finish date. Omitted, every task is one project.
+   */
+  scopeId?: string;
+  /**
+   * Finished. Its dates are what happened, so it still holds back what waits
+   * on it, but it can no longer slip: it is never critical, and it does not
+   * set its project's finish date.
+   */
+  done?: boolean;
+  /**
+   * The earliest it can now finish, when that is later than its entered end:
+   * an unfinished task whose end has passed finishes today at the soonest.
+   * Only the passes see this; broken links are still judged on entered dates.
+   */
+  finishNoEarlierThan?: number;
+  /**
+   * The date its project has to be finished by. A scope is measured against
+   * the earlier of its own finish and the earliest target among its tasks, so
+   * a plan running past its target shows as negative float - how many days
+   * each task on the offending chain is late.
+   */
+  targetFinish?: number;
 }
+
+/**
+ * What a critical path is measured against.
+ *
+ *  - "project": each board finishes when its last task does, and its chain is
+ *    the one that sets that date. Boards joined by a dependency are one
+ *    project, since a slip in one really does move the other. This is what
+ *    keeps the Master Gantt from crowning a single apartment's chain and
+ *    reporting every other apartment as slack against a date not its own.
+ *  - "chain": every set of linked tasks is its own path, finishing when its
+ *    own last task does (MS Project's "multiple critical paths"). A task with
+ *    no links belongs to no chain and is never critical.
+ */
+export type CriticalPathScope = "project" | "chain";
+export const CRITICAL_PATH_SCOPES: CriticalPathScope[] = ["project", "chain"];
+
+export interface ScheduleOptions {
+  scope?: CriticalPathScope;
+  /**
+   * Slack, in days, at or below which a task counts as critical. Zero is the
+   * textbook path; a day or two more flags the near-critical chains too, the
+   * ones one bad day away from setting the finish (MS Project's "tasks are
+   * critical if slack is less than or equal to").
+   */
+  criticalThreshold?: number;
+}
+
+/** The thresholds offered, in days. */
+export const CRITICAL_THRESHOLDS = [0, 1, 2, 3, 5] as const;
+
 
 export interface TaskSchedule {
   id: string;
@@ -34,11 +88,29 @@ export interface TaskSchedule {
   earlyFinish: number;
   lateStart: number;
   lateFinish: number;
-  /** Days this task could slip before the project's finish moves. */
+  /**
+   * Days this task could slip before the project's finish moves. Negative when
+   * the project runs past its target: the days it is already late by.
+   */
   totalFloat: number;
+  /**
+   * Days it could slip before it delays any task waiting on it - as opposed
+   * to the finish. Never negative and never more than `totalFloat`; a task
+   * with nothing after it has its total float here.
+   */
+  freeFloat: number;
   isCritical: boolean;
   /** Part of a dependency loop: the passes cannot order it, so it has no float. */
   inCycle: boolean;
+  /**
+   * Chain scope only: linked to nothing, so it belongs to no path and its
+   * float means nothing. Always false in project scope.
+   */
+  unlinked: boolean;
+  /** Finished, so it has no float to speak of and is never critical. */
+  done: boolean;
+  /** Overdue and unfinished: the passes counted it as finishing on `earlyFinish`, past its entered end. */
+  late: boolean;
 }
 
 export interface DependencyViolation {
@@ -75,8 +147,11 @@ const EMPTY: ScheduleResult = {
 
 export function computeSchedule(
   tasks: ScheduleTaskInput[],
-  dependencies: GanttDependency[]
+  dependencies: GanttDependency[],
+  options: ScheduleOptions = {}
 ): ScheduleResult {
+  const scope = options.scope ?? "project";
+  const threshold = Math.max(0, options.criticalThreshold ?? 0);
   if (tasks.length === 0) return EMPTY;
 
   const byId = new Map(tasks.map((t) => [t.id, t]));
@@ -108,9 +183,12 @@ export function computeSchedule(
   //      as a floor and every predecessor's constraint.
   const earlyStart = new Map<string, number>();
   const earlyFinish = new Map<string, number>();
+  /** Days a task occupies in the passes - longer than entered when it runs late. */
+  const span = new Map<string, number>();
 
   for (const id of order) {
     const task = byId.get(id)!;
+    const length = duration(id);
     let es = task.start;
 
     for (const edge of predecessors.get(id) ?? []) {
@@ -118,11 +196,32 @@ export function computeSchedule(
       const pEs = earlyStart.get(edge.sourceId);
       const pEf = earlyFinish.get(edge.sourceId);
       if (pEs === undefined || pEf === undefined) continue;
-      es = Math.max(es, requiredStart(edge.type, pEs, pEf, edge.lag, duration(id)));
+      let required: number;
+      switch (edge.type) {
+        case "FS":
+          required = pEf + 1 + edge.lag;
+          break;
+        case "SS":
+          required = pEs + edge.lag;
+          break;
+        case "FF":
+          // Its finish is constrained, so its start follows from its own length.
+          required = pEf + edge.lag - length + 1;
+          break;
+      }
+      es = Math.max(es, required);
+    }
+
+    let ef = es + length - 1;
+    // Overdue and unfinished: it cannot finish before today, however early
+    // its dates say. The start stays, so it reads as work running long.
+    if (!task.done && task.finishNoEarlierThan !== undefined && task.finishNoEarlierThan > ef) {
+      ef = task.finishNoEarlierThan;
     }
 
     earlyStart.set(id, es);
-    earlyFinish.set(id, es + duration(id) - 1);
+    earlyFinish.set(id, ef);
+    span.set(id, ef - es + 1);
   }
 
   // A task in a cycle cannot be ordered; anchor it on its own dates so the rest
@@ -136,25 +235,66 @@ export function computeSchedule(
   const projectStart = Math.min(...tasks.map((t) => earlyStart.get(t.id) ?? t.start));
   const projectFinish = Math.max(...tasks.map((t) => earlyFinish.get(t.id) ?? t.end));
 
+  // ---- scopes: which tasks share a finish date.
+  const { componentOf, linkedIds } = partition(tasks, edges, scope);
+  // Only unfinished work sets a finish date: a done task whose end was left in
+  // the future would otherwise hand everything else slack against a date that
+  // no longer means anything. A scope with nothing left falls back to its
+  // finished tasks, where the number no longer matters.
+  const componentFinish = new Map<string, number>();
+  const widen = (task: ScheduleTaskInput) => {
+    const component = componentOf.get(task.id)!;
+    const ef = earlyFinish.get(task.id) ?? task.end;
+    const current = componentFinish.get(component);
+    if (current === undefined || ef > current) componentFinish.set(component, ef);
+  };
+  for (const task of tasks) if (!task.done) widen(task);
+  for (const task of tasks) {
+    if (task.done && !componentFinish.has(componentOf.get(task.id)!)) widen(task);
+  }
+  // A target only ever pulls the finish earlier: one later than the plan's own
+  // finish leaves the plan's float as it is, as MS Project treats a deadline.
+  for (const task of tasks) {
+    if (task.targetFinish === undefined) continue;
+    const component = componentOf.get(task.id)!;
+    const current = componentFinish.get(component)!;
+    if (task.targetFinish < current) componentFinish.set(component, task.targetFinish);
+  }
+
   // ---- backward pass: the latest each task can sit without moving the finish.
   const lateFinish = new Map<string, number>();
   const lateStart = new Map<string, number>();
 
   for (let i = order.length - 1; i >= 0; i--) {
     const id = order[i];
-    const dur = duration(id);
-    let lf = projectFinish;
+    const length = span.get(id) ?? duration(id);
+    let lf = componentFinish.get(componentOf.get(id)!)!;
 
     for (const edge of successors.get(id) ?? []) {
       if (cycleIds.has(edge.targetId)) continue;
+      // A finished successor cannot be pushed, so it leaves no deadline behind it.
+      if (byId.get(edge.targetId)!.done) continue;
       const sLs = lateStart.get(edge.targetId);
       const sLf = lateFinish.get(edge.targetId);
       if (sLs === undefined || sLf === undefined) continue;
-      lf = Math.min(lf, allowedFinish(edge.type, sLs, sLf, edge.lag, dur));
+      let allowed: number;
+      switch (edge.type) {
+        case "FS":
+          allowed = sLs - 1 - edge.lag;
+          break;
+        case "SS":
+          // Its start is what is constrained; its finish follows from its length.
+          allowed = sLs - edge.lag + length - 1;
+          break;
+        case "FF":
+          allowed = sLf - edge.lag;
+          break;
+      }
+      lf = Math.min(lf, allowed);
     }
 
     lateFinish.set(id, lf);
-    lateStart.set(id, lf - dur + 1);
+    lateStart.set(id, lf - length + 1);
   }
 
   for (const id of cycleIds) {
@@ -173,8 +313,32 @@ export function computeSchedule(
     const ls = lateStart.get(task.id) ?? task.start;
     const lf = lateFinish.get(task.id) ?? task.end;
     const inCycle = cycleIds.has(task.id);
-    const totalFloat = inCycle ? 0 : ls - es;
-    const isCritical = !inCycle && totalFloat <= 0;
+    const unlinked = scope === "chain" && !linkedIds.has(task.id);
+    const done = !!task.done;
+    const late =
+      !done && !inCycle && task.finishNoEarlierThan !== undefined && task.finishNoEarlierThan > task.end;
+    const totalFloat = inCycle ? 0 : lf - ef;
+    const isCritical = !inCycle && !unlinked && !done && totalFloat <= threshold;
+
+    // Free float: the gap to the nearest thing waiting on it, measured on the
+    // forward pass. Capped by total float, since slipping past that moves the
+    // finish whatever the next task does.
+    let freeFloat = totalFloat;
+    if (!inCycle) {
+      for (const edge of successors.get(task.id) ?? []) {
+        if (cycleIds.has(edge.targetId) || byId.get(edge.targetId)!.done) continue;
+        const sEs = earlyStart.get(edge.targetId)!;
+        const sEf = earlyFinish.get(edge.targetId)!;
+        const gap =
+          edge.type === "FS"
+            ? sEs - (ef + 1 + edge.lag)
+            : edge.type === "SS"
+              ? sEs - (es + edge.lag)
+              : sEf - (ef + edge.lag);
+        freeFloat = Math.min(freeFloat, gap);
+      }
+    }
+    freeFloat = Math.max(0, freeFloat);
 
     if (isCritical) criticalIds.add(task.id);
 
@@ -186,8 +350,12 @@ export function computeSchedule(
       lateStart: ls,
       lateFinish: lf,
       totalFloat,
+      freeFloat,
       isCritical,
       inCycle,
+      unlinked,
+      done,
+      late,
     });
   }
 
@@ -206,44 +374,6 @@ export function computeSchedule(
     projectStart,
     projectFinish,
   };
-}
-
-/** The earliest a successor may start, given where its predecessor actually lands. */
-function requiredStart(
-  type: DependencyType,
-  predStart: number,
-  predFinish: number,
-  lag: number,
-  ownDuration: number
-): number {
-  switch (type) {
-    case "FS":
-      return predFinish + 1 + lag;
-    case "SS":
-      return predStart + lag;
-    case "FF":
-      // Its finish is constrained, so its start follows from its own length.
-      return predFinish + lag - ownDuration + 1;
-  }
-}
-
-/** The latest a predecessor may finish, given where its successor must land. */
-function allowedFinish(
-  type: DependencyType,
-  succLateStart: number,
-  succLateFinish: number,
-  lag: number,
-  ownDuration: number
-): number {
-  const span = ownDuration - 1;
-  switch (type) {
-    case "FS":
-      return succLateStart - 1 - lag;
-    case "SS":
-      return succLateStart - lag + span;
-    case "FF":
-      return succLateFinish - lag;
-  }
 }
 
 /**
@@ -295,6 +425,61 @@ function findViolations(
   }
 
   return violations;
+}
+
+/**
+ * Groups tasks that share a finish date, with a union-find.
+ *
+ * Every link joins its two ends, in both scopes. Project scope also joins all
+ * tasks of one board, so a board is one project unless a cross-board link
+ * merges it with another. Chain scope joins by links alone.
+ */
+function partition(
+  tasks: ScheduleTaskInput[],
+  edges: GanttDependency[],
+  scope: CriticalPathScope
+): { componentOf: Map<string, string>; linkedIds: Set<string> } {
+  const parent = new Map<string, string>();
+  const find = (id: string): string => {
+    let root = id;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    // Path compression, iteratively: a 2,000-task chain must not recurse.
+    let node = id;
+    while (node !== root) {
+      const next = parent.get(node)!;
+      parent.set(node, root);
+      node = next;
+    }
+    return root;
+  };
+  const union = (a: string, b: string) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
+  for (const task of tasks) parent.set(task.id, task.id);
+
+  const linkedIds = new Set<string>();
+  for (const edge of edges) {
+    linkedIds.add(edge.sourceId);
+    linkedIds.add(edge.targetId);
+    union(edge.sourceId, edge.targetId);
+  }
+
+  if (scope === "project") {
+    const firstOfScope = new Map<string, string>();
+    for (const task of tasks) {
+      const key = task.scopeId ?? "";
+      const first = firstOfScope.get(key);
+      if (first === undefined) firstOfScope.set(key, task.id);
+      else union(first, task.id);
+    }
+  }
+
+  const componentOf = new Map<string, string>();
+  for (const task of tasks) componentOf.set(task.id, find(task.id));
+  return { componentOf, linkedIds };
 }
 
 /**

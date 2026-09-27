@@ -48,6 +48,10 @@ import { reportError, reportFetchError, reportMutationError } from "@/lib/errorR
 import { format } from "date-fns";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import type { Board, ItemLink } from "@/types";
+import { boardSlipParts, slipOf } from "@/lib/delays";
+import { useDelayNotes } from "@/hooks/useDelayNotes";
+import { DelayNotesSection } from "@/components/delays/DelayNotesSection";
 
 
 // ============================================================
@@ -269,11 +273,25 @@ interface ItemPanelProps {
   onUpdateCell: (itemId: string, columnId: string, value: any) => void;
   profiles: Profile[];
   boardItems?: Item[];
+  /** The task's board: how its dates are read, to say how far it is from its baseline. */
+  board?: Board | null;
+  /** The board's links, so days pushed on by late tasks before it are not asked about. */
+  itemLinks?: ItemLink[];
 }
 
-export default function ItemPanel({ item, columns, currentUser, onClose, onUpdateCell, profiles, boardItems = [] }: ItemPanelProps) {
+export default function ItemPanel({ item, columns, currentUser, onClose, onUpdateCell, profiles, boardItems = [], board, itemLinks = [] }: ItemPanelProps) {
   const { t, bcp47 } = useLanguage();
   const queryClient = useQueryClient();
+
+  // Why this task is behind (or ahead of) its baseline. Shown only where there
+  // is a baseline to be behind: without one there is nothing to explain.
+  const delayApi = useDelayNotes(board ? [board.id] : []);
+  const slip = board ? slipOf(item, board) : null;
+  const delayNotes = delayApi.byItem.get(item.id) ?? [];
+  const showDelays = slip !== null && (slip !== 0 || delayNotes.length > 0);
+  const inherited = showDelays && board
+    ? boardSlipParts(board, boardItems, itemLinks).get(item.id)?.inherited ?? 0
+    : 0;
 
   const {
     data: updates = [],
@@ -709,6 +727,25 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
               <X size={20} />
             </button>
           </div>
+          {showDelays && (
+            <section aria-label={t("delay.title")} className="mt-1 max-h-[40vh] overflow-y-auto pr-1">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
+                {t("delay.title")}
+              </h3>
+              <DelayNotesSection
+                slip={slip}
+                inherited={inherited}
+                notes={delayNotes}
+                profiles={profiles}
+                currentUserId={currentUser.id}
+                onAdd={(values) =>
+                  delayApi.add({ itemId: item.id, boardId: item.board_id, ...values })
+                }
+                onUpdate={delayApi.update}
+                onRemove={delayApi.remove}
+              />
+            </section>
+          )}
         </div>
 
         {/* ===== TABS ===== */}

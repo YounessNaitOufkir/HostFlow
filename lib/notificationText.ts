@@ -26,7 +26,12 @@ export function notificationText(
   // interpolation values and land as text. Nothing here builds markup.
   const vars: TranslateVars = {};
   for (const [name, value] of Object.entries(notification.message_vars ?? {})) {
-    vars[name] = String(value);
+    if (value != null) vars[name] = String(value);
+  }
+  // A decline with no reason of its own gave the standard one, which is
+  // stored empty so it reads in the requester's language.
+  if (key === "notif.accessDeclined" && !vars.reason) {
+    vars.reason = t("access.defaultReason");
   }
 
   const rendered = t(key, vars);

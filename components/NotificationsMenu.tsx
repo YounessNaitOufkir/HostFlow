@@ -12,11 +12,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { useAuth } from "@/components/AuthProvider";
 import { consumePendingOpenNotifications, onOpenNotificationsRequested } from "@/lib/notificationsOpenSignal";
+import { useAccessRequests } from "@/hooks/useAccessRequests";
+import { requestForNotification, type AccessRequest } from "@/lib/accessRequests";
+import {
+  ACCESS_DIALOG_ATTR,
+  AccessDecisionPill,
+  ApproveDeclineButtons,
+  useAccessDecisions,
+} from "@/components/access/AccessRequestControls";
 
 export default function NotificationsMenu({ userId, onNotificationClick }: { userId: string, onNotificationClick?: (boardId?: string, itemId?: string, relatedUserId?: string, messageKey?: string) => void }) {
   const t = useT();
   const queryClient = useQueryClient();
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const refreshProfileRef = useRef(refreshProfile);
   useEffect(() => {
     refreshProfileRef.current = refreshProfile;
@@ -24,6 +33,14 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // "Wants to join" notifications are answered right here.
+  const accessRequests = useAccessRequests(isAdmin ? userId : null, { withPeople: true });
+  const decisions = useAccessDecisions(accessRequests.decide, (request: AccessRequest) => {
+    // Next comes choosing their workspaces: Data Access, with them selected.
+    onNotificationClick?.(undefined, undefined, request.user_id, undefined);
+    setIsOpen(false);
+  });
 
   // The "Notifications" taskbar shortcut: opens this menu instead of just the app.
   useEffect(() => {
@@ -33,6 +50,8 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      // The decline dialog opens over the menu, which stays behind it.
+      if ((e.target as Element | null)?.closest?.(`[${ACCESS_DIALOG_ATTR}]`)) return;
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
@@ -82,6 +101,14 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
           if (incoming.message_key === "notif.teamAccessGranted") {
             void refreshProfileRef.current();
           }
+        }
+        // The answer to a request to join: the sidebar says where it stands,
+        // and a decline opens its popup, without waiting for a reload.
+        if (
+          incoming.message_key === "notif.teamAccessGranted" ||
+          incoming.message_key === "notif.accessDeclined"
+        ) {
+          queryClient.invalidateQueries({ queryKey: ["accessRequests"] });
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, (payload) => {
@@ -187,36 +214,91 @@ export default function NotificationsMenu({ userId, onNotificationClick }: { use
                   No notifications yet.
                 </div>
               ) : (
-                Array.from(new Map(notifications.map(n => [n.id, n])).values()).map((n) => (
-                  <button
-                    type="button"
-                    key={n.id}
-                    onClick={() => {
-                      if (!n.read) markAsRead(n.id);
-                      if (onNotificationClick && (n.board_id || n.item_id || n.related_user_id)) {
-                        onNotificationClick(n.board_id, n.item_id, n.related_user_id ?? undefined, n.message_key ?? undefined);
-                        setIsOpen(false);
-                      }
-                    }}
-                    className={`w-full text-left p-3 rounded-md transition-colors ${
-                      n.read
-                        ? 'bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 opacity-75'
-                        : 'bg-blue-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-slate-700'
-                    } ${(n.board_id || n.item_id || n.related_user_id) ? 'cursor-pointer' : ''}`}
-                  >
+                Array.from(new Map(notifications.map(n => [n.id, n])).values()).map((n) => {
+                  const open = () => {
+                    if (!n.read) markAsRead(n.id);
+                    if (onNotificationClick && (n.board_id || n.item_id || n.related_user_id)) {
+                      onNotificationClick(n.board_id, n.item_id, n.related_user_id ?? undefined, n.message_key ?? undefined);
+                      setIsOpen(false);
+                    }
+                  };
+                  const tone = n.read
+                    ? 'bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 opacity-75'
+                    : 'bg-blue-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-slate-700';
+                  const text = (
                     <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
                       {notificationText(t, n)}
                     </p>
+                  );
+                  const time = (
                     <p className="text-xs text-gray-400 mt-1">
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                  </button>
-                ))
+                  );
+
+                  const request =
+                    isAdmin && n.message_key === "notif.workspaceAccessRequest"
+                      ? requestForNotification(n, accessRequests.byId, accessRequests.latestByUser)
+                      : null;
+                  if (!request) {
+                    return (
+                      <button
+                        type="button"
+                        key={n.id}
+                        onClick={open}
+                        className={`w-full text-left p-3 rounded-md transition-colors ${tone} ${(n.board_id || n.item_id || n.related_user_id) ? 'cursor-pointer' : ''}`}
+                      >
+                        {text}
+                        {time}
+                      </button>
+                    );
+                  }
+
+                  // A request to join: its answer sits on the notification. A
+                  // container, not a button, since it holds buttons of its own.
+                  const name = n.message_vars?.name ?? "";
+                  return (
+                    <div key={n.id} className={`p-3 rounded-md transition-colors ${tone}`}>
+                      <button type="button" onClick={open} className="w-full text-left cursor-pointer">
+                        {text}
+                        {request.note && (
+                          <p className="mt-1 text-xs italic text-gray-500 dark:text-gray-400 line-clamp-3 break-words">
+                            “{request.note}”
+                          </p>
+                        )}
+                        {time}
+                      </button>
+                      {request.status === "pending" ? (
+                        <ApproveDeclineButtons
+                          className="mt-2"
+                          name={name}
+                          busy={decisions.busyId === request.id}
+                          onApprove={() => {
+                            if (!n.read) markAsRead(n.id);
+                            void decisions.approve(request);
+                          }}
+                          onDecline={() => {
+                            if (!n.read) markAsRead(n.id);
+                            decisions.startDecline(request, name);
+                          }}
+                        />
+                      ) : (
+                        <AccessDecisionPill
+                          className="mt-2"
+                          request={request}
+                          people={accessRequests.people}
+                          meId={userId}
+                        />
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+      {decisions.dialog}
     </div>
   );
 }

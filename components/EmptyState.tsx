@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { Sparkles, Loader2, Check, AlertCircle, Info, X } from "lucide-react";
+import React from "react";
+import { Sparkles } from "lucide-react";
 import { useT } from "@/components/LanguageProvider";
-import { useRequestWorkspaceAccess } from "@/hooks/useRequestWorkspaceAccess";
+import { HostlikAccessPrompt } from "@/components/access/HostlikAccessPrompt";
 import type { Profile } from "@/types";
 
 type EmptyStateProps = {
@@ -26,20 +26,6 @@ type EmptyStateProps = {
  */
 export default function EmptyState({ profile, onCreateWorkspace }: EmptyStateProps) {
     const t = useT();
-    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
-    const { requesting, request } = useRequestWorkspaceAccess(profile);
-
-    const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 4000);
-    };
-
-    const handleRequestAccess = async () => {
-        const result = await request();
-        if (result === "sent") showToast(t("empty.requestSent"), "success");
-        else if (result === "already") showToast(t("empty.requestAlreadySent"), "info");
-        else showToast(t("empty.requestFailed"), "error");
-    };
 
     return (
         <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center bg-white dark:bg-[#1f223c] p-8 text-center rounded-xl border border-gray-200 dark:border-white/5 mx-6 my-6 shadow-sm overflow-hidden">
@@ -68,41 +54,11 @@ export default function EmptyState({ profile, onCreateWorkspace }: EmptyStatePro
             {/* Host'lik is named explicitly: the only shared workspaces that
                 exist belong to it, so an employee can tell this is the right
                 door and everyone else can tell it is not theirs. */}
-            <p className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 max-w-md text-[13px] leading-relaxed text-gray-400 dark:text-slate-500">
-                {t("empty.hostlikPrompt")}{" "}
-                <button
-                    onClick={handleRequestAccess}
-                    disabled={requesting}
-                    className="font-medium text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 inline-flex items-center gap-1.5"
-                >
-                    {requesting ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                    {t("empty.hostlikRequest")}
-                </button>
-            </p>
-
-            {toast && (
-                <div className={`fixed bottom-8 right-8 flex items-center p-4 rounded-xl shadow-xl border z-50 ${
-                    toast.type === 'success'
-                        ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
-                        : toast.type === 'info'
-                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300'
-                        : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
-                }`}>
-                    {toast.type === 'success'
-                        ? <Check className="w-5 h-5 mr-3 shrink-0" />
-                        : toast.type === 'info'
-                        ? <Info className="w-5 h-5 mr-3 shrink-0" />
-                        : <AlertCircle className="w-5 h-5 mr-3 shrink-0" />}
-                    <span className="font-medium text-sm">{toast.message}</span>
-                    <button
-                        onClick={() => setToast(null)}
-                        aria-label={t("common.close")}
-                        className="ml-4 p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
+            <HostlikAccessPrompt
+                profile={profile}
+                variant="page"
+                className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5"
+            />
         </div>
     );
 }

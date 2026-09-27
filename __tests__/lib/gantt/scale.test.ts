@@ -4,6 +4,7 @@ import {
   ganttBounds,
   GANTT_ZOOMS,
   PX_PER_DAY,
+  fitGanttScale,
 } from "@/lib/gantt/scale";
 import { parseDateOnly, toDateOnly, addDaysOnly, daysBetween } from "@/lib/gantt/dates";
 
@@ -199,5 +200,37 @@ describe("ganttBounds", () => {
     const now = new Date();
     expect(chartStart.getTime()).toBeLessThan(now.getTime());
     expect(chartEnd.getTime()).toBeGreaterThan(now.getTime());
+  });
+});
+
+describe("fitGanttScale", () => {
+  const d = (v: string) => parseDateOnly(v)!;
+
+  it("fills the width exactly with the range of the zoom it chooses", () => {
+    // Every zoom pads differently, so measuring against one zoom and showing
+    // another used to overflow or stop short.
+    for (const [start, end] of [
+      ["2026-03-01", "2026-03-10"],
+      ["2026-03-01", "2026-06-30"],
+      ["2026-01-01", "2027-06-30"],
+    ]) {
+      const fit = fitGanttScale([d(start)], [d(end)], 1200);
+      const days = daysBetween(fit.chartStart, fit.chartEnd) + 1;
+      expect(days * fit.pxPerDay).toBeLessThanOrEqual(1200);
+      expect(days * fit.pxPerDay).toBeGreaterThan(1198);
+    }
+  });
+
+  it("picks the finest bands that stay readable", () => {
+    expect(fitGanttScale([d("2026-03-01")], [d("2026-03-20")], 1200).zoom).toBe("day");
+    expect(fitGanttScale([d("2026-03-01")], [d("2026-06-30")], 1200).zoom).toBe("week");
+    expect(fitGanttScale([d("2026-01-01")], [d("2027-12-31")], 1200).zoom).toBe("month");
+  });
+
+  it("gives the same answer when pressed twice", () => {
+    const a = fitGanttScale([d("2026-03-01")], [d("2026-05-15")], 1000);
+    const b = fitGanttScale([d("2026-03-01")], [d("2026-05-15")], 1000);
+    expect(b).toEqual(a);
+    expect(Object.keys(PX_PER_DAY)).toContain(a.zoom);
   });
 });

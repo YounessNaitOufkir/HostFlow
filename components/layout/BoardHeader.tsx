@@ -13,13 +13,14 @@ import {
   MoreHorizontal,
   Smartphone,
   History,
+  ClipboardCheck,
 } from "lucide-react";
 import type { Column, Profile } from "@/types";
 import { Tooltip } from "@/components/ui/Tooltip";
 import FilterBar from "@/components/board/FilterBar";
 import { useT } from "@/components/LanguageProvider";
 
-export type MainView = "board" | "kanban" | "dashboard" | "calendar" | "gantt" | "cards" | "my_work" | "trash" | "workspace_overview" | "workspace_gantt" | "activity";
+export type MainView = "board" | "kanban" | "dashboard" | "calendar" | "gantt" | "cards" | "my_work" | "trash" | "workspace_overview" | "workspace_gantt" | "activity" | "review";
 
 interface BoardHeaderProps {
   boardName: string;
@@ -161,6 +162,12 @@ export default function BoardHeader({
             title={t("board.cardsTooltip")}
           >
             <Smartphone size={14} /> {t("board.viewCards")}
+          </button>
+          <button
+            onClick={() => onSetMainView("review")}
+            className={`pill-tab flex items-center gap-1.5 press-effect ${mainView === "review" ? "active" : "text-gray-600 dark:text-gray-400"}`}
+          >
+            <ClipboardCheck size={14} /> {t("board.viewReview")}
           </button>
           {isAdmin && (
             <button

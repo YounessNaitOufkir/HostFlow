@@ -110,17 +110,25 @@ describe("field values", () => {
 
   it("reports slack, and says so when a task is in a loop", () => {
     const row = rowsOf().find((r) => r.kind === "item")!;
-    const base = { id: "i1", duration: 5, earlyStart: 0, earlyFinish: 4, lateStart: 3, lateFinish: 7 };
+    const base = { id: "i1", duration: 5, earlyStart: 0, earlyFinish: 4, lateStart: 3, lateFinish: 7, late: false, freeFloat: 0 };
 
     expect(
-      GANTT_FIELDS.float.value(row, context({ schedule: { ...base, totalFloat: 3, isCritical: false, inCycle: false } }))
+      GANTT_FIELDS.float.value(row, context({ schedule: { ...base, totalFloat: 3, isCritical: false, inCycle: false, unlinked: false, done: false } }))
     ).toBe("3");
     expect(
-      GANTT_FIELDS.float.value(row, context({ schedule: { ...base, totalFloat: 0, isCritical: true, inCycle: false } }))
+      GANTT_FIELDS.float.value(row, context({ schedule: { ...base, totalFloat: 0, isCritical: true, inCycle: false, unlinked: false, done: false } }))
     ).toBe("0");
     expect(
-      GANTT_FIELDS.float.value(row, context({ schedule: { ...base, totalFloat: 0, isCritical: false, inCycle: true } }))
+      GANTT_FIELDS.float.value(row, context({ schedule: { ...base, totalFloat: 0, isCritical: false, inCycle: true, unlinked: false, done: false } }))
     ).toBe("loop");
+    // Chain scope: a task on no chain has no slack to report.
+    expect(
+      GANTT_FIELDS.float.value(row, context({ schedule: { ...base, totalFloat: 0, isCritical: false, inCycle: false, unlinked: true, done: false } }))
+    ).toBe("—");
+    // A finished task is off the path; its float is not a number worth reading.
+    expect(
+      GANTT_FIELDS.float.value(row, context({ schedule: { ...base, totalFloat: 0, isCritical: false, inCycle: false, unlinked: false, done: true } }))
+    ).toBe("done");
     // Nothing to say without a computed schedule.
     expect(GANTT_FIELDS.float.value(row, context())).toBe("");
   });

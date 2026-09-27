@@ -21,6 +21,7 @@
 
 import type { Board, Column, GanttConfig, Item, StatusOption } from "@/types";
 import { STATUS_OPTIONS } from "@/types";
+import { parseDateOnly } from "./dates";
 
 export type { GanttConfig };
 
@@ -92,6 +93,11 @@ export function resolveMilestoneColumn(board: Board | null | undefined): Column 
       (c) => c.id === config.milestoneColumnId && c.type === "checkbox"
     ) ?? null
   );
+}
+
+/** The date the board has to be finished by, or null when none is set or it no longer parses. */
+export function targetFinishOf(board: Board | null | undefined): Date | null {
+  return parseDateOnly(ganttConfigOf(board).targetFinish);
 }
 
 export const GANTT_DEFAULT_COLOR = "#579bfc";

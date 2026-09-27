@@ -200,6 +200,36 @@ describe("collapsing", () => {
   });
 });
 
+describe("keeping only some items", () => {
+  it("lays out only the items it accepts, and sizes the group to them", () => {
+    const { rows, byItemId } = buildGanttRows({
+      contexts: [simpleContext()],
+      includeItem: (id) => id !== "i1",
+    });
+    expect(rows.map((r) => r.label)).toEqual(["Phase 1", "Devis", "Travaux"]);
+    expect(byItemId.has("i1")).toBe(false);
+    expect((rows[0] as GanttGroupRow).start).toEqual(new Date(2026, 2, 5));
+  });
+
+  it("drops a group left with nothing", () => {
+    const { rows } = buildGanttRows({ contexts: [simpleContext()], includeItem: () => false });
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("done", () => {
+  it("reads a finished status in the board's own words", () => {
+    const context = simpleContext();
+    context.items[0].column_values[STATUS.id] = "Terminé";
+    context.items[1].column_values[STATUS.id] = "Pas terminé";
+    const { byItemId } = buildGanttRows({ contexts: [context] });
+    expect(byItemId.get("i1")!.isDone).toBe(true);
+    // Negated: not done.
+    expect(byItemId.get("i2")!.isDone).toBe(false);
+    expect(byItemId.get("i3")!.isDone).toBe(false);
+  });
+});
+
 describe("milestones", () => {
   it("draws a one-day timeline as a bar filling its day, not a milestone", () => {
     // A one-day task here is ordinary work (a delivery, a visit). Only the
@@ -298,6 +328,20 @@ describe("colours and assignees", () => {
     expect(byItemId.get("i1")!.assigneeNames).toBe("Amina, Léo");
     expect(byItemId.get("i2")!.assigneeNames).toBe("Léo");
     expect(byItemId.get("i3")!.assigneeNames).toBe("Amina");
+  });
+
+  it("keeps the people for their photos, leaving out anyone no longer on file", () => {
+    const profiles = [{ id: "u1", full_name: "Amina" }] as Profile[];
+    const b = board("b1", "B", [TIMELINE, PEOPLE]);
+    const context: GanttBoardContext = {
+      board: b,
+      groups: [group("g1", "G", "b1")],
+      items: [
+        item("i1", "T", "g1", "b1", { ...span("2026-03-01", "2026-03-02"), [PEOPLE.id]: ["u1", "deleted-user"] }, 0),
+      ],
+    };
+    const { byItemId } = buildGanttRows({ contexts: [context], profiles });
+    expect(byItemId.get("i1")!.assignees.map((p) => p.id)).toEqual(["u1"]);
   });
 });
 

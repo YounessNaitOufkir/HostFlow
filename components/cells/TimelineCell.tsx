@@ -45,10 +45,13 @@ export default function TimelineCell({ item, column, onUpdate, columns }: Timeli
           ? `${formattedStart} – ${format(e, "d", { locale: dateLocale })}`
           : `${formattedStart} – ${formattedEnd}`;
 
+    // Green is done, whatever the dates - finished early included - so it
+    // never also means "not started yet", which is grey.
     const now = today();
-    if (e < now) pillBg = finished ? "bg-[#9aa4b8]" : "bg-[#e44258]";
+    if (finished) pillBg = "bg-[#00c875]";
+    else if (e < now) pillBg = "bg-[#e44258]";
     else if (s <= now) pillBg = "bg-[#579bfc]";
-    else pillBg = "bg-[#00c875]";
+    else pillBg = "bg-[#9aa4b8]";
   }
 
   return (

@@ -108,8 +108,9 @@ describe("a timeline pill on work that is already finished", () => {
   ];
 
   const past = { start: "2020-03-01", end: "2020-03-06" };
+  const future = { start: "2099-03-01", end: "2099-03-06" };
 
-  const renderPill = (state: string) =>
+  const renderPill = (state: string, when: { start: string; end: string } = past) =>
     render(
       <CellRenderer
         item={
@@ -119,7 +120,7 @@ describe("a timeline pill on work that is already finished", () => {
             group_id: "g1",
             name: "Strip out",
             position: 0,
-            column_values: { state, when: past },
+            column_values: { state, when },
           } as Item
         }
         column={columns[1]}
@@ -147,5 +148,19 @@ describe("a timeline pill on work that is already finished", () => {
   it("still paints a past date red while the work is unfinished", () => {
     const { container } = renderPill("On site");
     expect(pillClasses(container)).toContain("#e44258");
+  });
+
+  it("paints finished work green, past dates or not", () => {
+    expect(pillClasses(renderPill("Signed off").container)).toContain("#00c875");
+  });
+
+  it("paints finished-early work green too, not as upcoming", () => {
+    expect(pillClasses(renderPill("Signed off", future).container)).toContain("#00c875");
+  });
+
+  it("paints work not started yet grey, so it never looks done", () => {
+    const classes = pillClasses(renderPill("On site", future).container);
+    expect(classes).toContain("#9aa4b8");
+    expect(classes).not.toContain("#00c875");
   });
 });

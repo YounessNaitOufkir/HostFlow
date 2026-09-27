@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { usePortfolioData } from "@/hooks/usePortfolioData";
 import {
+  ATTENTION_REASONS,
   computePortfolio,
   portfolioBoards,
   type AttentionReason,
@@ -14,6 +16,31 @@ import {
 import { daysBetween, today as todayDate } from "@/lib/gantt/dates";
 import type { Board, Profile, Workspace } from "@/types";
 import type { TranslationKey } from "@/lib/i18n/types";
+import LessonsTab from "@/components/portfolio/LessonsTab";
+import { PersonFilter } from "@/components/portfolio/PersonFilter";
+import { assigneeIdsOf } from "@/lib/dashboard/metrics";
+import { itemStatusSemantic } from "@/lib/statusSemantics";
+
+const PERSON_KEY = "hostflow_portfolio_person";
+
+function readPerson(): string | null {
+  try {
+    return localStorage.getItem(PERSON_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+type PortfolioTab = "overview" | "lessons";
+const TAB_KEY = "hostflow_portfolio_tab";
+
+function readTab(): PortfolioTab {
+  try {
+    return localStorage.getItem(TAB_KEY) === "lessons" ? "lessons" : "overview";
+  } catch {
+    return "overview";
+  }
+}
 
 interface PortfolioOverviewProps {
   workspaces: Workspace[];
@@ -22,6 +49,8 @@ interface PortfolioOverviewProps {
   isTeam: boolean;
   onOpenWorkspace: (workspace: Workspace) => void;
   onOpenTask: (boardId: string, itemId: string) => void;
+  /** Opens a board's own Review, from a project on the Lessons tab. */
+  onOpenReview: (board: Board) => void;
 }
 
 const ATTENTION_LIMIT = 8;
@@ -45,17 +74,84 @@ export default function PortfolioOverview({
   isTeam,
   onOpenWorkspace,
   onOpenTask,
+  onOpenReview,
 }: PortfolioOverviewProps) {
   const { t, bcp47 } = useLanguage();
+  const [tab, setTabState] = useState<PortfolioTab>(readTab);
+  const setTab = (next: PortfolioTab) => {
+    setTabState(next);
+    try {
+      localStorage.setItem(TAB_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  };
   const scopedBoards = useMemo(
     () => (isTeam ? portfolioBoards(workspaces, boards) : []),
     [isTeam, workspaces, boards]
   );
   const { items, loading, error, retry } = usePortfolioData(scopedBoards);
-  const metrics = useMemo(
-    () => computePortfolio(workspaces, scopedBoards, items, profiles),
-    [workspaces, scopedBoards, items, profiles]
+
+  // ---- whose tasks: everyone, or one team member
+  const team = useMemo(
+    () => profiles.filter((p) => p.is_staff).sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? "")),
+    [profiles]
   );
+  const [personId, setPersonState] = useState<string | null>(readPerson);
+  const setPerson = (next: string | null) => {
+    setPersonState(next);
+    try {
+      if (next) localStorage.setItem(PERSON_KEY, next);
+      else localStorage.removeItem(PERSON_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+  // Someone remembered here who has since left the team goes back to everyone.
+  if (personId && profiles.length > 0 && !team.some((p) => p.id === personId)) {
+    setPersonState(null);
+  }
+  const person = team.find((p) => p.id === personId) ?? null;
+
+  const openCounts = useMemo(() => {
+    const boardById = new Map(scopedBoards.map((b) => [b.id, b]));
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      const board = boardById.get(item.board_id);
+      if (!board || item.deleted_at) continue;
+      if (itemStatusSemantic(board.columns || [], item.column_values) === "done") continue;
+      for (const id of assigneeIdsOf(board, item)) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return counts;
+  }, [scopedBoards, items]);
+
+  const metrics = useMemo(
+    () => computePortfolio(workspaces, scopedBoards, items, profiles, new Date(), { personId: person?.id ?? null }),
+    [workspaces, scopedBoards, items, profiles, person]
+  );
+  // Triage within the attention list: one kind of problem at a time.
+  const [reasonFilter, setReasonFilter] = useState<AttentionReason | null>(null);
+
+  // One person's view shows the apartments they have work in.
+  const shownCards = person ? metrics.cards.filter((c) => c.total > 0) : metrics.cards;
+
+  // A card, clicked, narrows the attention list to that apartment.
+  const [workspaceFilter, setWorkspaceFilter] = useState<string | null>(null);
+  // Its card hidden (by the person filter), the apartment filter lets go.
+  if (workspaceFilter && !shownCards.some((c) => c.workspace.id === workspaceFilter)) {
+    setWorkspaceFilter(null);
+  }
+  const filteredWorkspace = shownCards.find((c) => c.workspace.id === workspaceFilter)?.workspace ?? null;
+  const attentionInView = filteredWorkspace
+    ? metrics.attention.filter((row) => row.workspaceId === filteredWorkspace.id)
+    : metrics.attention;
+  // The timelines follow the same apartment, so the page reads as one answer.
+  const spansInView = filteredWorkspace
+    ? metrics.spans.filter((span) => span.workspace.id === filteredWorkspace.id)
+    : metrics.spans;
+  const undatedInView = filteredWorkspace
+    ? metrics.undated.filter((w) => w.id === filteredWorkspace.id)
+    : metrics.undated;
   const shortDate = useMemo(
     () => new Intl.DateTimeFormat(bcp47, { day: "numeric", month: "short" }),
     [bcp47]
@@ -80,20 +176,39 @@ export default function PortfolioOverview({
     );
   } else if (loading) {
     body = <Skeleton />;
+  } else if (tab === "lessons") {
+    body = (
+      <LessonsTab workspaces={workspaces} boards={scopedBoards} items={items} onOpenReview={onOpenReview} />
+    );
   } else {
     body = (
       <>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <PersonFilter people={team} openCounts={openCounts} value={person?.id ?? null} onChange={setPerson} />
+          {person && (
+            <span className="text-[13px] text-gray-500 dark:text-gray-400">
+              {shownCards.length === 0
+                ? t("portfolio.personNoTasks", { name: person.full_name })
+                : t("portfolio.showingOf", { shown: shownCards.length, total: metrics.cards.length })}
+            </span>
+          )}
+        </div>
+
         <section aria-labelledby="portfolio-workspaces">
           <h2 id="portfolio-workspaces" className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
             {t("portfolio.workspaces")}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {metrics.cards.map((card) => (
+            {shownCards.map((card) => (
               <WorkspaceCard
                 key={card.workspace.id}
                 card={card}
                 t={t}
                 shortDate={shortDate}
+                selected={workspaceFilter === card.workspace.id}
+                onToggle={() =>
+                  setWorkspaceFilter((current) => (current === card.workspace.id ? null : card.workspace.id))
+                }
                 onOpen={() => onOpenWorkspace(card.workspace)}
               />
             ))}
@@ -101,16 +216,20 @@ export default function PortfolioOverview({
         </section>
 
         <AttentionSection
-          attention={metrics.attention}
-          cards={metrics.cards}
+          attention={attentionInView}
+          workspace={filteredWorkspace}
+          onClearWorkspace={() => setWorkspaceFilter(null)}
+          reason={reasonFilter}
+          onReasonChange={setReasonFilter}
+          cards={shownCards}
           t={t}
           onOpenTask={onOpenTask}
         />
 
-        {metrics.spans.length > 0 && (
+        {spansInView.length > 0 && (
           <TimelineSection
-            spans={metrics.spans}
-            undated={metrics.undated}
+            spans={spansInView}
+            undated={undatedInView}
             t={t}
             bcp47={bcp47}
             shortDate={shortDate}
@@ -123,11 +242,33 @@ export default function PortfolioOverview({
   return (
     <div className="flex-1 overflow-auto bg-[#F4F6F8] dark:bg-[#181b34] px-4 py-6 sm:p-8">
       <div className="max-w-[1200px] mx-auto space-y-8">
-        <header>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">
-            {t("portfolio.title")}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("portfolio.subtitle")}</p>
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">
+              {t("portfolio.title")}
+            </h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("portfolio.subtitle")}</p>
+          </div>
+          {isTeam && scopedBoards.length > 0 && (
+            <div role="tablist" aria-label={t("portfolio.tabsLabel")} className="inline-flex gap-0.5 p-1 rounded-full bg-gray-200/60 dark:bg-slate-800/70">
+              {(["overview", "lessons"] as PortfolioTab[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === option}
+                  onClick={() => setTab(option)}
+                  className={`px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+                    tab === option
+                      ? "bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                  }`}
+                >
+                  {t(option === "overview" ? "portfolio.tabOverview" : "portfolio.tabLessons")}
+                </button>
+              ))}
+            </div>
+          )}
         </header>
         {body}
       </div>
@@ -139,11 +280,16 @@ function WorkspaceCard({
   card,
   t,
   shortDate,
+  selected,
+  onToggle,
   onOpen,
 }: {
   card: PortfolioCard;
   t: T;
   shortDate: Intl.DateTimeFormat;
+  /** Its tasks are what the attention list is showing. */
+  selected: boolean;
+  onToggle: () => void;
   onOpen: () => void;
 }) {
   const empty = card.total === 0;
@@ -171,13 +317,21 @@ function WorkspaceCard({
           : null;
 
   return (
+    <div
+      className={`bg-white dark:bg-slate-900 rounded-xl border shadow-sm hover:shadow-md transition-all flex flex-col ${
+        selected
+          ? "border-blue-500 ring-2 ring-blue-500/30 dark:border-blue-400"
+          : card.attention > 0
+            ? "border-amber-200 dark:border-amber-900/60 hover:border-blue-300 dark:hover:border-blue-700"
+            : "border-gray-100 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700"
+      }`}
+    >
     <button
       type="button"
-      onClick={onOpen}
-      aria-label={t("portfolio.openWorkspace", { name: card.workspace.name })}
-      className={`text-left bg-white dark:bg-slate-900 rounded-xl p-5 border shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 focus-visible:outline-2 focus-visible:outline-blue-500 transition-all flex flex-col gap-4 ${
-        card.attention > 0 ? "border-amber-200 dark:border-amber-900/60" : "border-gray-100 dark:border-slate-800"
-      }`}
+      onClick={onToggle}
+      aria-pressed={selected}
+      aria-label={t("portfolio.filterWorkspace", { name: card.workspace.name })}
+      className="text-left p-5 pb-3 rounded-t-xl focus-visible:outline-2 focus-visible:outline-blue-500 flex flex-col gap-4 flex-1"
     >
       <div className="flex items-start justify-between gap-2 w-full">
         <span className="font-semibold text-gray-800 dark:text-gray-100 truncate" title={card.workspace.name}>
@@ -204,12 +358,19 @@ function WorkspaceCard({
         </div>
       )}
 
-      {footer && (
-        <div className="text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-slate-800 pt-3 w-full">
-          {footer}
-        </div>
-      )}
     </button>
+      <div className="mx-5 mb-4 pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+        <span className="text-gray-500 dark:text-gray-400 truncate">{footer}</span>
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={t("portfolio.openWorkspace", { name: card.workspace.name })}
+          className="shrink-0 font-semibold text-blue-600 dark:text-blue-400 hover:underline rounded focus-visible:outline-2 focus-visible:outline-blue-500"
+        >
+          {t("portfolio.openShort")}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -239,17 +400,30 @@ function Ring({ pct }: { pct: number }) {
 }
 
 function AttentionSection({
-  attention,
+  attention: all,
+  workspace,
+  onClearWorkspace,
+  reason,
+  onReasonChange,
   cards,
   t,
   onOpenTask,
 }: {
   attention: PortfolioAttentionItem[];
+  /** The apartment the list is narrowed to, from its card. */
+  workspace: Workspace | null;
+  onClearWorkspace: () => void;
+  /** Show only this kind of problem; null for all. */
+  reason: AttentionReason | null;
+  onReasonChange: (reason: AttentionReason | null) => void;
   cards: PortfolioCard[];
   t: T;
   onOpenTask: (boardId: string, itemId: string) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const counts = new Map<AttentionReason, number>();
+  for (const row of all) counts.set(row.reason, (counts.get(row.reason) ?? 0) + 1);
+  const attention = reason ? all.filter((row) => row.reason === reason) : all;
   const visible = showAll ? attention : attention.slice(0, ATTENTION_LIMIT);
   const groups = cards
     .map((c) => ({ workspace: c.workspace, rows: visible.filter((r) => r.workspaceId === c.workspace.id) }))
@@ -267,12 +441,57 @@ function AttentionSection({
   return (
     <section className="bg-white dark:bg-slate-900 rounded-xl p-5 sm:p-6 shadow-sm border border-gray-100 dark:border-slate-800">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t("portfolio.attention")}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t("portfolio.attention")}</h2>
+          {workspace && (
+            <button
+              type="button"
+              onClick={onClearWorkspace}
+              aria-label={t("portfolio.clearWorkspace", { name: workspace.name })}
+              className="flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[12px] font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50"
+            >
+              {workspace.name}
+              <X size={12} aria-hidden />
+            </button>
+          )}
+        </div>
         <span className="text-[13px] text-gray-500 dark:text-gray-400">{t("portfolio.attentionHint")}</span>
       </div>
 
-      {attention.length === 0 ? (
+      {/* The same colours as each row's badge, so a chip reads as a key too. */}
+      {all.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-4" role="group" aria-label={t("portfolio.reasonFilter")}>
+          {ATTENTION_REASONS.map((r) => {
+            const count = counts.get(r) ?? 0;
+            const active = reason === r;
+            return (
+              <button
+                key={r}
+                type="button"
+                aria-pressed={active}
+                disabled={count === 0 && !active}
+                onClick={() => onReasonChange(active ? null : r)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold border transition-colors disabled:opacity-40 disabled:cursor-default ${REASON_STYLE[r]} ${
+                  active ? "border-current ring-1 ring-current" : "border-transparent enabled:hover:border-current/40"
+                }`}
+              >
+                {t(`portfolio.reason.${r}` as TranslationKey)}
+                <span className="tabular-nums opacity-80">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {all.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400 py-4">{t("portfolio.attentionEmpty")}</p>
+      ) : attention.length === 0 ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+          {t("portfolio.reasonEmpty", { reason: t(`portfolio.reason.${reason}` as TranslationKey) })}{" "}
+          <button type="button" onClick={() => onReasonChange(null)} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+            {t("portfolio.showAllReasons")}
+          </button>
+        </p>
       ) : (
         <div className="space-y-4">
           {groups.map((g) => (

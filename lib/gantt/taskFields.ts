@@ -21,6 +21,7 @@ export type GanttFieldKey =
   | "finish"
   | "duration"
   | "float"
+  | "freeFloat"
   | "predecessors";
 
 export interface GanttFieldContext {
@@ -50,6 +51,7 @@ export const GANTT_FIELD_ORDER: GanttFieldKey[] = [
   "finish",
   "duration",
   "float",
+  "freeFloat",
   "predecessors",
 ];
 
@@ -101,7 +103,23 @@ export const GANTT_FIELDS: Record<GanttFieldKey, GanttFieldDefinition> = {
     value: (row, { schedule, t }) => {
       if (row.kind !== "item" || !schedule) return "";
       if (schedule.inCycle) return t("gantt.field.loop");
-      return schedule.totalFloat <= 0 ? "0" : String(schedule.totalFloat);
+      if (schedule.done) return t("gantt.field.done");
+      if (schedule.unlinked) return "—";
+      // Negative when the board runs past its target: days already late.
+      return schedule.totalFloat === 0 ? "0" : String(schedule.totalFloat);
+    },
+  },
+  freeFloat: {
+    key: "freeFloat",
+    labelKey: "gantt.field.freeFloat",
+    width: 52,
+    align: "right",
+    numeric: true,
+    // Beside total slack: how long before the next task, not the finish, moves.
+    value: (row, { schedule }) => {
+      if (row.kind !== "item" || !schedule) return "";
+      if (schedule.inCycle || schedule.done || schedule.unlinked) return "—";
+      return String(schedule.freeFloat);
     },
   },
   predecessors: {

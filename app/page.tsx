@@ -62,6 +62,7 @@ import KanbanView from "@/components/KanbanView";
 import DashboardView from "@/components/DashboardView";
 import CalendarView from "@/components/CalendarView";
 import GanttView from "@/components/GanttView";
+import ProjectReview from "@/components/ProjectReview";
 import MyWorkView from "@/components/MyWorkView";
 import SearchView from "@/components/views/SearchView";
 import SearchPalette from "@/components/search/SearchPalette";
@@ -79,13 +80,23 @@ import { BoardSkeleton } from "@/components/skeletons/BoardSkeleton";
 import { SidebarSkeleton } from "@/components/skeletons/SidebarSkeleton";
 
 import EmptyState from "@/components/EmptyState";
+import { AccessDeclinedPopup } from "@/components/access/AccessDeclinedPopup";
 import LandingPage from "@/components/landing/LandingPage";
 import ProfileSettingsModal from "@/components/ProfileSettingsModal";
 import AdminSettingsModal from "@/components/AdminSettingsModal";
 import ReadabilityModal from "@/components/ReadabilityModal";
 import TaskCreateModal from "@/components/TaskCreateModal";
 
-import type { Column, ColumnType } from "@/types";
+import type { Column, ColumnType, Item } from "@/types";
+import { newlyLateDays } from "@/lib/delays";
+import { useDelayNotes } from "@/hooks/useDelayNotes";
+import { DelayPrompt, type DelayPromptRequest } from "@/components/delays/DelayPrompt";
+import { PlanningHint, type PlanningHintRequest } from "@/components/delays/PlanningHint";
+import { planningHintFor } from "@/lib/dashboard/lessons";
+import { loadTaskTypeIndex } from "@/hooks/useLessonsData";
+import { plotItemDates } from "@/lib/gantt/rows";
+import { addDaysOnly, daysBetween, toDateOnly } from "@/lib/gantt/dates";
+import { itemIsDone } from "@/lib/statusSemantics";
 import { useAppHistory, type AppLocation } from "@/hooks/useAppHistory";
 import { useT } from "@/components/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/types";
@@ -95,7 +106,7 @@ import { LaunchSplash } from "@/components/ui/LaunchSplash";
 
 // Views that show a single board; the rest (My Work, Trash, Overview, Search,
 // the Master Gantt) are not "on the board".
-const BOARD_VIEWS = new Set<string>(["board", "kanban", "dashboard", "calendar", "gantt", "cards", "activity"]);
+const BOARD_VIEWS = new Set<string>(["board", "kanban", "dashboard", "calendar", "gantt", "cards", "activity", "review"]);
 
 // Window-title label for every board-independent view. A view with no entry
 // here (e.g. "board" itself, handled separately) falls back to the plain app name.
@@ -611,14 +622,109 @@ export default function HostFlowApp() {
   // ============================================================
   // Memoized Callbacks for child components
   // ============================================================
+  // ---- Delay notes: ask why the moment a task slips past its baseline.
+  const [delayPrompt, setDelayPrompt] = useState<DelayPromptRequest | null>(null);
+  const delayWriter = useDelayNotes([]);
+
+  /**
+   * Compares a task before and after one edit and, if the edit pushed it
+   * further behind its plan, asks why. Only the task someone edited is asked
+   * about: the tasks a dependency pushed along were delayed by it, and asking
+   * about each would count the same lost days again.
+   */
+  const askAboutDelay = useCallback(
+    (before: Item | undefined, board: Board | null | undefined, columnId: string, value: unknown) => {
+      if (!before || !board) return 0;
+      const after = { ...before, column_values: { ...before.column_values, [columnId]: value } } as Item;
+      const days = newlyLateDays(before, after, board);
+      if (days <= 0) return 0;
+      // A second slip on the same task before answering adds to the first.
+      setDelayPrompt((prev) =>
+        prev && prev.item.id === before.id
+          ? { ...prev, item: after, days: prev.days + days }
+          : { item: after, boardId: board.id, days }
+      );
+      return days;
+    },
+    []
+  );
+
+  // ---- Lessons from past projects, offered while a task is planned.
+  const [planningHint, setPlanningHint] = useState<PlanningHintRequest | null>(null);
+  const isTeamMember = profile?.is_staff === true;
+  const workspacesRef = useRef(state.workspaces);
+  const boardsRef = useRef(state.boards);
+  useEffect(() => {
+    workspacesRef.current = state.workspaces;
+    boardsRef.current = state.boards;
+  }, [state.workspaces, state.boards]);
+
+  /**
+   * After a Timeline edit on a board: if past projects say this kind of task
+   * usually takes longer than the length just set, say so. The history loads
+   * the first time it is needed, then comes from the cache the Portfolio
+   * overview shares, so opening a board never pays for it.
+   */
+  const suggestLength = useCallback(
+    (before: Item | undefined, board: Board | null | undefined, columnId: string, value: unknown, write: (value: unknown) => void) => {
+      if (!isTeamMember || !before || !board) return;
+      if (board.columns.find((c) => c.id === columnId)?.type !== "timeline") return;
+      const after = { ...before, column_values: { ...before.column_values, [columnId]: value } } as Item;
+      const plotted = plotItemDates(after, board);
+      if (!plotted || plotted.columnId !== columnId) return;
+      if (itemIsDone(board.columns, after.column_values)) return;
+      const plannedDays = daysBetween(plotted.start, plotted.end) + 1;
+      const was = plotItemDates(before, board);
+      // Only when the length itself was just set or changed.
+      if (was && daysBetween(was.start, was.end) + 1 === plannedDays) return;
+
+      void loadTaskTypeIndex(queryClient, workspacesRef.current, boardsRef.current)
+        .then((index) => {
+          const hint = planningHintFor(after.name, plannedDays, index);
+          if (!hint) return;
+          const start = plotted.start;
+          setPlanningHint({
+            itemId: after.id,
+            name: after.name,
+            plannedDays,
+            suggestedDays: hint.suggestedDays,
+            type: hint.type,
+            apply: () => {
+              const current = typeof value === "object" && value ? (value as Record<string, unknown>) : {};
+              write({
+                ...current,
+                start: toDateOnly(start),
+                end: toDateOnly(addDaysOnly(start, hint.suggestedDays - 1)),
+              });
+              toast.success(t("hint.applied", { name: after.name, days: hint.suggestedDays }));
+            },
+          });
+        })
+        .catch(() => {
+          /* no history to offer: say nothing rather than interrupt with an error */
+        });
+    },
+    [isTeamMember, queryClient, t]
+  );
+  const handleUpdateCellRef = useRef<(itemId: string, columnId: string, value: unknown) => void>(() => {});
+
   const handleUpdateCell = useCallback(
     (itemId: string, columnId: string, value: any) => {
       if (profile && state.activeBoard) {
+        const before = state.items.find((i) => i.id === itemId);
+        if (askAboutDelay(before, state.activeBoard, columnId, value) === 0) {
+          suggestLength(before, state.activeBoard, columnId, value, (next) =>
+            handleUpdateCellRef.current(itemId, columnId, next)
+          );
+        }
         store.updateCell(state.items, state.itemLinks, state.activeBoard, state.boardAutomations, profile, itemId, columnId, value);
       }
     },
-    [state.items, state.itemLinks, state.activeBoard, state.boardAutomations, profile, store.updateCell]
+    [state.items, state.itemLinks, state.activeBoard, state.boardAutomations, profile, store.updateCell, askAboutDelay, suggestLength]
   );
+  useEffect(() => {
+    handleUpdateCellRef.current = handleUpdateCell;
+  }, [handleUpdateCell]);
 
   /**
    * A Gantt drag: the task that moved plus everything it pushed, written as one
@@ -634,6 +740,16 @@ export default function HostFlowApp() {
       if (summary.cycleDetected) {
         toast.warning("These tasks depend on each other in a loop, so the plan could not be fully rescheduled.");
       }
+      // The first change is the task that was dragged; the rest were pushed.
+      const moved = changes[0];
+      if (moved) {
+        const before = state.items.find((i) => i.id === moved.itemId);
+        if (askAboutDelay(before, state.activeBoard, moved.columnId, moved.value) === 0) {
+          suggestLength(before, state.activeBoard, moved.columnId, moved.value, (next) =>
+            handleUpdateCellRef.current(moved.itemId, moved.columnId, next)
+          );
+        }
+      }
       store.updateCells(state.items, changes, {
         message:
           summary.movedCount > 0
@@ -641,7 +757,7 @@ export default function HostFlowApp() {
             : undefined,
       });
     },
-    [state.items, store.updateCells]
+    [state.items, state.activeBoard, store.updateCells, askAboutDelay, suggestLength]
   );
 
   /**
@@ -652,9 +768,10 @@ export default function HostFlowApp() {
   const handleWorkspaceGanttUpdate = useCallback(
     ({ board, automations, items, itemLinks, itemId, columnId, value }: WorkspaceGanttUpdate) => {
       if (!profile) return;
+      askAboutDelay(items.find((i) => i.id === itemId), board, columnId, value);
       store.updateCell(items, itemLinks, board, automations, profile, itemId, columnId, value);
     },
-    [profile, store.updateCell]
+    [profile, store.updateCell, askAboutDelay]
   );
 
   const handleAddColumn = useCallback(
@@ -1084,6 +1201,10 @@ export default function HostFlowApp() {
           isTeam={profile?.is_staff === true}
           onOpenWorkspace={selectWorkspace}
           onOpenTask={navigateToItem}
+          onOpenReview={(board) => {
+            if (state.activeBoard?.id !== board.id) store.switchBoard(board);
+            dispatch({ type: "SET_MAIN_VIEW", payload: "review" });
+          }}
         />
       ) : state.mainView === "workspace_gantt" ? (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -1093,6 +1214,7 @@ export default function HostFlowApp() {
             defaultWorkspaceId={state.activeWorkspace?.id ?? null}
             profiles={state.profiles}
             onUpdateCell={handleWorkspaceGanttUpdate}
+            onRenameItem={store.renameItem}
             onCreateLink={({ sourceId, targetId, type }) =>
               store.addLink(sourceId, targetId, "dependency", { depType: type })
             }
@@ -1106,6 +1228,16 @@ export default function HostFlowApp() {
             onRescheduleCells={(items, changes, summary) => {
               if (summary.cycleDetected) {
                 toast.warning("These tasks depend on each other in a loop, so the plan could not be fully rescheduled.");
+              }
+              const moved = changes[0];
+              const movedItem = moved ? items.find((i) => i.id === moved.itemId) : undefined;
+              if (moved && movedItem) {
+                askAboutDelay(
+                  movedItem,
+                  state.boards.find((b) => b.id === movedItem.board_id),
+                  moved.columnId,
+                  moved.value
+                );
               }
               store.updateCells(items, changes, {
                 message:
@@ -1230,10 +1362,15 @@ export default function HostFlowApp() {
                 <GanttView
                   board={state.activeBoard}
                   items={filters.filteredItems}
+                  allItems={state.items}
                   groups={state.groups}
                   itemLinks={state.itemLinks}
+                  onUpdateGanttConfig={(patch) =>
+                    store.updateBoardGanttConfig(state.activeBoard!, patch)
+                  }
                   onUpdateItem={handleUpdateCell}
                   onRescheduleItems={handleGanttReschedule}
+                  onRenameItem={store.renameItem}
                   onCaptureBaseline={(baselines) => store.captureBaseline(state.items, baselines)}
                   onCreateLink={({ sourceId, targetId, type }) =>
                     store.addLink(sourceId, targetId, "dependency", { depType: type })
@@ -1264,6 +1401,18 @@ export default function HostFlowApp() {
                   onAddItem={handleAddItem}
                   onDeleteItem={store.deleteItem}
                   onDuplicateItem={store.duplicateItem}
+                />
+              )}
+
+              {state.mainView === "review" && (
+                <ProjectReview
+                  board={state.activeBoard}
+                  groups={state.groups}
+                  items={state.items}
+                  itemLinks={state.itemLinks}
+                  profiles={state.profiles}
+                  onOpenItem={(item) => dispatch({ type: "SET_SELECTED_ITEM", payload: item })}
+                  onGoToGantt={() => dispatch({ type: "SET_MAIN_VIEW", payload: "gantt" })}
                 />
               )}
 
@@ -1309,6 +1458,30 @@ export default function HostFlowApp() {
         </div>
       )}
 
+      {delayPrompt && (
+        <DelayPrompt
+          request={delayPrompt}
+          onSkip={() => setDelayPrompt(null)}
+          onSave={async (values) => {
+            const ok = await delayWriter.add({
+              itemId: delayPrompt.item.id,
+              boardId: delayPrompt.boardId,
+              ...values,
+            });
+            if (ok) {
+              setDelayPrompt(null);
+              toast.success(t("delay.saved"));
+            }
+            return ok;
+          }}
+        />
+      )}
+
+      {/* A slip's "why?" comes first; the planning hint waits its turn. */}
+      {planningHint && !delayPrompt && (
+        <PlanningHint hint={planningHint} onClose={() => setPlanningHint(null)} />
+      )}
+
       {/* Item Detail Panel */}
       {state.selectedItem && state.activeBoard && profile && (
         <ItemPanel
@@ -1323,6 +1496,8 @@ export default function HostFlowApp() {
           }}
           profiles={state.profiles}
           boardItems={state.items}
+          board={state.activeBoard}
+          itemLinks={state.itemLinks}
           onClose={() => dispatch({ type: "SET_SELECTED_ITEM", payload: null })}
           onUpdateCell={handleUpdateCell}
         />
@@ -1417,6 +1592,9 @@ export default function HostFlowApp() {
       {/* Global Prompt Modal */}
       {store.PromptComponent}
       {store.WorkspaceDialogComponent}
+
+      {/* A declined request to join the team, told once. */}
+      <AccessDeclinedPopup profile={profile} />
     </div>
     </BoardAccessContext.Provider>
     </AssignablePeopleContext.Provider>

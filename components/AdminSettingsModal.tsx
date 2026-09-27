@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
+import { PersonColorPicker } from "@/components/ui/PersonColorPicker";
+import { personColor } from "@/lib/personColor";
 import { useT } from "@/components/LanguageProvider";
 import { fill } from "@/lib/i18n/fill";
 import { X, Building2, Users, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown, Search } from "lucide-react";
@@ -13,6 +15,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { DEFAULT_ORG_TIMEZONE, cronTimeInTimezone } from "@/lib/orgTime";
 import { ORG_TIMEZONES } from "@/lib/orgTimezones";
+import { useAuth } from "@/components/AuthProvider";
+import { useLanguage } from "@/components/LanguageProvider";
+import { useAccessRequests } from "@/hooks/useAccessRequests";
+import { isStandingDecline } from "@/lib/accessRequests";
+import { ApproveDeclineButtons, useAccessDecisions } from "@/components/access/AccessRequestControls";
 
 interface AdminSettingsModalProps {
   onClose: () => void;
@@ -168,6 +175,36 @@ export default function AdminSettingsModal({
     setSavingId(null);
   };
 
+  /**
+   * A person's colour: their stripe on Gantt bars coloured by assignee, and
+   * their avatar when they have no photo. set_profile_color checks the caller
+   * is an administrator; null goes back to the automatic colour.
+   */
+  const handleColorChange = async (profileId: string, color: string | null) => {
+    setSavingId(profileId);
+    try {
+      const { error } = await supabase.rpc("set_profile_color", {
+        target_user_id: profileId,
+        new_color: color,
+      });
+      if (error) throw error;
+      queryClient.setQueryData(
+        queryKeys.adminData(),
+        (old: { profiles: Profile[] } | undefined) =>
+          old && {
+            ...old,
+            profiles: old.profiles.map((p) =>
+              p.id === profileId ? { ...p, color: color ?? "" } : p
+            ),
+          }
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles() });
+    } catch (err) {
+      reportMutationError(err, t("adm.errColor"), { table: "profiles", operation: "rpc" });
+    }
+    setSavingId(null);
+  };
+
   const handleRoleChange = async (profileId: string, newRole: string) => {
     const targetProfile = profiles.find((p) => p.id === profileId);
     // is_owner, not the email: this list comes from user_directory, which has no
@@ -316,6 +353,16 @@ export default function AdminSettingsModal({
     setSelectedProfileId(profileId);
     setActiveTab("permissions");
   };
+
+  // Requests to join the team, answered at the top of Users. Approving goes
+  // straight on to Data Access, where their workspaces are chosen.
+  const { profile: me } = useAuth();
+  const { bcp47 } = useLanguage();
+  const shortDate = new Intl.DateTimeFormat(bcp47, { day: "numeric", month: "short" });
+  const accessRequests = useAccessRequests(me?.id, { withPeople: true });
+  const decisions = useAccessDecisions(accessRequests.decide, (request) =>
+    handleManagePermissions(request.user_id)
+  );
 
   // Form State
   const [companyName, setCompanyName] = useState(organizationSettings?.company_name || "");
@@ -617,6 +664,52 @@ export default function AdminSettingsModal({
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{t("adm.usersTitle")}</h3>
                   <p className="text-gray-500 mt-1">{t("adm.usersSub")}</p>
                 </div>
+                {accessRequests.pending.length > 0 && (
+                  <section
+                    aria-labelledby="pending-requests-title"
+                    className="mb-4 shrink-0 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-900/10 p-4"
+                  >
+                    <h4 id="pending-requests-title" className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                      {accessRequests.pending.length === 1
+                        ? t("access.pendingOne")
+                        : t("access.pendingMany", { count: accessRequests.pending.length })}
+                    </h4>
+                    <ul className="mt-3 space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+                      {accessRequests.pending.map((request) => {
+                        const person = accessRequests.people.get(request.user_id);
+                        const name = person?.full_name ?? t("access.someone");
+                        return (
+                          <li
+                            key={request.id}
+                            className="flex items-center gap-3 flex-wrap bg-white dark:bg-slate-800 rounded-lg px-3 py-2.5 border border-amber-100 dark:border-slate-700"
+                          >
+                            <Avatar
+                              name={name}
+                              initials={person?.avatar_initials}
+                              url={person?.avatar_url}
+                              color={personColor({ id: request.user_id, color: person?.color })}
+                              size={36}
+                            />
+                            <div className="flex-1 min-w-[10rem]">
+                              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 break-words">{name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 break-words">
+                                {t("access.askedOn", { date: shortDate.format(new Date(request.created_at)) })}
+                                {request.note && <span className="italic"> · “{request.note}”</span>}
+                              </p>
+                            </div>
+                            <ApproveDeclineButtons
+                              name={name}
+                              busy={decisions.busyId === request.id}
+                              onApprove={() => void decisions.approve(request)}
+                              onDecline={() => decisions.startDecline(request, name)}
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                )}
+                {decisions.dialog}
                 <div className="relative mb-4 shrink-0 max-w-sm">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
@@ -648,7 +741,7 @@ export default function AdminSettingsModal({
                             name={profile.full_name}
                             initials={profile.avatar_initials}
                             url={profile.avatar_url}
-                            color={profile.color}
+                            color={personColor(profile)}
                             size={48}
                             className="shadow-inner"
                           />
@@ -668,11 +761,33 @@ export default function AdminSettingsModal({
                                 ? t("adm.teamMember")
                                 : t("adm.externalDesc")}
                             </p>
+                            {!profile.is_staff && (() => {
+                              // A decline stays until they are added to the team, which is
+                              // done here: say so on the card, in case it was a mistake.
+                              const request = accessRequests.latestByUser.get(profile.id);
+                              if (!isStandingDecline(request)) return null;
+                              const date = shortDate.format(new Date(request.decided_at ?? request.created_at));
+                              const decider = request.decided_by
+                                ? accessRequests.people.get(request.decided_by)?.full_name
+                                : null;
+                              return (
+                                <p className="mt-1 text-xs font-medium text-red-700 dark:text-red-300 leading-snug">
+                                  {decider
+                                    ? t("access.cardDeclinedBy", { date, name: decider })
+                                    : t("access.cardDeclined", { date })}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
                         
                         <div className="flex items-center justify-between gap-2 flex-wrap pt-4 border-t border-gray-100 dark:border-slate-700/50">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <PersonColorPicker
+                              person={profile}
+                              onChange={(color) => handleColorChange(profile.id, color)}
+                              disabled={savingId === profile.id}
+                            />
                             <select
                               value={profile.role || "member"}
                               onChange={(e) => handleRoleChange(profile.id, e.target.value)}
@@ -757,7 +872,7 @@ export default function AdminSettingsModal({
                               name={profile.full_name}
                               initials={profile.avatar_initials}
                               url={profile.avatar_url}
-                              color={profile.color}
+                              color={personColor(profile)}
                               size={24}
                             />
                             <TruncatedText className="text-sm font-medium truncate">{profile.full_name}</TruncatedText>

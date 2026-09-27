@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, Loader2, ChevronLeft, ChevronRight, PieChart } from "lucide-react";
+import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, ChevronLeft, ChevronRight, PieChart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSpring, animated } from "@react-spring/web";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import WorkspaceMembersModal from "@/components/WorkspaceMembersModal";
-import { useRequestWorkspaceAccess, type RequestAccessResult } from "@/hooks/useRequestWorkspaceAccess";
+import { HostlikAccessPrompt } from "@/components/access/HostlikAccessPrompt";
 
 interface SidebarProps {
   // Data
@@ -116,8 +116,6 @@ export default function Sidebar({
   const { anchorRef: wsMenuAnchor, menuRef: wsMenuRef, menuStyle: wsMenuStyle } = useAnchoredMenu(isWorkspaceMenuOpen, { align: 'left' });
   const { anchorRef: createMenuAnchor, menuRef: createMenuRef, menuStyle: createMenuStyle } = useAnchoredMenu(isCreateMenuOpen, { align: 'right' });
   const [membersModalWs, setMembersModalWs] = useState<Workspace | null>(null);
-  const { requesting, request } = useRequestWorkspaceAccess(profile);
-  const [accessRequestStatus, setAccessRequestStatus] = useState<RequestAccessResult | null>(null);
 
   // Creating a private workspace used to make the request-access prompt
   // vanish along with the no-workspace screen it lived on — there was
@@ -126,12 +124,6 @@ export default function Sidebar({
   // workspace in this list means access was actually granted; a private one
   // doesn't count; it's the fallback everyone starts with.
   const hasSharedWorkspaceAccess = workspaces.some((ws) => !ws.is_private);
-
-  const handleRequestAccess = async () => {
-    const result = await request();
-    setAccessRequestStatus(result);
-    setTimeout(() => setAccessRequestStatus(null), 4000);
-  };
 
   // A board is only the "current" one while the board view is on screen. Without
   // the mainView check the previous board stays highlighted on Workspace
@@ -717,29 +709,11 @@ export default function Sidebar({
               </div>
 
               {!hasSharedWorkspaceAccess && (
-                <div className="shrink-0 border-t border-gray-200 dark:border-slate-700/50 px-4 py-3">
-                  <p className="text-[12px] leading-relaxed text-gray-400 dark:text-slate-500">
-                    {t("empty.hostlikPrompt")}{" "}
-                    <button
-                      type="button"
-                      onClick={handleRequestAccess}
-                      disabled={requesting}
-                      className="font-medium text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 inline-flex items-center gap-1"
-                    >
-                      {requesting ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                      {t("empty.hostlikRequest")}
-                    </button>
-                  </p>
-                  {accessRequestStatus && (
-                    <p className={`mt-1.5 text-[11px] ${accessRequestStatus === "error" ? "text-red-500 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
-                      {accessRequestStatus === "sent"
-                        ? t("empty.requestSent")
-                        : accessRequestStatus === "already"
-                        ? t("empty.requestAlreadySent")
-                        : t("empty.requestFailed")}
-                    </p>
-                  )}
-                </div>
+                <HostlikAccessPrompt
+                  profile={profile}
+                  variant="sidebar"
+                  className="shrink-0 border-t border-gray-200 dark:border-slate-700/50 px-4 py-3"
+                />
               )}
             </div>
           </motion.div>

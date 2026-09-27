@@ -95,12 +95,18 @@ function datesOf(board: Board, item: Item): { start: Date; end: Date } | null {
   return null;
 }
 
+export interface PortfolioFilter {
+  /** One person's tasks only, as any of their assignees. */
+  personId?: string | null;
+}
+
 export function computePortfolio(
   workspaces: Workspace[],
   boards: Board[],
   items: Item[],
   profiles: Profile[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  filter: PortfolioFilter = {}
 ): PortfolioMetrics {
   const eligible = portfolioBoards(workspaces, boards);
   const boardById = new Map(eligible.map((b) => [b.id, b]));
@@ -136,6 +142,9 @@ export function computePortfolio(
     if (!acc) continue;
     const { card } = acc;
     const columns = board.columns || [];
+    // One person's plate: everything below - counts, attention, timeline -
+    // is about their tasks alone.
+    if (filter.personId && !assigneeIdsOf(board, item).includes(filter.personId)) continue;
 
     card.total++;
     const semantic = itemStatusSemantic(columns, item.column_values);

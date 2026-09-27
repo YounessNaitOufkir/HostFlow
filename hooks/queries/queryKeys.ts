@@ -7,6 +7,8 @@ export const queryKeys = {
   boards: (workspaceId?: string) => ["boards", { workspaceId }] as const,
   boardData: (boardId: string) => ["boardData", boardId] as const,
   boardAccess: (boardId: string) => ["boardAccess", boardId] as const,
+  canManageBoard: (boardId: string, userId: string) =>
+    ["canManageBoard", boardId, userId] as const,
   myWorkItems: (profileId: string, boardScope = "") =>
     ["myWorkItems", profileId, boardScope] as const,
   itemUpdates: (itemId: string) => ["updates", itemId] as const,
@@ -14,8 +16,11 @@ export const queryKeys = {
   auditLogs: (boardId: string) => ["auditLogs", boardId] as const,
   workspaceGantt: (boardIds: string[]) => ["workspaceGantt", boardIds] as const,
   portfolio: (boardIds: string[]) => ["portfolio", boardIds] as const,
+  portfolioGroups: (boardIds: string[]) => ["portfolioGroups", boardIds] as const,
+  delayNotes: (boardIds: string[]) => ["delayNotes", [...boardIds].sort()] as const,
   trashUpdates: (itemIds: string[]) => ["trashUpdates", itemIds] as const,
   adminData: () => ["adminData"] as const,
+  accessRequests: (userId: string, withPeople: boolean) => ["accessRequests", userId, withPeople] as const,
   automations: (boardId: string) => ["automations", boardId] as const,
   workspaceAutomations: (workspaceId: string) => ["workspaceAutomations", workspaceId] as const,
   dependencySearch: (query: string) => ["dependencySearch", query] as const,

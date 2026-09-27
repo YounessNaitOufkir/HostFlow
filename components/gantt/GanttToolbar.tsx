@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Check,
   Flag,
+  Goal,
   Maximize2,
   Palette,
   Rows3,
@@ -15,7 +16,10 @@ import {
   Lock,
 } from "lucide-react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import { useT } from "@/components/LanguageProvider";
+import { useLanguage } from "@/components/LanguageProvider";
+import { format } from "date-fns";
+import DatePopover from "@/components/ui/DatePopover";
+import { parseDateOnly } from "@/lib/gantt/dates";
 import { GANTT_ZOOMS, ZOOM_LABEL_KEYS, type GanttZoom } from "@/lib/gantt/scale";
 import { GanttExportMenu, type GanttExportKind } from "./GanttExportMenu";
 import {
@@ -24,8 +28,23 @@ import {
   type GanttFieldKey,
 } from "@/lib/gantt/taskFields";
 import { GANTT_ROW_SIZES, type GanttRowSize } from "@/lib/gantt/rows";
+import {
+  CRITICAL_PATH_SCOPES,
+  CRITICAL_THRESHOLDS,
+  type CriticalPathScope,
+} from "@/lib/gantt/schedule";
 
-export type GanttColorBy = "group" | "status";
+export type GanttColorBy = "group" | "status" | "assignee";
+const COLOR_BY_OPTIONS: GanttColorBy[] = ["group", "status", "assignee"];
+const COLOR_BY_LABELS = {
+  group: "gantt.colorBy.group",
+  status: "gantt.colorBy.status",
+  assignee: "gantt.colorBy.assignee",
+} as const;
+
+/** With the critical path on: fade everything else, or show nothing else. */
+export type CriticalDisplay = "highlight" | "only";
+export const CRITICAL_DISPLAYS: CriticalDisplay[] = ["highlight", "only"];
 
 /**
  * One button style for the toolbar and for anything a caller puts into it.
@@ -49,7 +68,10 @@ export function ganttToolbarButton(active = false): string {
 }
 
 interface GanttToolbarProps {
-  zoom: GanttZoom;
+  /** Null while fitted: the zoom is then the chart's choice, not the reader's. */
+  zoom: GanttZoom | null;
+  /** The whole plan is being kept in the window. */
+  fitted?: boolean;
   onZoomChange: (zoom: GanttZoom) => void;
   colorBy: GanttColorBy;
   onColorByChange: (value: GanttColorBy) => void;
@@ -57,6 +79,13 @@ interface GanttToolbarProps {
   onFitToWindow: () => void;
   showCriticalPath: boolean;
   onShowCriticalPathChange: (value: boolean) => void;
+  criticalScope: CriticalPathScope;
+  onCriticalScopeChange: (scope: CriticalPathScope) => void;
+  criticalDisplay: CriticalDisplay;
+  onCriticalDisplayChange: (display: CriticalDisplay) => void;
+  /** Slack, in days, at or below which a task counts as critical. */
+  criticalThreshold: number;
+  onCriticalThresholdChange: (days: number) => void;
   criticalCount: number;
   violationCount: number;
   cycleCount: number;
@@ -67,11 +96,23 @@ interface GanttToolbarProps {
   /** How many tasks already have a captured plan. Zero means there is nothing to show. */
   baselineCount: number;
   onCaptureBaseline?: () => void;
+  /**
+   * A board with dated tasks and no baseline: nothing to measure a delay
+   * against, so nothing to learn from. Offered on the toolbar until set.
+   */
+  suggestBaseline?: boolean;
   onExport: (kind: GanttExportKind) => Promise<void> | void;
   fields: GanttFieldKey[];
   onFieldsChange: (fields: GanttFieldKey[]) => void;
   rowSize: GanttRowSize;
   onRowSizeChange: (size: GanttRowSize) => void;
+  /**
+   * A single board's target finish. Absent on the Master Gantt, where each
+   * board keeps its own; `onChange` absent means shown but not editable.
+   */
+  target?: { value: string | null; onChange?: (date: string | null) => void };
+  /** How far past target: `days` on a board, `boards` on the Master Gantt. */
+  targetMissed?: { days?: number; boards?: number };
   /** Set when the chart cannot be edited, so the reason is stated rather than left to be discovered. */
   readOnlyReason?: string;
   children?: React.ReactNode;
@@ -79,6 +120,7 @@ interface GanttToolbarProps {
 
 export function GanttToolbar({
   zoom,
+  fitted = false,
   onZoomChange,
   colorBy,
   onColorByChange,
@@ -86,6 +128,12 @@ export function GanttToolbar({
   onFitToWindow,
   showCriticalPath,
   onShowCriticalPathChange,
+  criticalScope,
+  onCriticalScopeChange,
+  criticalDisplay,
+  onCriticalDisplayChange,
+  criticalThreshold,
+  onCriticalThresholdChange,
   criticalCount,
   violationCount,
   cycleCount,
@@ -94,15 +142,19 @@ export function GanttToolbar({
   onShowBaselineChange,
   baselineCount,
   onCaptureBaseline,
+  suggestBaseline = false,
   onExport,
   fields,
   onFieldsChange,
   rowSize,
   onRowSizeChange,
   readOnlyReason,
+  target,
+  targetMissed,
   children,
 }: GanttToolbarProps) {
-  const t = useT();
+  const { t, dateLocale } = useLanguage();
+  const targetDate = parseDateOnly(target?.value ?? null);
   const [showViewMenu, setShowViewMenu] = React.useState(false);
   const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(showViewMenu, {
     align: "right",
@@ -155,6 +207,35 @@ export function GanttToolbar({
         </span>
       )}
 
+      {/* The forecast finish is past the target: the one number a plan with a
+          deadline is judged on, so it is said on the closed toolbar. */}
+      {targetMissed && (targetMissed.days || targetMissed.boards) ? (
+        <span
+          className="flex items-center gap-1.5 px-2.5 py-1 ml-1 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs font-semibold"
+          title={t("gantt.targetMissedHint")}
+        >
+          <Goal size={12} />
+          {targetMissed.days
+            ? t("gantt.targetMissedBy", { days: targetMissed.days })
+            : targetMissed.boards === 1
+              ? t("gantt.targetMissedBoard")
+              : t("gantt.targetMissedBoards", { count: targetMissed.boards ?? 0 })}
+        </span>
+      ) : null}
+
+      {suggestBaseline && onCaptureBaseline && (
+        <button
+          type="button"
+          onClick={onCaptureBaseline}
+          title={t("gantt.noBaselineHint")}
+          className="flex items-center gap-1.5 px-2.5 py-1 ml-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/35 transition-colors"
+        >
+          <Flag size={12} />
+          {t("gantt.noBaseline")}
+          <span className="font-bold underline underline-offset-2">{t("gantt.baselineSet")}</span>
+        </button>
+      )}
+
       {readOnlyReason && (
         <span
           className="flex items-center gap-1.5 px-2.5 py-1 ml-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 text-xs font-medium"
@@ -172,6 +253,29 @@ export function GanttToolbar({
       <span className="flex-1 min-w-4" />
 
       <div className="flex items-center gap-1 shrink-0">
+      {target && (target.onChange ? (
+        <DatePopover
+          mode="single"
+          value={{ start: target.value, end: null }}
+          onCommit={(next) => {
+            if (next.start !== target.value) target.onChange!(next.start);
+          }}
+          align="right"
+          ariaLabel={t("gantt.targetHint")}
+          className={ganttToolbarButton(!!targetDate)}
+        >
+          <Goal size={15} className={targetDate ? "" : "text-gray-500 dark:text-gray-400"} />
+          {targetDate
+            ? t("gantt.targetOn", { date: format(targetDate, "d MMM", { locale: dateLocale }) })
+            : t("gantt.targetSet")}
+        </DatePopover>
+      ) : targetDate ? (
+        <span className={ganttToolbarButton()} title={t("gantt.targetHint")}>
+          <Goal size={15} className="text-gray-500 dark:text-gray-400" />
+          {t("gantt.targetOn", { date: format(targetDate, "d MMM", { locale: dateLocale }) })}
+        </span>
+      ) : null)}
+
       <button
         type="button"
         onClick={onScrollToToday}
@@ -210,11 +314,12 @@ export function GanttToolbar({
       <button
         type="button"
         onClick={onFitToWindow}
-        className={`${ganttToolbarButton()} px-2`}
+        aria-pressed={fitted}
+        className={`${ganttToolbarButton(fitted)} px-2`}
         title={t("gantt.fitHint")}
         aria-label={t("gantt.fit")}
       >
-        <Maximize2 size={16} className="text-gray-500 dark:text-gray-400" />
+        <Maximize2 size={16} className={fitted ? "" : "text-gray-500 dark:text-gray-400"} />
       </button>
 
       {/* Everything that answers "how should this chart look" lives here, so
@@ -251,6 +356,90 @@ export function GanttToolbar({
               onChange={() => onShowCriticalPathChange(!showCriticalPath)}
               title={t("gantt.criticalPathHint")}
             />
+
+            {/* What the path is measured against. Only offered while the path
+                is on: with it off, the choice changes nothing you can see. */}
+            {showCriticalPath && (
+              <div
+                className="flex items-center gap-0.5 p-0.5 mx-2.5 mb-1.5 rounded-lg bg-gray-100 dark:bg-[#252a3f]"
+                role="group"
+                aria-label={t("gantt.criticalPath")}
+              >
+                {CRITICAL_PATH_SCOPES.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => onCriticalScopeChange(option)}
+                    aria-pressed={criticalScope === option}
+                    title={t(option === "project" ? "gantt.cpScope.projectHint" : "gantt.cpScope.chainHint")}
+                    className={`flex-1 px-2 py-1 rounded-md text-[12px] font-medium transition-colors ${
+                      criticalScope === option
+                        ? "bg-white dark:bg-[#333a55] text-gray-800 dark:text-gray-100 shadow-sm"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    }`}
+                  >
+                    {t(option === "project" ? "gantt.cpScope.project" : "gantt.cpScope.chain")}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {showCriticalPath && (
+              <div
+                className="flex items-center gap-0.5 p-0.5 mx-2.5 mb-1.5 rounded-lg bg-gray-100 dark:bg-[#252a3f]"
+                role="group"
+                aria-label={t("gantt.cpDisplay")}
+              >
+                {CRITICAL_DISPLAYS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => onCriticalDisplayChange(option)}
+                    aria-pressed={criticalDisplay === option}
+                    title={t(option === "highlight" ? "gantt.cpDisplay.highlightHint" : "gantt.cpDisplay.onlyHint")}
+                    className={`flex-1 px-2 py-1 rounded-md text-[12px] font-medium transition-colors ${
+                      criticalDisplay === option
+                        ? "bg-white dark:bg-[#333a55] text-gray-800 dark:text-gray-100 shadow-sm"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    }`}
+                  >
+                    {t(option === "highlight" ? "gantt.cpDisplay.highlight" : "gantt.cpDisplay.only")}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Near-critical: a chain a day or two from setting the finish is
+                one bad day from being the path, and worth seeing before then. */}
+            {showCriticalPath && (
+              <div className="px-2.5 pb-1.5" title={t("gantt.cpThresholdHint")}>
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                  {t("gantt.cpThreshold")}
+                </div>
+                <div
+                  className="flex items-center gap-0.5 p-0.5 rounded-lg bg-gray-100 dark:bg-[#252a3f]"
+                  role="group"
+                  aria-label={t("gantt.cpThreshold")}
+                >
+                  {CRITICAL_THRESHOLDS.map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => onCriticalThresholdChange(days)}
+                      aria-pressed={criticalThreshold === days}
+                      aria-label={t("gantt.cpThresholdDays", { days })}
+                      className={`flex-1 px-1 py-1 rounded-md text-[12px] font-medium tabular-nums transition-colors ${
+                        criticalThreshold === days
+                          ? "bg-white dark:bg-[#333a55] text-gray-800 dark:text-gray-100 shadow-sm"
+                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      }`}
+                    >
+                      {days === 0 ? "0" : `${days}${t("gantt.dayUnit")}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Hidden outright when there is nothing captured and no way to
                 capture: a permanently dead switch is worse than an absent one. */}
@@ -331,7 +520,7 @@ export function GanttToolbar({
               </span>
             </MenuHeading>
 
-            {(["group", "status"] as GanttColorBy[]).map((option) => (
+            {COLOR_BY_OPTIONS.map((option) => (
               <button
                 key={option}
                 type="button"
@@ -343,7 +532,7 @@ export function GanttToolbar({
                     : "hover:bg-gray-50 dark:hover:bg-[#252a3f] text-gray-700 dark:text-gray-300"
                 }`}
               >
-                {t(option === "group" ? "gantt.colorBy.group" : "gantt.colorBy.status")}
+                {t(COLOR_BY_LABELS[option])}
                 {colorBy === option && <Check size={13} strokeWidth={3} />}
               </button>
             ))}

@@ -48,7 +48,8 @@ export interface BoardStoreState {
     | "workspace_gantt"
     | "portfolio_overview"
     | "search"
-    | "activity";
+    | "activity"
+    | "review";
   showWorkspaceSidebar: boolean;
   showAutomations: boolean;
   showAdminModal: boolean;

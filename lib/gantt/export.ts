@@ -16,14 +16,14 @@ import type { GanttScale } from "./scale";
 import type { GanttRow, GanttItemRow } from "./rows";
 import type { GanttDependency } from "./dependencies";
 import type { TaskSchedule } from "./schedule";
-import { daysBetween } from "./dates";
+import { addDaysOnly, dayIndex, daysBetween } from "./dates";
 
 export interface GanttExportInput {
   rows: GanttRow[];
   dependencies: GanttDependency[];
   scale: GanttScale;
   title: string;
-  colorBy: "group" | "status";
+  colorBy: "group" | "status" | "assignee";
   schedules: Map<string, TaskSchedule>;
   criticalIds: Set<string>;
   violatedDependencyIds: Set<string>;
@@ -49,6 +49,7 @@ const COMPACT_ROW_HEIGHTS: Record<GanttRow["kind"], number> = {
   item: 26,
 };
 const CRITICAL_COLOR = "#e2445c";
+const NEUTRAL = "#c4c4c4";
 const INK = "#1f2937";
 const MUTED = "#6b7280";
 const RULE = "#e5e7eb";
@@ -205,11 +206,16 @@ export function renderGanttSvg({
 
     const item = row as GanttItemRow;
     const critical = highlightCritical && criticalIds.has(item.item.id);
+    // As on screen: by assignee, one segment per person, up to six.
+    const stripes =
+      !critical && colorBy === "assignee" ? item.assigneeColors.slice(0, 6) : [];
     const color = critical
       ? CRITICAL_COLOR
       : colorBy === "status"
         ? item.statusColor
-        : item.groupColor;
+        : colorBy === "assignee"
+          ? (stripes[0] ?? NEUTRAL)
+          : item.groupColor;
 
     if (item.isMilestone) {
       const s = 7;
@@ -218,9 +224,45 @@ export function renderGanttSvg({
         `<text x="${x + s + 4}" y="${centerY + 4}" font-size="9" font-weight="600" fill="${INK}">${escapeXml(item.label)}</text>`
       );
     } else {
+      const schedule = schedules.get(item.item.id);
+      // Running late: the same faint, dashed stretch the chart draws, from the
+      // entered end to where the unfinished task is now forecast to finish.
+      // Drawn first so the bar sits on top of its own join.
+      let barEnd = x + w;
+      if (schedule?.late) {
+        const forecastEnd = addDaysOnly(row.end, schedule.earlyFinish - dayIndex(row.end));
+        const right = Math.min(
+          taskColumnWidth + scale.width,
+          taskColumnWidth + scale.xOf(forecastEnd) + scale.pxPerDay
+        );
+        if (right > barEnd) {
+          const safe = safeColor(color);
+          parts.push(
+            `<rect x="${barEnd}" y="${centerY - barHeight / 2 + 0.5}" width="${right - barEnd}" height="${barHeight - 1}" ` +
+              `fill="${safe}" fill-opacity="0.13" stroke="${safe}" stroke-opacity="0.6" stroke-dasharray="3 2"/>`
+          );
+          barEnd = right;
+        }
+      }
       parts.push(
         `<rect x="${x}" y="${centerY - barHeight / 2}" width="${w}" height="${barHeight}" rx="3" fill="${safeColor(color)}"/>`
       );
+      // Further segments over the first colour, which already fills the bar
+      // and keeps its rounded left end. The last one keeps the right end.
+      const segment = w / Math.max(1, stripes.length);
+      stripes.slice(1).forEach((stripe, i) => {
+        const last = i === stripes.length - 2;
+        parts.push(
+          `<rect x="${x + segment * (i + 1)}" y="${centerY - barHeight / 2}" width="${segment}" height="${barHeight}"` +
+            `${last ? ' rx="3"' : ""} fill="${safeColor(stripe)}"/>`
+        );
+        // A rounded last segment leaves its left corners cut; square them.
+        if (last && stripes.length > 1) {
+          parts.push(
+            `<rect x="${x + segment * (i + 1)}" y="${centerY - barHeight / 2}" width="${Math.min(3, segment)}" height="${barHeight}" fill="${safeColor(stripe)}"/>`
+          );
+        }
+      });
       // Only label the bar when the text has somewhere to sit.
       if (w > 34) {
         const clipId = `bar-clip-${clips.length}`;
@@ -232,12 +274,12 @@ export function renderGanttSvg({
             `clip-path="url(#${clipId})">${escapeXml(item.label)}</text>`
         );
       }
-      const schedule = schedules.get(item.item.id);
       if (schedule && schedule.totalFloat > 0) {
         parts.push(
           // Past x+10, where an outgoing dependency arrow makes its turn -
-          // any closer and the slack figure sits under the arrowhead.
-          `<text x="${x + w + 16}" y="${centerY + 3}" font-size="8" fill="${MUTED}">${schedule.totalFloat}d</text>`
+          // any closer and the slack figure sits under the arrowhead. After
+          // the late stretch, when there is one.
+          `<text x="${barEnd + 16}" y="${centerY + 3}" font-size="8" fill="${MUTED}">${schedule.totalFloat}d</text>`
         );
       }
     }
@@ -449,6 +491,7 @@ export const GANTT_TABLE_HEADERS = [
   "Milestone",
   "Assignees",
   "Float (days)",
+  "Free float (days)",
   "Critical",
   "Predecessors",
 ];
@@ -486,7 +529,7 @@ export function ganttToTable(
     ];
 
     if (row.kind !== "item") {
-      return [...common, "", "", "", "", ""];
+      return [...common, "", "", "", "", "", ""];
     }
 
     const schedule = schedules.get(row.item.id);
@@ -494,7 +537,8 @@ export function ganttToTable(
       ...common,
       row.isMilestone ? "yes" : "",
       row.assigneeNames,
-      schedule ? schedule.totalFloat : "",
+      schedule && !schedule.unlinked && !schedule.done ? schedule.totalFloat : "",
+      schedule && !schedule.unlinked && !schedule.done && !schedule.inCycle ? schedule.freeFloat : "",
       schedule?.isCritical ? "yes" : "",
       predecessorsOf(row.item.id),
     ];

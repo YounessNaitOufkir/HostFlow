@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
-import type { Board, Column, Group, Item, ItemLink } from "@/types";
+import type { Board, Column, Group, Item, ItemLink, Profile } from "@/types";
 import GanttChart from "@/components/gantt/GanttChart";
 import { createGanttScale, ganttBounds, PX_PER_DAY } from "@/lib/gantt/scale";
 import { parseDateOnly } from "@/lib/gantt/dates";
@@ -422,7 +422,7 @@ describe("GanttChart baselines", () => {
     const user = userEvent.setup();
     renderChart({ onCaptureBaseline: () => {} });
     await openViewMenu(user);
-    expect(screen.getByRole("button", { name: /Set baseline/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set baseline" })).toBeInTheDocument();
   });
 
   it("can still re-capture once a baseline exists", async () => {
@@ -453,7 +453,7 @@ describe("GanttChart baselines", () => {
     renderChart({ onCaptureBaseline: (b) => captured.push(b) });
 
     await openViewMenu(user);
-    await user.click(screen.getByRole("button", { name: /Set baseline/ }));
+    await user.click(screen.getByRole("button", { name: "Set baseline" }));
     expect(captured[0]).toHaveLength(3);
     expect(captured[0].find((b) => b.itemId === "i1")).toEqual({
       itemId: "i1",
@@ -485,6 +485,24 @@ describe("GanttChart baselines", () => {
     expect(screen.getByText("+4d")).toBeInTheDocument();
   });
 
+  it("remembers what was switched on when the chart is opened again", async () => {
+    const user = userEvent.setup();
+    const first = renderChart({ contexts: [{ board, groups: [group], items: withBaseline }] });
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Baseline/ }));
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
+    await user.click(screen.getByRole("button", { name: "Status" }));
+    first.unmount();
+
+    // Leaving the Gantt and coming back used to switch the baseline off again.
+    renderChart({ contexts: [{ board, groups: [group], items: withBaseline }] });
+    expect(screen.getByText("+4d")).toBeInTheDocument();
+    await openViewMenu(user);
+    expect(screen.getByRole("switch", { name: /Baseline/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("switch", { name: /Critical path/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "Status" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("keeps the agreed plan hidden until it is asked for", () => {
     renderChart({ contexts: [{ board, groups: [group], items: withBaseline }] });
     expect(screen.queryByText("+4d")).not.toBeInTheDocument();
@@ -492,6 +510,16 @@ describe("GanttChart baselines", () => {
 });
 
 describe("GanttChart critical path", () => {
+  // Overdue unfinished work is forecast from today, so these fix the date
+  // before the plan starts. Only Date is faked; user-event needs real timers.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 2, 1, 12));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("tells each task how much room it has", () => {
     renderChart();
     // Reunion is unlinked and finishes last, so it is what sets the project's
@@ -500,6 +528,233 @@ describe("GanttChart critical path", () => {
     // before: every bar used to look equally urgent.
     expect(bar("Permis").getAttribute("aria-label")).toContain("5d of slack");
     expect(bar("Devis").getAttribute("aria-label")).toContain("3d of slack");
+  });
+
+  it("measures each board against its own finish on the Master Gantt", () => {
+    // A second apartment finishing months later used to hand every task on
+    // this board its slack: one shared finish date for the whole portfolio.
+    const board2: Board = { ...board, id: "b2", name: "Autre appartement" };
+    const group2: Group = { ...group, id: "g2", board_id: "b2" };
+    const later: Item = {
+      ...task("j1", "Chantier", "2026-03-01", "2026-06-30", 0),
+      group_id: "g2",
+      board_id: "b2",
+    };
+    renderChart({
+      showProjectRows: true,
+      contexts: [
+        { board, groups: [group], items },
+        { board: board2, groups: [group2], items: [later] },
+      ],
+    });
+    expect(bar("Permis").getAttribute("aria-label")).toContain("5d of slack");
+    expect(bar("Chantier").getAttribute("aria-label")).toContain("no slack");
+  });
+
+  it("shows how far a board runs past its target", () => {
+    // Reunion closes the board on Mar 16; it has to be done by Mar 12.
+    const due: Board = { ...board, gantt_config: { ...board.gantt_config, targetFinish: "2026-03-12" } };
+    renderChart({ contexts: [{ board: due, groups: [group], items }] });
+
+    expect(screen.getByText("Target missed by 4d")).toBeInTheDocument();
+    // Devis ends Mar 13: one day past the target itself.
+    expect(bar("Devis").getAttribute("aria-label")).toContain("1d past the target");
+    expect(screen.getByTestId("gantt-target-line")).toBeInTheDocument();
+  });
+
+  it("says nothing is late while the plan holds its target", () => {
+    const due: Board = { ...board, gantt_config: { ...board.gantt_config, targetFinish: "2026-03-31" } };
+    renderChart({ contexts: [{ board: due, groups: [group], items }] });
+    expect(screen.queryByText(/Target missed/)).not.toBeInTheDocument();
+    expect(bar("Devis").getAttribute("aria-label")).toContain("3d of slack");
+    expect(screen.getByText("Target 31 Mar")).toBeInTheDocument();
+  });
+
+  it("offers to set a target only when it can be saved", () => {
+    const { unmount } = renderChart();
+    expect(screen.queryByRole("button", { name: /target/i })).not.toBeInTheDocument();
+    unmount();
+    renderChart({ onUpdateGanttConfig: () => {} });
+    expect(screen.getByText("Set target")).toBeInTheDocument();
+  });
+
+  it("counts boards past target on the Master Gantt", () => {
+    const due: Board = { ...board, gantt_config: { ...board.gantt_config, targetFinish: "2026-03-12" } };
+    renderChart({ showProjectRows: true, contexts: [{ board: due, groups: [group], items }] });
+    expect(screen.getByText("1 board past target")).toBeInTheDocument();
+  });
+
+  it("fades what is off the path while it is highlighted", async () => {
+    const user = userEvent.setup();
+    renderChart();
+    expect(bar("Permis").style.opacity).toBe("");
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
+    // Permis has slack; Reunion closes the board and stays at full strength.
+    expect(bar("Permis").style.opacity).toBe("0.3");
+    expect(
+      screen.getByRole("button", { name: /^Milestone: Reunion/ }).style.opacity
+    ).toBe("");
+  });
+
+  it("shows only the critical tasks when asked", async () => {
+    const user = userEvent.setup();
+    renderChart();
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
+    await user.click(screen.getByRole("button", { name: "Only critical" }));
+
+    expect(screen.queryByRole("button", { name: /^Permis,/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Devis,/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Milestone: Reunion/ })).toBeInTheDocument();
+    expect(localStorage.getItem("hostflow_gantt_cpdisplay_test")).toBe("only");
+
+    // Turning the path off brings every task back.
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
+    expect(bar("Permis")).toBeInTheDocument();
+  });
+
+  it("says so when nothing is critical", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("hostflow_gantt_cpdisplay_test", "only");
+    const STATUS: Column = { id: "col-status", title: "Status", type: "status" };
+    const allDone = items.map((item) => ({
+      ...item,
+      column_values: { ...item.column_values, [STATUS.id]: "Done" },
+    }));
+    renderChart({
+      contexts: [{ board: { ...board, columns: [...board.columns, STATUS] }, groups: [group], items: allDone }],
+    });
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
+    expect(screen.getByText("No critical tasks")).toBeInTheDocument();
+  });
+
+  it("says when the next task is the tighter limit", () => {
+    // Permis can slip 5 days before the board's finish moves, but only 2
+    // (the weekend) before Devis does.
+    renderChart();
+    expect(bar("Permis").getAttribute("aria-label")).toContain(
+      "5d of slack, 2d before it delays the next task"
+    );
+    // Devis has nothing after it: its free slack is its total, so no note.
+    expect(bar("Devis").getAttribute("aria-label")).not.toContain("before it delays");
+  });
+
+  it("flags near-critical tasks once the threshold allows", async () => {
+    const user = userEvent.setup();
+    renderChart();
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
+    // Devis has 3 days of slack: not critical at 0, critical at 3.
+    expect(bar("Devis").style.backgroundColor).not.toBe("rgb(226, 68, 92)");
+    await user.click(screen.getByRole("button", { name: "3 days of slack" }));
+    expect(bar("Devis").style.backgroundColor).toBe("rgb(226, 68, 92)");
+    expect(bar("Permis").style.backgroundColor).not.toBe("rgb(226, 68, 92)");
+    expect(localStorage.getItem("hostflow_gantt_cpthreshold_test")).toBe("3");
+  });
+
+  it("draws how much slack a task has while the path is shown", async () => {
+    const user = userEvent.setup();
+    renderChart();
+    expect(screen.queryAllByTestId("gantt-slack-bar")).toHaveLength(0);
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
+
+    // Permis and Devis have slack; Reunion closes the board and has none.
+    const slackBars = screen.getAllByTestId("gantt-slack-bar");
+    expect(slackBars).toHaveLength(2);
+    const scale = expectedScale("day");
+    // Devis ends Mar 13 with 3 days: the bar runs Mar 14 through Mar 16.
+    const devisSlack = slackBars.find(
+      (el) => Math.abs(px(el.style.left) - scale.xOf(parseDateOnly("2026-03-14")!)) < 0.01
+    );
+    expect(devisSlack).toBeDefined();
+    expect(px(devisSlack!.style.width)).toBeCloseTo(3 * scale.pxPerDay, 3);
+  });
+
+  it("keeps the critical path when a filter hides tasks", () => {
+    // Filtered down to Permis → Devis, Reunion is off screen - but it still
+    // closes the board, so the chain keeps its slack.
+    renderChart({
+      contexts: [{ board, groups: [group], items: items.slice(0, 2) }],
+      planContexts: [{ board, groups: [group], items }],
+    });
+    expect(bar("Devis").getAttribute("aria-label")).toContain("3d of slack");
+  });
+
+  it("takes a task off the path once its status says it is done", () => {
+    const STATUS: Column = { id: "col-status", title: "Statut", type: "status" };
+    const withStatus: Board = { ...board, columns: [...board.columns, STATUS] };
+    const status = (item: Item, value: string): Item => ({
+      ...item,
+      column_values: { ...item.column_values, [STATUS.id]: value },
+    });
+    renderChart({
+      contexts: [
+        {
+          board: withStatus,
+          groups: [group],
+          // French label: read through the board's own vocabulary, not "Done".
+          items: [status(items[0], "Terminé"), status(items[1], "En cours"), items[2]],
+        },
+      ],
+    });
+    expect(bar("Permis").getAttribute("aria-label")).toContain("done - off the critical path");
+    expect(bar("Devis").getAttribute("aria-label")).toContain("3d of slack");
+  });
+
+  it("forecasts an overdue unfinished task from today", () => {
+    // Mar 10: Permis (ended Mar 6) is still not done, so it cannot finish
+    // before today. Devis behind it now runs Mar 11-15, one day before
+    // Reunion closes the board on Mar 16 - so the chain's 3 days of slack
+    // are down to 1.
+    vi.setSystemTime(new Date(2026, 2, 10, 12));
+    renderChart();
+    expect(bar("Permis").getAttribute("aria-label")).toContain(
+      "overdue - now forecast to finish 10 Mar, 1d of slack"
+    );
+    expect(bar("Devis").getAttribute("aria-label")).toContain("1d of slack");
+    expect(bar("Devis").getAttribute("aria-label")).not.toContain("overdue");
+    expect(screen.getAllByTestId("gantt-late-stretch")).toHaveLength(1);
+  });
+
+  it("does not forecast a finished task as late", () => {
+    vi.setSystemTime(new Date(2026, 2, 10, 12));
+    const STATUS: Column = { id: "col-status", title: "Status", type: "status" };
+    renderChart({
+      contexts: [
+        {
+          board: { ...board, columns: [...board.columns, STATUS] },
+          groups: [group],
+          items: [
+            { ...items[0], column_values: { ...items[0].column_values, [STATUS.id]: "Done" } },
+            items[1],
+            items[2],
+          ],
+        },
+      ],
+    });
+    expect(bar("Permis").getAttribute("aria-label")).not.toContain("overdue");
+    expect(screen.queryByTestId("gantt-late-stretch")).toBeNull();
+  });
+
+  it("gives each linked chain its own path in chain mode", async () => {
+    const user = userEvent.setup();
+    renderChart();
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Critical path/ }));
+    await user.click(screen.getByRole("button", { name: "Each chain" }));
+
+    // Permis → Devis no longer measures against the unlinked Reunion. Permis
+    // keeps only the weekend between it and Devis (was 5 days before).
+    expect(bar("Permis").getAttribute("aria-label")).toContain("2d of slack");
+    expect(bar("Devis").getAttribute("aria-label")).toContain("no slack");
+    expect(
+      screen.getByRole("button", { name: /^Milestone: Reunion/ }).getAttribute("aria-label")
+    ).toContain("not linked to any task");
+    // Remembered for this chart.
+    expect(localStorage.getItem("hostflow_gantt_cpscope_test")).toBe("chain");
   });
 
   it("marks the whole chain critical when it is back to back", async () => {
@@ -612,6 +867,250 @@ describe("GanttChart critical path", () => {
   });
 });
 
+describe("GanttChart delay notes", () => {
+  // Permis was agreed to finish Mar 2; it now finishes Mar 6: +4d.
+  const late = items.map((item, i) =>
+    i === 0
+      ? { ...item, baseline: { start: "2026-02-26", end: "2026-03-02", captured_at: "2026-02-01T00:00:00Z" } }
+      : item
+  );
+  const note = {
+    id: "n1",
+    item_id: "i1",
+    board_id: "b1",
+    days: 3,
+    category: "supplier" as const,
+    note: "Tiles late",
+    created_by: "u1",
+    created_at: "2026-03-05T00:00:00Z",
+    updated_at: "2026-03-05T00:00:00Z",
+  };
+
+  async function showBaseline(user: ReturnType<typeof userEvent.setup>) {
+    await openViewMenu(user);
+    await user.click(screen.getByRole("switch", { name: /Baseline/ }));
+    await user.keyboard("{Escape}");
+  }
+
+  it("turns the slip into a button that opens its notes", async () => {
+    const user = userEvent.setup();
+    renderChart({
+      contexts: [{ board, groups: [group], items: late }],
+      delays: { byItem: new Map([["i1", [note]]]), currentUserId: "u1" },
+    });
+    await showBaseline(user);
+    const chip = screen.getByTestId("gantt-slip-chip");
+    expect(chip).toHaveTextContent("+4d");
+    // 3 of the 4 days are explained: still outlined as unexplained.
+    expect(chip.className).toContain("border-dashed");
+
+    await user.click(chip);
+    const dialog = screen.getByRole("dialog", { name: "Delays" });
+    expect(within(dialog).getByText("Tiles late")).toBeInTheDocument();
+    expect(within(dialog).getByText(/1 day not explained/)).toBeInTheDocument();
+  });
+
+  it("saves a reason against the task it belongs to", async () => {
+    const user = userEvent.setup();
+    const added: [string, unknown][] = [];
+    renderChart({
+      contexts: [{ board, groups: [group], items: late }],
+      delays: {
+        byItem: new Map(),
+        onAdd: async (item, values) => {
+          added.push([item.id, values]);
+          return true;
+        },
+      },
+    });
+    await showBaseline(user);
+    await user.click(screen.getByTestId("gantt-slip-chip"));
+    await user.click(screen.getByRole("button", { name: /Add a reason/ }));
+    await user.click(screen.getByRole("radio", { name: "Client change" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(added).toEqual([["i1", { days: 4, category: "client_change", note: "" }]]);
+  });
+
+  it("keeps the plain number where notes cannot be read", async () => {
+    const user = userEvent.setup();
+    renderChart({ contexts: [{ board, groups: [group], items: late }] });
+    await showBaseline(user);
+    expect(screen.queryByTestId("gantt-slip-chip")).not.toBeInTheDocument();
+    expect(screen.getByText("+4d")).toBeInTheDocument();
+  });
+
+  it("reminds a board with no baseline to set one, only where it can be", () => {
+    const { unmount } = renderChart({ onCaptureBaseline: () => {} });
+    expect(screen.getByRole("button", { name: /No baseline yet/ })).toBeInTheDocument();
+    unmount();
+    // Read-only: nothing to offer.
+    const second = renderChart();
+    expect(screen.queryByRole("button", { name: /No baseline yet/ })).not.toBeInTheDocument();
+    second.unmount();
+    // Master Gantt: baselines are set per board, not here.
+    renderChart({ onCaptureBaseline: () => {}, showProjectRows: true });
+    expect(screen.queryByRole("button", { name: /No baseline yet/ })).not.toBeInTheDocument();
+  });
+
+  it("stops reminding once a baseline exists", () => {
+    renderChart({ contexts: [{ board, groups: [group], items: late }], onCaptureBaseline: () => {} });
+    expect(screen.queryByRole("button", { name: /No baseline yet/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("GanttChart renaming", () => {
+  const nameCell = (name: string) =>
+    screen.getAllByText(name).find((el) => el.closest("[data-gantt-name]"))!.closest(
+      "[data-gantt-name]"
+    ) as HTMLElement;
+
+  it("renames a task from a double-click on its name", async () => {
+    const user = userEvent.setup();
+    const renamed: [string, string][] = [];
+    renderChart({
+      onUpdateItem: () => {},
+      onRenameItem: (item, name) => void renamed.push([item.id, name]),
+    });
+    await user.dblClick(nameCell("Permis"));
+    const input = screen.getByRole("textbox", { name: "Task name" });
+    expect(input).toHaveValue("Permis");
+    await user.clear(input);
+    await user.type(input, "  Permis de construire {Enter}");
+    expect(renamed).toEqual([["i1", "Permis de construire"]]);
+    expect(screen.queryByRole("textbox", { name: "Task name" })).not.toBeInTheDocument();
+  });
+
+  it("saves on clicking away, once", async () => {
+    const user = userEvent.setup();
+    const renamed: string[] = [];
+    renderChart({ onUpdateItem: () => {}, onRenameItem: (_i, name) => void renamed.push(name) });
+    await user.dblClick(nameCell("Devis"));
+    await user.type(screen.getByRole("textbox", { name: "Task name" }), " final");
+    await user.click(document.body);
+    expect(renamed).toEqual(["Devis final"]);
+  });
+
+  it("cancels on Escape, and saves nothing blank or unchanged", async () => {
+    const user = userEvent.setup();
+    const renamed: string[] = [];
+    renderChart({ onUpdateItem: () => {}, onRenameItem: (_i, name) => void renamed.push(name) });
+
+    await user.dblClick(nameCell("Permis"));
+    await user.type(screen.getByRole("textbox", { name: "Task name" }), "xyz{Escape}");
+    await user.dblClick(nameCell("Permis"));
+    await user.clear(screen.getByRole("textbox", { name: "Task name" }));
+    await user.keyboard("{Enter}");
+    await user.dblClick(nameCell("Permis"));
+    await user.keyboard("{Enter}");
+
+    expect(renamed).toEqual([]);
+    expect(nameCell("Permis")).toBeInTheDocument();
+  });
+
+  it("does not open the task on the way to a rename, but still opens it on a click", async () => {
+    const user = userEvent.setup();
+    const opened: string[] = [];
+    renderChart({
+      onUpdateItem: () => {},
+      onRenameItem: () => {},
+      onSelectItem: (item) => opened.push(item.id),
+    });
+    await user.dblClick(nameCell("Permis"));
+    await new Promise((r) => setTimeout(r, 350));
+    expect(opened).toEqual([]);
+
+    await user.keyboard("{Escape}");
+    await user.click(nameCell("Devis"));
+    await new Promise((r) => setTimeout(r, 350));
+    expect(opened).toEqual(["i2"]);
+  });
+
+  it("offers no rename on a read-only chart", async () => {
+    const user = userEvent.setup();
+    renderChart({ onRenameItem: () => {} });
+    await user.dblClick(nameCell("Permis"));
+    expect(screen.queryByRole("textbox", { name: "Task name" })).not.toBeInTheDocument();
+  });
+});
+
+describe("GanttChart assignees", () => {
+  const PEOPLE: Column = { id: "col-people", title: "Owner", type: "people" };
+  const profile = (id: string, full_name: string) =>
+    ({ id, full_name, avatar_initials: "", color: "#579bfc" }) as Profile;
+  const people = [
+    profile("u1", "Amina Idrissi"),
+    profile("u2", "Léo Martin"),
+    profile("u3", "Sara Benali"),
+    profile("u4", "Omar Tazi"),
+  ];
+
+  function withOwners(ids: string[]) {
+    const withPeople: Board = { ...board, columns: [...board.columns, PEOPLE] };
+    return [
+      {
+        board: withPeople,
+        groups: [group],
+        items: [{ ...items[0], column_values: { ...items[0].column_values, [PEOPLE.id]: ids } }, items[1]],
+      },
+    ];
+  }
+
+  it("shows faces instead of names beside the bar", () => {
+    renderChart({ contexts: withOwners(["u1", "u2"]), profiles: people });
+    const stack = screen.getByTestId("gantt-assignees");
+    expect(within(stack).getByTitle("Amina Idrissi")).toBeInTheDocument();
+    expect(within(stack).getByTitle("Léo Martin")).toBeInTheDocument();
+    expect(screen.queryByText("Amina Idrissi, Léo Martin")).not.toBeInTheDocument();
+  });
+
+  it("stops at three faces and counts the rest", () => {
+    renderChart({ contexts: withOwners(["u1", "u2", "u3", "u4"]), profiles: people });
+    const stack = screen.getByTestId("gantt-assignees");
+    expect(within(stack).getByText("+1")).toHaveAttribute("title", "Omar Tazi");
+  });
+
+  async function colorByAssignee(user: ReturnType<typeof userEvent.setup>) {
+    await openViewMenu(user);
+    await user.click(screen.getByRole("button", { name: "Assignee" }));
+  }
+
+  it("colours a bar in its assignee's colour", async () => {
+    const user = userEvent.setup();
+    const chosen = [{ ...people[0], color: "#00a36c" }, ...people.slice(1)];
+    renderChart({ contexts: withOwners(["u1"]), profiles: chosen });
+    await colorByAssignee(user);
+    expect(bar("Permis").style.backgroundColor).toBe("rgb(0, 163, 108)");
+    expect(bar("Permis").style.backgroundImage).toBe("");
+  });
+
+  it("stripes a bar with several assignees, one stripe each", async () => {
+    const user = userEvent.setup();
+    const chosen = [
+      { ...people[0], color: "#00a36c" },
+      { ...people[1], color: "#7c3aed" },
+      ...people.slice(2),
+    ];
+    renderChart({ contexts: withOwners(["u1", "u2"]), profiles: chosen });
+    await colorByAssignee(user);
+    const image = bar("Permis").style.backgroundImage;
+    expect(image).toContain("linear-gradient");
+    expect(image).toMatch(/0, 163, 108|#00a36c/);
+    expect(image).toMatch(/124, 58, 237|#7c3aed/);
+  });
+
+  it("paints a task with nobody on it grey", async () => {
+    const user = userEvent.setup();
+    renderChart({ contexts: withOwners([]), profiles: people });
+    await colorByAssignee(user);
+    expect(bar("Permis").style.backgroundColor).toBe("rgb(196, 196, 196)");
+  });
+
+  it("leaves out someone no longer on file, and shows nothing for nobody", () => {
+    renderChart({ contexts: withOwners(["deleted-user"]), profiles: people });
+    expect(screen.queryByTestId("gantt-assignees")).not.toBeInTheDocument();
+  });
+});
+
 describe("GanttChart editing", () => {
   it("offers resize handles only when it can write", () => {
     const { container: readOnly } = renderChart();
@@ -641,6 +1140,24 @@ describe("GanttChart editing", () => {
     const byId = new Map(changes[0].map((c) => [c.itemId, c.value]));
     expect(byId.get("i1")).toEqual({ start: "2026-03-07", end: "2026-03-11" });
     // Devis has to start the day after Permis now finishes.
+    expect(byId.get("i2")).toEqual({ start: "2026-03-12", end: "2026-03-16" });
+  });
+
+  it("pushes a successor a filter has hidden", () => {
+    // Devis is filtered off screen, but it still waits on Permis.
+    const changes: { itemId: string; columnId: string; value: unknown }[][] = [];
+    renderChart({
+      contexts: [{ board, groups: [group], items: [items[0], items[2]] }],
+      planContexts: [{ board, groups: [group], items }],
+      onUpdateItem: () => {},
+      onRescheduleItems: (c) => changes.push(c),
+    });
+
+    fireEvent.pointerDown(bar("Permis"), { clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 250 });
+    fireEvent.pointerUp(window);
+
+    const byId = new Map(changes[0].map((c) => [c.itemId, c.value]));
     expect(byId.get("i2")).toEqual({ start: "2026-03-12", end: "2026-03-16" });
   });
 

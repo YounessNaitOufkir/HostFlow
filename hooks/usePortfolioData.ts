@@ -9,6 +9,19 @@ import { fetchAllRows } from "@/lib/supabasePaging";
 
 const NO_ITEMS: Item[] = [];
 
+/** Every live task on these boards, paged past PostgREST's row cap. Shared with the planning hint. */
+export function fetchPortfolioItems(boardIds: string[]): Promise<Item[]> {
+  return fetchAllRows<Item>((from, to) =>
+    supabase
+      .from("items")
+      .select("*")
+      .in("board_id", boardIds)
+      .is("deleted_at", null)
+      .order("id")
+      .range(from, to)
+  );
+}
+
 /**
  * Every live task on the given boards, paged past PostgREST's row cap.
  *
@@ -25,16 +38,7 @@ export function usePortfolioData(boards: Board[]) {
 
   const { data = NO_ITEMS, isLoading, error, refetch } = useQuery({
     queryKey,
-    queryFn: () =>
-      fetchAllRows<Item>((from, to) =>
-        supabase
-          .from("items")
-          .select("*")
-          .in("board_id", boardIds)
-          .is("deleted_at", null)
-          .order("id")
-          .range(from, to)
-      ),
+    queryFn: () => fetchPortfolioItems(boardIds),
     enabled: boardIds.length > 0,
   });
 

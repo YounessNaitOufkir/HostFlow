@@ -117,3 +117,29 @@ describe("computePortfolio", () => {
     expect(m.undated.map((w) => w.id)).toEqual(["v"]);
   });
 });
+
+describe("computePortfolio for one person", () => {
+  const boards = [board("a", "w"), board("b", "v")];
+  const items = [
+    item("a", { s: "Working on it", p: ["u1"], tl: { start: "2026-09-01", end: "2026-09-20" } }),
+    item("a", { s: "Done", p: ["u1", "u2"] }),
+    item("a", { s: "Stuck", p: ["u2"] }),
+    item("b", { s: "Working on it", p: ["u2"], tl: { start: "2026-10-01", end: "2026-10-05" } }),
+    item("b", { s: "Working on it" }),
+  ];
+
+  it("counts, lists and times only that person's tasks", () => {
+    const m = computePortfolio([ws("w"), ws("v")], boards, items, people, NOW, { personId: "u1" });
+    const byWs = Object.fromEntries(m.cards.map((c) => [c.workspace.id, [c.total, c.done, c.stuck]]));
+    expect(byWs).toEqual({ w: [2, 1, 0], v: [0, 0, 0] });
+    expect(m.attention.map((a) => a.reason)).toEqual(["overdue"]);
+    expect(m.spans.map((s) => s.workspace.id)).toEqual(["w"]);
+  });
+
+  it("counts a task shared with someone else for both of them", () => {
+    const m = computePortfolio([ws("w"), ws("v")], boards, items, people, NOW, { personId: "u2" });
+    expect(m.cards.find((c) => c.workspace.id === "w")!.total).toBe(2);
+    // Nobody's unassigned task is anyone's.
+    expect(m.attention.some((a) => a.reason === "unassigned")).toBe(false);
+  });
+});

@@ -13,7 +13,9 @@ import {
   Workspace,
 } from "@/types";
 import { useWorkspaceGanttData } from "@/hooks/useWorkspaceGanttData";
-import GanttChart from "@/components/gantt/GanttChart";
+import GanttChart, { type GanttDelays } from "@/components/gantt/GanttChart";
+import { useDelayNotes } from "@/hooks/useDelayNotes";
+import { useAuth } from "@/components/AuthProvider";
 import {
   CrossWorkspaceLinkDialog,
   type CrossWorkspaceLinkRequest,
@@ -99,6 +101,8 @@ interface WorkspaceGanttViewProps {
     changes: { type?: DependencyType; lag?: number }
   ) => void;
   onDeleteLink?: (linkId: string) => void;
+  /** Renames a task, from a double-click on its name in the task list. */
+  onRenameItem?: (item: Item, name: string) => Promise<void> | void;
 }
 
 const SELECTION_KEY = "hostflow_master_gantt_boards";
@@ -123,8 +127,11 @@ export default function WorkspaceGanttView({
   onCreateLink,
   onUpdateLink,
   onDeleteLink,
+  onRenameItem,
 }: WorkspaceGanttViewProps) {
   const t = useT();
+  const { profile } = useAuth();
+  const currentUserId = profile?.id;
   const [selectedBoardIds, setSelectedBoardIds] = useState<Set<string>>(() => {
     // Every board is reachable, but starting with all of them ticked across a
     // whole account would open on a wall nobody asked for. The workspace in
@@ -235,6 +242,18 @@ export default function WorkspaceGanttView({
             a.board.name.localeCompare(b.board.name)
         ),
     [selectedBoards, groups, visibleItems, workspaceName]
+  );
+
+  // The same boards with nothing filtered out: the critical path is a fact
+  // about the plan, so hiding someone else's tasks must not change it.
+  const planContexts = useMemo<GanttBoardContext[]>(
+    () =>
+      selectedBoards.map((board) => ({
+        board,
+        groups: groups.filter((g) => g.board_id === board.id),
+        items: items.filter((i) => i.board_id === board.id),
+      })),
+    [selectedBoards, groups, items]
   );
 
   const boardsByWorkspace = useMemo(() => {
@@ -355,6 +374,34 @@ export default function WorkspaceGanttView({
       });
     };
   }, [onUpdateCell, boardOfItem, automationsFor, items, itemLinks]);
+
+  /**
+   * Renames through the app's own path, then refetches: this view reads its
+   * own copy of the items, which the board store's optimistic update does not
+   * reach. Only offered where the chart is editable at all.
+   */
+  // Delay notes on every board in view, editable where the chart is.
+  const delayApi = useDelayNotes(selectedBoards.map((b) => b.id));
+  const delays = useMemo<GanttDelays>(
+    () => ({
+      byItem: delayApi.byItem,
+      currentUserId,
+      onAdd: onUpdateCell
+        ? (item, values) => delayApi.add({ itemId: item.id, boardId: item.board_id, ...values })
+        : undefined,
+      onUpdate: onUpdateCell ? delayApi.update : undefined,
+      onRemove: onUpdateCell ? delayApi.remove : undefined,
+    }),
+    [delayApi, currentUserId, onUpdateCell]
+  );
+
+  const handleRenameItem = useMemo(() => {
+    if (!onUpdateCell || !onRenameItem) return undefined;
+    return async (item: Item, name: string) => {
+      await onRenameItem(item, name);
+      refresh();
+    };
+  }, [onUpdateCell, onRenameItem, refresh]);
 
   /**
    * Inside one property a cross-board link is unremarkable - the boards are
@@ -591,7 +638,11 @@ export default function WorkspaceGanttView({
         ) : (
           <GanttChart
             contexts={contexts}
+            planContexts={planContexts}
             itemLinks={itemLinks}
+            profiles={profiles}
+            onRenameItem={handleRenameItem}
+            delays={delays}
             showProjectRows
             collapsed={collapsed}
             onToggleCollapse={toggleCollapse}
