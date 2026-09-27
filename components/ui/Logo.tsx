@@ -9,7 +9,9 @@ import React, { useId } from "react";
  * coordinates here means the in-app mark and the installed icon cannot drift
  * apart. If the bars ever move they must move in `public/icon.svg` **and**
  * `app/apple-icon.png` at the same time — the PNG is a raster of the same mark
- * and will silently fall out of sync otherwise.
+ * and will silently fall out of sync otherwise. The same goes for
+ * `public/icon-maskable.svg` (the Android home-screen icon, which draws this
+ * mark scaled down) and the PNGs `scripts/generate-desktop-icons.mjs` makes.
  *
  * The mark is deliberately abstract rather than a letterform: it survives a
  * rename of the app, which a monogram would not.
