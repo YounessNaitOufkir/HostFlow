@@ -23,6 +23,8 @@ export const STORAGE_KEYS = {
   sidebar: "hostflow_sidebar",
   /** Hidden columns, keyed by board id. */
   hiddenColumns: "hostflow_hidden_columns",
+  /** Personal column order, keyed by board id. See lib/columnOrder.ts. */
+  columnOrder: "hostflow_column_order",
   /** Collapsed groups. Read on mount for anyone who still has one; nothing writes it. */
   collapsedGroups: "hostflow_collapsed_groups",
 } as const;

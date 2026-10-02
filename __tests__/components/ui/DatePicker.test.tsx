@@ -29,17 +29,27 @@ function RangeHarness({ initial, onApply = () => {} }: { initial: DateValue; onA
 const shown = () => screen.getByTestId("value").textContent;
 
 describe("DateCalendar range", () => {
-  it("picks a start, then an end", () => {
-    render(<RangeHarness initial={{ start: "2026-03-01", end: null }} />);
-    fireEvent.click(day(12));
-    expect(shown()).toBe("2026-03-01|2026-03-12");
+  it("picks a start, then an end, and saves on the end", () => {
+    const onApply = vi.fn();
+    render(<RangeHarness initial={{ start: "2026-03-01", end: "2026-03-03" }} onApply={onApply} />);
+    // Opening starts a fresh pick: the first click is the start.
+    fireEvent.click(day(5));
+    expect(shown()).toBe("2026-03-05|null");
+    expect(onApply).not.toHaveBeenCalled();
+    fireEvent.click(day(16));
+    expect(shown()).toBe("2026-03-05|2026-03-16");
+    expect(onApply).toHaveBeenCalledWith({ start: "2026-03-05", end: "2026-03-16" });
     expect(screen.getByText("12 days")).toBeTruthy();
   });
 
   it("makes an earlier day the new start instead of a backwards range", () => {
-    render(<RangeHarness initial={{ start: "2026-03-10", end: null }} />);
+    const onApply = vi.fn();
+    render(<RangeHarness initial={{ start: null, end: null }} onApply={onApply} />);
+    fireEvent.click(day(10));
     fireEvent.click(day(4));
-    expect(shown()).toBe("2026-03-04|null");
+    // No stored value, so the calendar opens on the current month.
+    expect(shown()).toMatch(/^\d{4}-\d{2}-04\|null$/);
+    expect(onApply).not.toHaveBeenCalled();
   });
 
   it("gives a one-day range when the same day is clicked twice", () => {
@@ -48,13 +58,6 @@ describe("DateCalendar range", () => {
     fireEvent.click(day(15));
     expect(shown()).toMatch(/-15\|.*-15$/);
     expect(screen.getByText("1 day")).toBeTruthy();
-  });
-
-  it("moves the start from the Start box and keeps a later end", () => {
-    render(<RangeHarness initial={{ start: "2026-03-10", end: "2026-03-20" }} />);
-    fireEvent.click(screen.getByText("Start"));
-    fireEvent.click(day(5));
-    expect(shown()).toBe("2026-03-05|2026-03-20");
   });
 
   it("builds a range across months, one month on screen", () => {
@@ -69,7 +72,8 @@ describe("DateCalendar range", () => {
   });
 
   it("previews the band while choosing the end", () => {
-    render(<RangeHarness initial={{ start: "2026-03-10", end: null }} />);
+    render(<RangeHarness initial={{ start: "2026-03-01", end: null }} />);
+    fireEvent.click(day(10));
     fireEvent.mouseEnter(day(14));
     expect(day(12).closest("td")?.className).toContain("hf-mid");
     expect(day(14).closest("td")?.className).toContain("hf-preview");
@@ -116,13 +120,16 @@ describe("DatePopover", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("applies a range from the Apply button", () => {
+  it("saves a range and closes when its end is picked, with no Apply step", () => {
     const onCommit = vi.fn();
     render(<DatePopover mode="range" value={{ start: "2026-03-01", end: "2026-03-03" }} onCommit={onCommit}>open</DatePopover>);
     fireEvent.click(screen.getByText("open"));
+    expect(within(screen.getByRole("dialog")).queryByText("Apply")).toBeNull();
+    fireEvent.click(day(18));
+    expect(onCommit).not.toHaveBeenCalled();
     fireEvent.click(day(20));
-    fireEvent.click(within(screen.getByRole("dialog")).getByText("Apply"));
-    expect(onCommit).toHaveBeenCalledWith({ start: "2026-03-01", end: "2026-03-20" });
+    expect(onCommit).toHaveBeenCalledWith({ start: "2026-03-18", end: "2026-03-20" });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 
@@ -141,5 +148,28 @@ describe("TimelineCell", () => {
     fireEvent.click(screen.getByText("Mar 1 – 4"));
     fireEvent.click(screen.getByText("Clear dates"));
     expect(onUpdate).toHaveBeenCalledWith("i1", "tl", null);
+  });
+});
+
+describe("Today button", () => {
+  it("sets a timeline to a one-day range on today, saved at once", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 2, 15, 30));
+    const onApply = vi.fn();
+    render(<RangeHarness initial={{ start: "2026-03-01", end: "2026-03-05" }} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    expect(onApply).toHaveBeenCalledWith({ start: "2026-10-02", end: "2026-10-02" });
+    vi.useRealTimers();
+  });
+
+  it("sets a single date to today", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 2, 23, 50));
+    const onApply = vi.fn();
+    render(<DateCalendar mode="single" value={{ start: null, end: null }} onChange={() => {}} onApply={onApply} onClear={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    // Local date, not UTC: 23:50 on the 2nd stays the 2nd.
+    expect(onApply).toHaveBeenCalledWith({ start: "2026-10-02", end: null });
+    vi.useRealTimers();
   });
 });

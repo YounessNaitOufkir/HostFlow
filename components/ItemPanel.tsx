@@ -47,6 +47,8 @@ import { Clock, Reply, Trash2 } from "lucide-react";
 import { reportError, reportFetchError, reportMutationError } from "@/lib/errorReporting";
 import { format } from "date-fns";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { attachmentPathsIn, toStoredAttachmentHtml, withSignedAttachmentUrls } from "@/lib/attachments";
+import { uploadAttachment, useSignedAttachmentUrls } from "@/hooks/useAttachments";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import type { Board, ItemLink } from "@/types";
 import { boardSlipParts, slipOf } from "@/lib/delays";
@@ -61,7 +63,7 @@ import { DelayNotesSection } from "@/components/delays/DelayNotesSection";
 // ============================================================
 // Bottom Toolbar
 // ============================================================
-function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: (title: string) => Promise<string | null> }) {
+function BottomToolbar({ editor, boardId }: { editor: any, requestPrompt: (title: string) => Promise<string | null>, boardId: string }) {
   const t = useT();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -83,32 +85,34 @@ function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: 
 
   const btnClass = "p-1.5 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-slate-700 transition-colors";
 
+  // Files are private to the board (see lib/attachments.ts). The editor shows
+  // each one through a signed link; posting turns that back into the stable
+  // link that is saved (toStoredAttachmentHtml).
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
 
     try {
       setIsUploading(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `updates/${Date.now()}-${fileName}`;
-
-      const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, file);
-
-      if (uploadError) {
-        reportMutationError(uploadError, "File upload failed", { table: "storage", operation: "upload" });
-        return;
+      // Collected first and inserted in one step: inserting one at a time left
+      // each new picture selected, and the next insert replaced it.
+      const nodes: Record<string, unknown>[] = [];
+      for (const file of files) {
+        const uploaded = await uploadAttachment(file, boardId);
+        const url = uploaded.signedUrl ?? uploaded.storedUrl;
+        if (file.type.startsWith('image/')) {
+          nodes.push({ type: 'image', attrs: { src: url, alt: file.name } });
+        } else {
+          const icon = file.name.toLowerCase().endsWith('.pdf') ? '📄' : '📎';
+          // A node, not an HTML string: a file name is user input.
+          nodes.push({
+            type: 'paragraph',
+            content: [{ type: 'text', text: `${icon} ${file.name}`, marks: [{ type: 'link', attrs: { href: url, target: '_blank' } }] }],
+          });
+        }
       }
-      
-      const { data } = supabase.storage.from('attachments').getPublicUrl(filePath);
-      
-      if (file.type.startsWith('image/')) {
-        editor.chain().focus().setImage({ src: data.publicUrl }).run();
-      } else {
-        const isPdf = file.name.toLowerCase().endsWith('.pdf');
-        const icon = isPdf ? '📄' : '📎';
-        editor.chain().focus().insertContent(`<a href="${data.publicUrl}" target="_blank">${icon} ${file.name}</a> `).run();
-      }
+      nodes.push({ type: 'paragraph' });
+      editor.chain().focus().insertContent(nodes).run();
     } catch (err) {
       reportMutationError(err, "File upload failed", { table: "storage", operation: "upload" });
     } finally {
@@ -146,11 +150,12 @@ function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: 
       >
         <Paperclip size={18} strokeWidth={2} />
       </button>
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        className="hidden" 
+      <input
+        type="file"
+        multiple
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
       />
       <div className="relative" ref={emojiPickerRef}>
         <button
@@ -187,11 +192,25 @@ function BottomToolbar({ editor, requestPrompt }: { editor: any, requestPrompt: 
 }
 
 // ============================================================
+// A posted update's body, with its attachments signed for display
+// ============================================================
+function UpdateBody({ html, className }: { html: string; className: string }) {
+  const signed = useSignedAttachmentUrls(attachmentPathsIn(html));
+  return (
+    <div
+      className={`${className} [&_img]:max-h-80 [&_img]:rounded-lg [&_img]:border [&_img]:border-gray-200 dark:[&_img]:border-slate-700`}
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(withSignedAttachmentUrls(html, signed)) }}
+    />
+  );
+}
+
+// ============================================================
 // Reply Composer Component
 // ============================================================
-function ReplyComposer({ 
-  parentId, 
-  itemId, 
+function ReplyComposer({
+  parentId,
+  itemId,
+  boardId,
   profiles, 
   currentUser,
   requestPrompt,
@@ -200,6 +219,7 @@ function ReplyComposer({
 }: {
   parentId: string;
   itemId: string;
+  boardId: string;
   profiles: Profile[];
   currentUser: { id: string; name: string; avatar: string; color: string; avatar_url?: string };
   requestPrompt: (title: string) => Promise<string | null>;
@@ -212,7 +232,7 @@ function ReplyComposer({
 
   const handlePost = async () => {
     if (!editor || isEditorEmpty || isSubmitting) return;
-    const htmlBody = editor.getHTML();
+    const htmlBody = toStoredAttachmentHtml(editor.getHTML());
     const editorJson = editor.getJSON();
     setIsSubmitting(true);
     
@@ -233,7 +253,7 @@ function ReplyComposer({
     <div className="border border-gray-200 dark:border-slate-600 rounded-lg focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all flex flex-col mt-3 bg-white dark:bg-slate-900">
       <EditorContent editor={editor} className="flex-1 rounded-t-lg" />
       <div className="flex items-center justify-between bg-gray-50 dark:bg-slate-800/50 px-3 py-2 border-t border-gray-200 dark:border-slate-600 rounded-b-lg">
-        <BottomToolbar editor={editor} requestPrompt={requestPrompt} />
+        <BottomToolbar editor={editor} requestPrompt={requestPrompt} boardId={boardId} />
         <div className="flex gap-2">
           <button
             onClick={onCancel}
@@ -430,7 +450,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
   const handlePostUpdate = async () => {
     if (!editor || isEditorEmpty || isSubmitting) return;
 
-    const htmlBody = editor.getHTML();
+    const htmlBody = toStoredAttachmentHtml(editor.getHTML());
     const editorJson = editor.getJSON();
     setIsSubmitting(true);
 
@@ -765,7 +785,7 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
               <div className="border border-gray-200 dark:border-slate-600 rounded-lg focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all flex flex-col">
                 <EditorContent editor={editor} className="flex-1 rounded-t-lg" />
                 <div className="flex items-center justify-between bg-gray-50 dark:bg-slate-800/50 px-3 py-2 border-t border-gray-200 dark:border-slate-600 rounded-b-lg">
-                  <BottomToolbar editor={editor} requestPrompt={requestPrompt} />
+                  <BottomToolbar editor={editor} requestPrompt={requestPrompt} boardId={item.board_id} />
                   <button
                     onClick={handlePostUpdate}
                     disabled={isSubmitting || !editor || isEditorEmpty}
@@ -839,9 +859,9 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                             </div>
                           </div>
                           
-                          <div
+                          <UpdateBody
                             className="prose prose-sm dark:prose-invert max-w-none ml-11 text-gray-700 dark:text-gray-300"
-                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(update.body) }}
+                            html={update.body}
                           />
 
                           <div className="ml-11 mt-3 flex items-center">
@@ -893,9 +913,9 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                                         )}
                                       </div>
                                     </div>
-                                    <div
+                                    <UpdateBody
                                       className="prose prose-sm dark:prose-invert max-w-none ml-8 text-gray-600 dark:text-gray-400 text-sm"
-                                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(reply.body) }}
+                                      html={reply.body}
                                     />
                                   </div>
                                 );
@@ -908,7 +928,8 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                             <div className="ml-11">
                               <ReplyComposer 
                                 parentId={update.id} 
-                                itemId={item.id} 
+                                itemId={item.id}
+                                boardId={item.board_id}
                                 profiles={profiles} 
                                 currentUser={currentUser} 
                                 requestPrompt={requestPrompt} 

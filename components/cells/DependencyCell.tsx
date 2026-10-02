@@ -79,6 +79,10 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
     }
 
     const handleClickOutside = (e: MouseEvent) => {
+      // The date-conflict and cross-property prompts are portaled to <body>,
+      // so a click on their buttons is "outside" the picker; without this it
+      // closed the picker before the prompt's own button had even run.
+      if ((e.target as Element | null)?.closest?.("[data-dependency-prompt]")) return;
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
@@ -102,6 +106,15 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
   };
 
   const myDates = getItemDates(item);
+
+  // Linking several tasks is the normal case, so the picker stays open after
+  // each change. updateCell closes whatever menu is open as its first,
+  // synchronous step (right for single-choice pickers like Status); asking to
+  // stay open straight after the save is batched into the same render, so the
+  // later request wins. Same approach as PeopleCell.
+  const keepOpen = () => {
+    if (isOpen) setIsOpen(true);
+  };
 
   const commitToggle = (targetItemId: string, isRemoving: boolean) => {
     setConflictTarget(null);
@@ -129,6 +142,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
     }
       
     onUpdate(item.id, column.id, newDeps);
+    keepOpen();
     if (!isRemoving) {
       setSearchQuery("");
     }
@@ -204,6 +218,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
       .then();
       
     onUpdate(item.id, column.id, newDeps);
+    keepOpen();
     setConflictTarget(null);
   };
 
@@ -314,7 +329,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
         }}
       >
         {dependentItems.length > 0 ? (
-          <div className="flex gap-1.5 items-center px-1">
+          <div data-dep-chips className="flex gap-1.5 items-center px-1">
             {dependentItems.map((dep) => (
               <TruncatedText
                 key={dep.id}
@@ -433,7 +448,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
         </div>
       )}
       {isMounted && document.body && createPortal(
-        <>
+        <div data-dependency-prompt>
           {/* The same confirmation the Master Gantt shows for the same link,
               because it is the same claim wherever it is made. */}
           {pendingCross && (
@@ -508,7 +523,7 @@ export default function DependencyCell({ item, column, onUpdate, boardItems, col
               </motion.div>
             </div>
           )}
-        </>,
+        </div>,
         document.body
       )}
     </div>

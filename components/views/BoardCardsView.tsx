@@ -154,12 +154,23 @@ export default function BoardCardsView({
                               </TruncatedText>
                             </div>
                             {/* Property Value (CellRenderer) */}
-                            <div 
-                               className="flex-1 flex items-center bg-white dark:bg-[#1e2140] relative group/cell" 
+                            {/* min-w-0: a flex item otherwise refuses to be narrower
+                                than its content, so a row of dependency chips pushed
+                                the value past the card's edge. */}
+                            <div
+                               className="flex-1 min-w-0 flex items-center bg-white dark:bg-[#1e2140] relative group/cell"
                                onClick={(e) => e.stopPropagation()} // Prevent card click when clicking cells
                             >
-                              {/* Override CellRenderer fixed widths using CSS magic within this container */}
-                              <div className="w-full h-full flex items-center [&>div]:w-full [&>div]:border-r-0 [&>div]:min-h-[40px] [&>div]:h-full [&>div]:justify-start [&>div]:px-3">
+                              {/* Override CellRenderer fixed widths within this container.
+                                  w-full! is important on purpose: a column the user has
+                                  resized carries its width as an inline style, which
+                                  beats a plain class and made the cell as wide as its
+                                  table column (e.g. 420px) inside a 200px card. */}
+                              {/* Dependency chips wrap onto new lines here instead of
+                                  scrolling sideways as they do in a table row: a card
+                                  has room to grow, and a clipped second chip gave no
+                                  sign it was there. */}
+                              <div className="w-full min-w-0 h-full flex items-center [&>div]:w-full! [&>div]:min-w-0 [&>div]:border-r-0 [&>div]:min-h-[40px] [&>div]:h-full [&>div]:justify-start [&>div]:px-3 [&_[data-dep-chips]]:flex-wrap [&_[data-dep-chips]]:py-1.5 [&_[data-dep-chips]]:min-w-0 [&_[data-dep-chips]>*]:shrink [&_[data-dep-chips]>*]:max-w-full">
                                 <CellRenderer
                                   item={item}
                                   column={col}

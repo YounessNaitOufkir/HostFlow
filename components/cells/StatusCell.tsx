@@ -6,6 +6,7 @@ import { Item, Column, STATUS_OPTIONS } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { useT } from "@/components/LanguageProvider";
 import { displayStatus } from "@/lib/i18n/labels";
+import { withoutBlankOption } from "@/lib/cellDefaults";
 import { Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -28,7 +29,8 @@ export default function StatusCell({
   const value = item.column_values[column.id];
   const cellKey = `${item.id}-${column.id}`;
   const isOverdue = value === "Overdue" || value === "En retard";
-  const currentOptions = column.settings?.statusLabels || STATUS_OPTIONS;
+  // No blank choice: a task always has a status (see lib/cellDefaults.ts).
+  const currentOptions = withoutBlankOption(column.settings?.statusLabels || STATUS_OPTIONS);
   const option = currentOptions.find((opt: any) => opt.label === value);
   const isEmpty = !isOverdue && !option;
   // The empty chip needs a dark variant. #c4c4c4 is the neutral for the light

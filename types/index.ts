@@ -402,7 +402,6 @@ export const PRIORITY_OPTIONS: StatusOption[] = [
   { label: "High", color: "bg-[#e2445c]" },
   { label: "Medium", color: "bg-[#a25ddc]" },
   { label: "Low", color: "bg-[#579bfc]" },
-  { label: "Empty", color: "bg-[#c4c4c4]" },
 ];
 
 /** Group colors palette */

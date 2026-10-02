@@ -180,7 +180,6 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isAggregatable: false,
     isReadOnly: false,
     category: "essential",
-    hiddenFromMenu: true,
   },
   dependency: {
     type: "dependency",

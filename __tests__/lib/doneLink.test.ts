@@ -70,9 +70,9 @@ describe("applyDoneLink", () => {
     expect(r.statusChange).toEqual({ columnId: "st", from: "Done", to: "Stuck" });
   });
 
-  it("a task with no status goes back to none", () => {
+  it("a task with no status goes back to the default, not to blank", () => {
     const ticked = applyDoneLink(b, {}, "ok", true).values;
-    expect(applyDoneLink(b, ticked, "ok", false).values.st).toBe("");
+    expect(applyDoneLink(b, ticked, "ok", false).values.st).toBe("Not Started");
   });
 
   it("unticking with nothing remembered goes to Working on it", () => {

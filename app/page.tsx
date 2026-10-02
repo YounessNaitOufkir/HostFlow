@@ -15,7 +15,7 @@
 // Previously: 1,368 lines with ~30 useState calls and all logic inline.
 // ============================================================
 
-import React, { useEffect, useCallback, useState, useRef } from "react";
+import React, { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { DropResult } from "@hello-pangea/dnd";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -108,6 +108,7 @@ import { useAppHistory, type AppLocation } from "@/hooks/useAppHistory";
 import { useT } from "@/components/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { APP_NAME } from "@/lib/companyName";
+import { applyColumnOrder } from "@/lib/columnOrder";
 import { useAppBadge } from "@/hooks/useAppBadge";
 import { LaunchSplash } from "@/components/ui/LaunchSplash";
 
@@ -181,7 +182,15 @@ export default function HostFlowApp() {
   // ?? [] because boards.columns is nullable in Postgres even though the type
   // says otherwise; without it a single null row throws out of the whole render.
   const allColumns = state.activeBoard?.columns ?? [];
-  const visibleColumns = allColumns.filter(c => !boardHiddenColumns.includes(c.id));
+  // This user's own column order; the board's order is only the shared default.
+  const orderedColumns = useMemo(
+    () =>
+      state.activeBoard
+        ? applyColumnOrder(state.activeBoard.columns ?? [], state.columnOrder[state.activeBoard.id])
+        : [],
+    [state.activeBoard, state.columnOrder]
+  );
+  const visibleColumns = orderedColumns.filter(c => !boardHiddenColumns.includes(c.id));
 
   const activeColumns = state.activeBoard?.columns || [];
 
@@ -988,12 +997,110 @@ export default function HostFlowApp() {
     return () => cancelAnimationFrame(raf);
   }, [state.selectedItem]);
 
+  // A task notification (an assignment, an overdue or SLA alert) shows the task
+  // where it lives instead of opening its updates panel: the panel dimmed the
+  // whole board, so the row's brief flash went unseen, and a task in a
+  // collapsed group or hidden by a search had no row to flash at all. So: its
+  // board in the Main Table, its group opened, any search or filter that hides
+  // it cleared, then the row scrolled to and highlighted. Clicking the row
+  // still opens the panel as usual.
+  //
+  // The target lives in a ref and a counter re-runs the effect; the effect
+  // then waits across renders for the board, its items, the cleared filters
+  // and the opened group to land before it looks for the row.
+  const revealTargetRef = useRef<{ boardId: string; itemId: string } | null>(null);
+  const { filteredItems, clearFilters } = filters;
+  const { toggleGroupCollapse, switchBoard } = store;
+  const [revealRequest, setRevealRequest] = useState(0);
+
+  const revealTaskOnBoard = useCallback(
+    (boardId: string, itemId: string) => {
+      const board = state.boards.find((b) => b.id === boardId);
+      if (!board) {
+        toast.info(t("notif.taskUnavailable"));
+        return;
+      }
+      dispatch({ type: "SET_SELECTED_ITEM", payload: null });
+      if (state.activeBoard?.id !== boardId) {
+        switchBoard(board);
+      } else if (state.mainView !== "board") {
+        dispatch({ type: "SET_MAIN_VIEW", payload: "board" });
+      }
+      revealTargetRef.current = { boardId, itemId };
+      setRevealRequest((n) => n + 1);
+    },
+    [state.boards, state.activeBoard?.id, state.mainView, switchBoard, dispatch, t]
+  );
+
+  useEffect(() => {
+    const target = revealTargetRef.current;
+    if (!target) return;
+    if (state.activeBoard?.id !== target.boardId || state.mainView !== "board") return;
+    // This board's own data, not whatever the previous board left in state.
+    if (isBoardDataLoading || !boardData) return;
+
+    const item = boardData.items.find((i) => i.id === target.itemId);
+    if (!item) {
+      // Not among the board's live tasks: deleted (trash included) or moved away.
+      revealTargetRef.current = null;
+      toast.info(t("notif.taskUnavailable"));
+      return;
+    }
+    if (!state.items.some((i) => i.id === target.itemId)) return;
+
+    if (!filteredItems.some((i) => i.id === target.itemId)) {
+      clearFilters();
+      return;
+    }
+    if (state.collapsedGroups.includes(item.group_id)) {
+      toggleGroupCollapse(item.group_id);
+      return;
+    }
+
+    // Not cancelled on re-render: the target is already cleared, so a cleanup
+    // would only stop the search for the row partway. It gives up after ~1.5s.
+    revealTargetRef.current = null;
+    let frame = 0;
+    const find = () => {
+      const row = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(target.itemId)}"]`);
+      if (row) {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        row.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+        row.classList.remove("row-highlight");
+        void row.offsetWidth; // restart the animation if it is already running
+        row.classList.add("row-highlight");
+        window.setTimeout(() => row.classList.remove("row-highlight"), 4600);
+      } else if (++frame < 90) {
+        requestAnimationFrame(find);
+      }
+    };
+    requestAnimationFrame(find);
+  }, [
+    revealRequest,
+    state.activeBoard?.id,
+    state.mainView,
+    state.items,
+    state.collapsedGroups,
+    boardData,
+    isBoardDataLoading,
+    filteredItems,
+    clearFilters,
+    toggleGroupCollapse,
+    t,
+  ]);
+
   // A notification about a person rather than a board/item (a new signup, an
   // access request) has nowhere on the board to navigate to - it routes to the
   // one place that can act on it instead: the admin panel, on the person who
   // needs something already selected.
   const handleNotificationClick = useCallback(
     (boardId?: string, itemId?: string, relatedUserId?: string, messageKey?: string) => {
+      // A mention is about the conversation, so it still opens the updates panel.
+      const isConversation = messageKey === "notif.mentionUpdate" || messageKey === "notif.mentionReply";
+      if (boardId && itemId && !isConversation) {
+        revealTaskOnBoard(boardId, itemId);
+        return;
+      }
       if (boardId || itemId) {
         navigateToItem(boardId, itemId);
         return;
@@ -1007,7 +1114,7 @@ export default function HostFlowApp() {
         setShowAdminSettingsModal(true);
       }
     },
-    [navigateToItem]
+    [navigateToItem, revealTaskOnBoard]
   );
 
   useEffect(() => {
@@ -1329,7 +1436,7 @@ export default function HostFlowApp() {
               <BoardHeader
                 boardName={state.activeBoard.name}
                 mainView={state.mainView}
-                columns={allColumns}
+                columns={orderedColumns}
                 profiles={state.profiles}
                 searchQuery={filters.searchQuery}
                 isAdmin={profile?.role === "admin"}
@@ -1403,6 +1510,7 @@ export default function HostFlowApp() {
                   onRenameItem={store.renameItem}
                   collapsedGroups={state.collapsedGroups}
                   onToggleGroupCollapse={store.toggleGroupCollapse}
+                  searchQuery={filters.searchQuery}
                 />
               ) : null}
 
@@ -1566,7 +1674,7 @@ export default function HostFlowApp() {
       {state.selectedItem && state.activeBoard && profile && (
         <ItemPanel
           item={state.selectedItem}
-          columns={state.activeBoard.columns}
+          columns={orderedColumns}
           currentUser={{
             id: profile.id,
             name: profile.full_name,

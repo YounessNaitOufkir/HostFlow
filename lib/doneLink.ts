@@ -1,6 +1,7 @@
 import type { Board, Column, StatusOption } from "@/types";
 import { STATUS_OPTIONS } from "@/types";
 import { statusSemanticOf } from "@/lib/statusSemantics";
+import { defaultCellLabel, isBlankCellValue } from "@/lib/cellDefaults";
 
 /**
  * A "Done" checkbox and the task's status, kept in step.
@@ -127,9 +128,13 @@ export function applyDoneLink(
       return { values: next, statusChange: null };
     }
     const remembered = values[STATUS_BEFORE_DONE];
+    // A task that had no status before it was ticked goes back to the
+    // column's default ("Not Started"), not to blank: there is no blank option.
     const restore =
       typeof remembered === "string" && !isDone(remembered)
-        ? remembered
+        ? isBlankCellValue(remembered)
+          ? defaultCellLabel(status) ?? ""
+          : remembered
         : workingLabelOf(status) ?? "";
     next[status.id] = restore;
     delete next[STATUS_BEFORE_DONE];

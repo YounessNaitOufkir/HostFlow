@@ -38,10 +38,22 @@ type Align = "left" | "right" | "center";
  */
 export function useAnchoredMenu(
   isOpen: boolean,
-  options?: { align?: Align; gap?: number; onDismiss?: () => void }
+  options?: {
+    align?: Align;
+    gap?: number;
+    onDismiss?: () => void;
+    /**
+     * "scroll" (default): cap the height to the roomier side and scroll inside.
+     * "shift": never scroll - open below or above if it fits there, otherwise
+     * slide it up until it is fully on screen, over its anchor if need be. For
+     * popups that are unusable when cut, like the calendar.
+     */
+    fit?: "scroll" | "shift";
+  }
 ) {
   const align: Align = options?.align ?? "left";
   const gap = options?.gap ?? 4;
+  const fit = options?.fit ?? "scroll";
   const onDismiss = options?.onDismiss;
 
   const anchorRef = useRef<HTMLDivElement | null>(null);
@@ -73,15 +85,33 @@ export function useAnchoredMenu(
     const spaceBelow = vh - a.bottom - gap;
     const spaceAbove = a.top - gap;
 
-    // Prefer below; flip above only when below cannot hold it and above can do
-    // better. Whichever side wins, the height is capped to what is available.
-    const openAbove = m.height > spaceBelow && spaceAbove > spaceBelow;
-    const maxHeight = Math.max(120, Math.floor(openAbove ? spaceAbove : spaceBelow));
-
-    let top = openAbove
-      ? a.top - Math.min(m.height, maxHeight) - gap
-      : a.bottom + gap;
-    top = Math.max(gap, Math.min(top, vh - Math.min(m.height, maxHeight) - gap));
+    let openAbove: boolean;
+    let maxHeight: number | undefined;
+    let top: number;
+    if (fit === "shift") {
+      // Below if it fits, else above if it fits, else as low as it can sit
+      // while fully on screen. Only a screen shorter than the popup scrolls.
+      if (m.height <= spaceBelow) {
+        openAbove = false;
+        top = a.bottom + gap;
+      } else if (m.height <= spaceAbove) {
+        openAbove = true;
+        top = a.top - m.height - gap;
+      } else {
+        openAbove = false;
+        top = Math.max(gap, vh - m.height - gap);
+      }
+      maxHeight = m.height > vh - 2 * gap ? Math.floor(vh - 2 * gap) : undefined;
+    } else {
+      // Prefer below; flip above only when below cannot hold it and above can do
+      // better. Whichever side wins, the height is capped to what is available.
+      openAbove = m.height > spaceBelow && spaceAbove > spaceBelow;
+      maxHeight = Math.max(120, Math.floor(openAbove ? spaceAbove : spaceBelow));
+      top = openAbove
+        ? a.top - Math.min(m.height, maxHeight) - gap
+        : a.bottom + gap;
+      top = Math.max(gap, Math.min(top, vh - Math.min(m.height, maxHeight) - gap));
+    }
 
     let left =
       align === "right"
@@ -143,11 +173,11 @@ export function useAnchoredMenu(
       top: top - offsetY,
       left: left - offsetX,
       maxHeight,
-      overflowY: "auto",
+      overflowY: maxHeight === undefined ? undefined : "auto",
       visibility: "visible",
       transformOrigin,
     });
-  }, [align, gap]);
+  }, [align, gap, fit]);
 
   useLayoutEffect(() => {
     if (!isOpen) return;

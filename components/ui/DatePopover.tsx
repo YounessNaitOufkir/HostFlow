@@ -58,6 +58,8 @@ export default function DatePopover({
   const { anchorRef, menuRef, menuStyle } = useAnchoredMenu(open, {
     align,
     gap: 6,
+    // A calendar cut off by the screen edge is unusable, so it never scrolls.
+    fit: "shift",
     onDismiss: () => commit(draftRef.current),
   });
 

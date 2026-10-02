@@ -62,6 +62,8 @@ interface BoardTableViewProps {
   collapsedGroups?: string[];
   onToggleGroupCollapse?: (groupId: string) => void;
   onMoveGroup?: (groupId: string, direction: "up" | "down") => void;
+  /** Active search text. A collapsed group holding a match opens while it is set. */
+  searchQuery?: string;
 }
 
 /**
@@ -111,10 +113,49 @@ export default function BoardTableView({
   collapsedGroups = [],
   onToggleGroupCollapse,
   onMoveGroup,
+  searchQuery = "",
 }: BoardTableViewProps) {
   const t = useT();
   const [itemNameWidth, setItemNameWidth] = React.useState(300);
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
+
+  // A search reveals its matches even inside collapsed groups, without touching
+  // the saved collapse state, so clearing the search folds them back up.
+  // Groups the user collapses again during a search are remembered against that
+  // exact query; a new query derives an empty list, so it reveals matches afresh
+  // without needing an effect to reset anything.
+  const activeQuery = searchQuery.trim();
+  const [searchCollapsed, setSearchCollapsed] = React.useState<{ query: string; ids: string[] }>({
+    query: "",
+    ids: [],
+  });
+  const collapsedThisSearch = React.useMemo(
+    () => (activeQuery !== "" && searchCollapsed.query === activeQuery ? searchCollapsed.ids : []),
+    [activeQuery, searchCollapsed]
+  );
+
+  const isRevealedBySearch = useCallback(
+    (groupId: string) =>
+      activeQuery !== "" &&
+      collapsedGroups.includes(groupId) &&
+      filteredItems.some((item) => item.group_id === groupId),
+    [activeQuery, collapsedGroups, filteredItems]
+  );
+
+  const handleToggleCollapse = useCallback(
+    (groupId: string) => {
+      if (!isRevealedBySearch(groupId)) {
+        onToggleGroupCollapse?.(groupId);
+        return;
+      }
+      // Opened only by the search: toggle it for this search, keep the saved state.
+      const ids = collapsedThisSearch.includes(groupId)
+        ? collapsedThisSearch.filter((id) => id !== groupId)
+        : [...collapsedThisSearch, groupId];
+      setSearchCollapsed({ query: activeQuery, ids });
+    },
+    [isRevealedBySearch, onToggleGroupCollapse, collapsedThisSearch, activeQuery]
+  );
 
   const handleDragStart = useCallback((start: DragStart) => {
     setDraggingId(start.draggableId);
@@ -276,8 +317,12 @@ export default function BoardTableView({
                                 itemNameWidth={itemNameWidth}
                                 onResizeItemNameColumn={handleResizeItemNameColumn}
                                 draggingId={draggingId}
-                                isCollapsed={collapsedGroups.includes(group.id)}
-                                onToggleCollapse={() => onToggleGroupCollapse?.(group.id)}
+                                isCollapsed={
+                                  isRevealedBySearch(group.id)
+                                    ? collapsedThisSearch.includes(group.id)
+                                    : collapsedGroups.includes(group.id)
+                                }
+                                onToggleCollapse={() => handleToggleCollapse(group.id)}
                                 dragHandleProps={dragProvided.dragHandleProps}
                                 onMoveGroup={onMoveGroup}
                                 isFirstGroup={index === 0}

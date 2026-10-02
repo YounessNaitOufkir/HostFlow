@@ -140,26 +140,21 @@ export function useColumnMutations({ dispatch }: UseColumnMutationsProps) {
     [dispatch]
   );
 
+  // Column order is a personal preference: it used to rewrite boards.columns,
+  // which reordered the board for every member. It now only changes this
+  // browser's order (see lib/columnOrder.ts); the board's order stays the
+  // shared default. Indices are among the visible columns, as dragged.
   const reorderColumns = useCallback(
-    async (activeBoard: Board, startIndex: number, endIndex: number) => {
-      const cols = [...(activeBoard.columns || [])];
-      const [moved] = cols.splice(startIndex, 1);
-      cols.splice(endIndex, 0, moved);
+    (activeBoard: Board, startIndex: number, endIndex: number) => {
       dispatch({
-        type: "UPDATE_BOARD",
-        payload: { ...activeBoard, columns: cols },
+        type: "MOVE_COLUMN",
+        payload: {
+          boardId: activeBoard.id,
+          columns: activeBoard.columns || [],
+          startIndex,
+          endIndex,
+        },
       });
-      const ok = await runWrite(
-        supabase
-          .from("boards")
-          .update({ columns: cols })
-          .eq("id", activeBoard.id),
-        "Failed to reorder columns", {
-          table: "boards",
-          operation: "update",
-        }
-      );
-      if (ok) notifyTabSyncBoards();
     },
     [dispatch]
   );
