@@ -59,6 +59,7 @@ export const fr: Dictionary = {
   "myWork.subtitle": "Une vue unifiée de toutes les tâches qui vous sont assignées, tous espaces confondus.",
   "myWork.emptyTitle": "Tout est à jour !",
   "myWork.emptyBody": "Aucune tâche ne vous est actuellement assignée.",
+  "myWork.allDoneBody": "Tout ce qui vous est assigné est terminé.",
   "myWork.browseWorkspaces": "Parcourir les espaces",
 
   // ── Board header ───────────────────────────────────────────

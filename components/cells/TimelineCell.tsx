@@ -2,10 +2,9 @@
 
 import React from "react";
 import { Item, Column } from "@/types";
-import { format } from "date-fns";
 import { useLanguage } from "@/components/LanguageProvider";
 import { itemIsDone } from "@/lib/statusSemantics";
-import { parseDateOnly, today } from "@/lib/gantt/dates";
+import { timelinePill } from "@/lib/timelinePill";
 import DatePopover from "@/components/ui/DatePopover";
 
 interface TimelineCellProps {
@@ -21,38 +20,14 @@ interface TimelineCellProps {
 export default function TimelineCell({ item, column, onUpdate, columns }: TimelineCellProps) {
   const { dateLocale } = useLanguage();
   const value = item.column_values?.[column.id] || null;
-  const start = parseDateOnly(value?.start);
-  const end = parseDateOnly(value?.end) ?? start;
-
-  let displayText = "-";
-  let pillBg = "";
 
   // A date in the past is only late if the work is not already finished.
   // Without this, every completed task on the board is painted overdue red.
   const finished = itemIsDone(columns ?? [], item.column_values);
 
-  if (start && end) {
-    const [s, e] = end < start ? [end, start] : [start, end];
-    const formattedStart = format(s, "MMM d", { locale: dateLocale });
-    const formattedEnd = format(e, "MMM d", { locale: dateLocale });
-    // A range inside one month repeats the month for no reason: "Feb 20 – 22"
-    // is shorter and no less clear. Width matters in the narrow Cards column.
-    const sameMonth = s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth();
-    displayText =
-      formattedStart === formattedEnd
-        ? formattedStart
-        : sameMonth
-          ? `${formattedStart} – ${format(e, "d", { locale: dateLocale })}`
-          : `${formattedStart} – ${formattedEnd}`;
-
-    // Green is done, whatever the dates - finished early included - so it
-    // never also means "not started yet", which is grey.
-    const now = today();
-    if (finished) pillBg = "bg-[#00c875]";
-    else if (e < now) pillBg = "bg-[#e44258]";
-    else if (s <= now) pillBg = "bg-[#579bfc]";
-    else pillBg = "bg-[#9aa4b8]";
-  }
+  const pill = timelinePill(value, finished, dateLocale);
+  const displayText = pill?.text ?? "-";
+  const pillBg = pill?.bg ?? "";
 
   return (
     <DatePopover

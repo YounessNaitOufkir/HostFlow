@@ -57,6 +57,7 @@ export const en = {
   "myWork.subtitle": "A unified view of all tasks assigned to you across all workspaces.",
   "myWork.emptyTitle": "You're all caught up!",
   "myWork.emptyBody": "No tasks are currently assigned to you.",
+  "myWork.allDoneBody": "Everything assigned to you is done.",
   "myWork.browseWorkspaces": "Browse workspaces",
 
   // ── Board header ───────────────────────────────────────────
