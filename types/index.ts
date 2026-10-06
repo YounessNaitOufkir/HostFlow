@@ -138,6 +138,11 @@ export interface Profile {
   is_owner?: boolean;
   /** Company member: sees every shared workspace without being invited. */
   is_staff?: boolean;
+  /**
+   * May connect an AI assistant (the Claude connector). Admin-set, off by
+   * default; the database refuses AI-client requests without it.
+   */
+  ai_access?: boolean;
   allowed_boards?: string[];
   telegram_chat_id?: string | null;
   telegram_notifications_enabled?: boolean;
@@ -258,6 +263,8 @@ export interface Update {
   author_name: string;
   created_at: string;
   deleted_at?: string | null;
+  /** The AI client that posted it through the Claude connector; null when typed in the app. */
+  via_client_id?: string | null;
 }
 
 // ============================================================

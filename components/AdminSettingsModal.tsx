@@ -70,16 +70,26 @@ export default function AdminSettingsModal({
   } = useQuery({
     queryKey: queryKeys.adminData(),
     queryFn: async () => {
-      const [profilesRes, workspacesRes, boardsRes, wsMembersRes, bMembersRes] = await Promise.all([
+      const [profilesRes, workspacesRes, boardsRes, wsMembersRes, bMembersRes, aiAccessRes] = await Promise.all([
         supabase.from("user_directory").select("*").order("full_name"),
         supabase.from("workspaces").select("*").order("name"),
         supabase.from("boards").select("*").order("name"),
         supabase.from("workspace_members").select("user_id, workspace_id"),
-        supabase.from("board_members").select("user_id, board_id")
+        supabase.from("board_members").select("user_id, board_id"),
+        // Admin-only, and deliberately not a user_directory column: who may
+        // use an AI assistant is not something colleagues need to see.
+        supabase.rpc("ai_access_user_ids"),
       ]);
 
+      const aiAccess = new Set<string>(
+        Array.isArray(aiAccessRes.data) ? (aiAccessRes.data as string[]) : []
+      );
+
       return {
-        profiles: (profilesRes.data || []) as Profile[],
+        profiles: ((profilesRes.data || []) as Profile[]).map((p) => ({
+          ...p,
+          ai_access: aiAccess.has(p.id),
+        })),
         workspaces: (workspacesRes.data || []) as Workspace[],
         boards: (boardsRes.data || []) as Board[],
         workspaceMembers: wsMembersRes.data || [],
@@ -171,6 +181,35 @@ export default function AdminSettingsModal({
         table: "profiles",
         operation: "rpc",
       });
+    }
+    setSavingId(null);
+  };
+
+  /**
+   * Whether this person may connect an AI assistant (the Claude connector).
+   * Off cuts them off at once: the database gate checks it on every request.
+   * set_user_ai_access is admin-only and returns the value it saved, so the
+   * card only changes when the database says it did.
+   */
+  const handleAiAccessChange = async (profileId: string, enabled: boolean) => {
+    setSavingId(profileId);
+    try {
+      const { data, error } = await supabase.rpc("set_user_ai_access", {
+        target_user_id: profileId,
+        enabled,
+      });
+      if (error) throw error;
+      if (data !== enabled) throw new Error("AI access was not changed");
+      queryClient.setQueryData(
+        queryKeys.adminData(),
+        (old: { profiles: Profile[] } | undefined) =>
+          old && {
+            ...old,
+            profiles: old.profiles.map((p) => (p.id === profileId ? { ...p, ai_access: enabled } : p)),
+          }
+      );
+    } catch (err) {
+      reportMutationError(err, t("adm.errAi"), { table: "profiles", operation: "rpc" });
     }
     setSavingId(null);
   };
@@ -814,6 +853,20 @@ export default function AdminSettingsModal({
                               }`}
                             >
                               {profile.is_staff ? t("adm.team") : t("adm.external")}
+                            </button>
+
+                            <button
+                              onClick={() => handleAiAccessChange(profile.id, !profile.ai_access)}
+                              disabled={savingId === profile.id}
+                              title={t("adm.aiHint")}
+                              aria-pressed={!!profile.ai_access}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                                profile.ai_access
+                                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30"
+                                  : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-slate-900 dark:text-gray-400 dark:border-slate-700"
+                              }`}
+                            >
+                              {profile.ai_access ? t("adm.aiOn") : t("adm.aiOff")}
                             </button>
                           </div>
 

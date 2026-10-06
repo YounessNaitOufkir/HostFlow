@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, MailCheck, AlertCircle, ArrowLeft, Eye, EyeOff, Sun, Moon } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { useT } from "@/components/LanguageProvider";
+import { safeNextPath } from "@/lib/safeNext";
 
 /**
  * Shared field styling.
@@ -40,6 +41,19 @@ const INPUT_CLASS =
  */
 const BACK_BUTTON_CLASS =
   "flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-900 dark:text-white rounded-xl transition-all duration-300 text-sm font-medium border border-gray-200 hover:border-gray-300 dark:border-white/10 dark:hover:border-white/20";
+
+/** Read by app/auth/callback after Google sign-in. */
+const NEXT_COOKIE = "hf_next";
+
+/**
+ * Where to go after signing in: `?next=` when it is a path on this site (the
+ * proxy adds it for the Claude consent screen), otherwise home. Read from
+ * window, like the other query values here, to avoid a Suspense boundary.
+ */
+function nextPath(): string {
+  if (typeof window === "undefined") return "/";
+  return safeNextPath(new URLSearchParams(window.location.search).get("next"));
+}
 
 export default function LoginPage() {
   const t = useT();
@@ -75,7 +89,7 @@ export default function LoginPage() {
   // handshake itself is settled server-side in app/auth/callback/route.ts.
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/");
+      router.replace(nextPath());
     }
   }, [authLoading, user, router]);
 
@@ -201,7 +215,7 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         router.refresh();
-        router.push("/");
+        router.push(nextPath());
       }
     } catch (err: any) {
       let errorMsg = err.message || t("auth.authFailed");
@@ -218,6 +232,13 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
+      // Where to land afterwards (the Claude consent screen, say) survives the
+      // round trip through Google in a short-lived cookie that
+      // app/auth/callback reads once; the redirect URL itself stays bare.
+      const next = nextPath();
+      if (next !== "/") {
+        document.cookie = `${NEXT_COOKIE}=${encodeURIComponent(next)}; path=/; max-age=600; samesite=lax`;
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

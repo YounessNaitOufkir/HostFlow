@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { safeNextPath } from '@/lib/safeNext';
+
+/** Set by the login page before Google sign-in; see NEXT_COOKIE there. */
+const NEXT_COOKIE = 'hf_next';
+
+function cookieValue(request: Request, name: string): string | null {
+  const match = (request.headers.get('cookie') ?? '')
+    .split(/;\s*/)
+    .find((part) => part.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
+}
 
 /**
  * Completes the Supabase OAuth (PKCE) handshake.
@@ -15,7 +26,9 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
-  const next = url.searchParams.get('next') || '/';
+  // ?next= for links this app writes itself (password recovery); the cookie for
+  // Google sign-in, whose redirect URL is kept bare for Supabase's allow-list.
+  const next = url.searchParams.get('next') || cookieValue(request, NEXT_COOKIE) || '/';
 
   // The provider reports a refused consent screen this way, not by omitting `code`.
   // An expired/reused signup confirmation link reports itself the same way, with
@@ -46,6 +59,8 @@ export async function GET(request: Request) {
 
   // `next` comes off the query string, so keep it to same-origin paths — an absolute
   // URL here would turn this route into an open redirect.
-  const destination = next.startsWith('/') && !next.startsWith('//') ? next : '/';
-  return NextResponse.redirect(`${url.origin}${destination}`);
+  const destination = safeNextPath(next);
+  const response = NextResponse.redirect(`${url.origin}${destination}`);
+  response.cookies.delete(NEXT_COOKIE);
+  return response;
 }

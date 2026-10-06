@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@modelcontextprotocol/server": "^2.3.1",
     "@number-flow/react": "^0.6.1",
     "@react-spring/web": "^10.1.2",
     "@sentry/nextjs": "^10.68.0",
@@ -45,6 +46,7 @@
     "gsap": "^3.15.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.21.0",
+    "mcp-handler": "^2.2.0",
     "next": "16.2.9",
     "next-themes": "^0.4.6",
     "papaparse": "^5.5.4",

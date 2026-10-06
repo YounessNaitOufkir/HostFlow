@@ -841,6 +841,13 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
                               <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
                                 {update.author_name}
                               </span>
+                              {/* Set by the database from the token when an AI
+                                  assistant posted it through the connector. */}
+                              {update.via_client_id && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30">
+                                  {t("panel.viaAssistant")}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center">

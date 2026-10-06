@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { Undo2, Zap } from "lucide-react";
-import { Board, Item, Profile, Automation, StatusOption, STATUS_OPTIONS } from "@/types";
+import { Board, Profile, Automation, StatusOption, STATUS_OPTIONS } from "@/types";
 import { sendEmail } from "@/lib/email";
 import { renderEmail, itemUrl, formatEmailDate } from "@/lib/emailTemplate";
 import {
@@ -17,10 +17,9 @@ export { DONE_STATUS_PATTERN } from "@/lib/statusSemantics";
 import { DONE_STATUS_PATTERN, isDoneStatusValue } from "@/lib/statusSemantics";
 import { toast } from "sonner";
 
-export interface EventAutomationResult {
-  targetGroupId?: string;
-  matchedRuleId?: string;
-}
+// Moved to a leaf module so server code can run the same rule; re-exported so
+// every existing import keeps working.
+export { evaluateEventAutomations, type EventAutomationResult } from "@/lib/automations/eventRules";
 
 export interface TimeAutomationResult {
   triggeredCount: number;
@@ -28,41 +27,6 @@ export interface TimeAutomationResult {
   updatedItemIds: string[];
   /** Items whose column_values were changed (e.g. status set to Overdue) — callers should dispatch to local store */
   updatedItems: { id: string; column_values: Record<string, any> }[];
-}
-
-/**
- * Evaluates event-driven automation rules when a cell value changes.
- */
-export function evaluateEventAutomations(
-  board: Board,
-  item: Item,
-  columnId: string,
-  oldValue: any,
-  newValue: any,
-  automations: Automation[]
-): EventAutomationResult {
-  const result: EventAutomationResult = {};
-
-  // 1. Check for move_group automations (e.g. "Done" -> Completed, "Cancelled" -> Closed/Rejected)
-  const matchedMoveRule = automations.find(
-    (a) =>
-      a.trigger_column_id === columnId &&
-      String(newValue) === String(a.trigger_value) &&
-      a.action_type === "move_group" &&
-      a.enabled !== false
-  );
-
-  if (matchedMoveRule) {
-    result.targetGroupId = matchedMoveRule.action_target_id;
-    result.matchedRuleId = matchedMoveRule.id;
-  }
-
-  // Date postponement used to be measured here for the "Timeline & Date
-  // Shifting" rule. Dependencies now reschedule successors on every edit,
-  // through one engine, so there is nothing left for a rule to opt into - and
-  // the figure this computed had no consumer even before that.
-
-  return result;
 }
 
 function parseIsoDateString(val: any): string | null {
