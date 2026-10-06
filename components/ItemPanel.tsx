@@ -44,6 +44,7 @@ import { supabase } from "@/lib/supabase";
 import { useT, useLanguage } from "@/components/LanguageProvider";
 import { Item, Column, Update, Profile, STATUS_OPTIONS, ActivityLog } from "@/types";
 import { Clock, Reply, Trash2 } from "lucide-react";
+import { firstStatusValue, itemIsDone } from "@/lib/statusSemantics";
 import { reportError, reportFetchError, reportMutationError } from "@/lib/errorReporting";
 import { format } from "date-fns";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -671,6 +672,16 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
     });
   };
 
+  // ---- Subtasks: item_links of type "subitem", parent -> child ----
+  // Written by the Claude connector's create_subtask; shown here so a subtask
+  // made by an assistant is visible where people look at a task.
+  const subtasks = itemLinks
+    .filter((l) => l.link_type === "subitem" && l.source_item_id === item.id)
+    .map((l) => boardItems.find((i) => i.id === l.target_item_id))
+    .filter((i): i is Item => !!i);
+  const parentLink = itemLinks.find((l) => l.link_type === "subitem" && l.target_item_id === item.id);
+  const parentItem = parentLink ? boardItems.find((i) => i.id === parentLink.source_item_id) : undefined;
+
   // ---- Find user avatar info from author_id ----
   const getAuthorUser = (authorId: string) => {
     const p = profiles.find((u) => u.id === authorId);
@@ -731,6 +742,36 @@ export default function ItemPanel({ item, columns, currentUser, onClose, onUpdat
               <X size={20} />
             </button>
           </div>
+          {parentItem && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              {t("panel.subtaskOf", { name: parentItem.name })}
+            </p>
+          )}
+          {subtasks.length > 0 && (
+            <section aria-label={t("panel.subtasks")} className="mb-3">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
+                {t("panel.subtasks")} ({subtasks.length})
+              </h3>
+              <ul className="space-y-1">
+                {subtasks.map((sub) => {
+                  const done = itemIsDone(columns, sub.column_values);
+                  const status = firstStatusValue(columns, sub.column_values);
+                  return (
+                    <li key={sub.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className={`truncate ${done ? "line-through text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-200"}`}>
+                        {sub.name}
+                      </span>
+                      {status && (
+                        <span className="shrink-0 text-[11px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                          {displayCellLabel(t, "status", status)}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
           {showDelays && (
             <section aria-label={t("delay.title")} className="mt-1 max-h-[40vh] overflow-y-auto pr-1">
               <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">

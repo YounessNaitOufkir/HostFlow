@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { commentHtml } from "@/lib/agent/service";
+import { commentHtml } from "@/lib/agent/edits";
 
 describe("commentHtml", () => {
   it("writes the editor's HTML: one paragraph per line, blank lines dropped", () => {

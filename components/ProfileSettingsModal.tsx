@@ -5,7 +5,8 @@ import { useT } from "@/components/LanguageProvider";
 import { isDigestChannel, telegramIsUsable, type DigestChannel } from "@/lib/digestChannel";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
-import { X, Upload, Loader2, Camera, Shield, User, Bell } from "lucide-react";
+import { X, Upload, Loader2, Camera, Shield, User, Bell, Bot } from "lucide-react";
+import AiScopesPanel from "@/components/AiScopesPanel";
 import TelegramConnectButton from "@/components/TelegramConnectButton";
 import GoogleCalendarConnectButton from "@/components/GoogleCalendarConnectButton";
 import { toast } from "sonner";
@@ -18,7 +19,7 @@ interface ProfileSettingsModalProps {
 
 export default function ProfileSettingsModal({ profile, onClose, onProfileUpdated }: ProfileSettingsModalProps) {
   const t = useT();
-  const [activeTab, setActiveTab] = useState<"profile" | "notifications">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "ai">("profile");
   const [fullName, setFullName] = useState(profile.full_name);
   const [emailNotifications, setEmailNotifications] = useState(profile.email_notifications_enabled ?? true);
   const [dailyDigest, setDailyDigest] = useState(profile.daily_digest_enabled ?? true);
@@ -162,6 +163,12 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
           >
             <Bell size={16} /> {t("profile.tabNotifications")}
           </button>
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`flex-1 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-2 transition-colors ${activeTab === 'ai' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+          >
+            <Bot size={16} /> {t("profile.tabAi")}
+          </button>
         </div>
 
         <div className="p-6 h-[400px] overflow-y-auto custom-scrollbar">
@@ -262,6 +269,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
           </div>
         </div>
           )}
+          {activeTab === 'ai' && <AiScopesPanel profile={profile} />}
           {activeTab === 'notifications' && (
             <div className="space-y-6">
               <div>
