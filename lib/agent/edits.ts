@@ -4,7 +4,7 @@ import { applyDoneLink, STATUS_BEFORE_DONE, statusColumnOf } from "@/lib/doneLin
 import { evaluateEventAutomations } from "@/lib/automations/eventRules";
 import { resolveMoveTargetGroup } from "@/lib/automations/moveTarget";
 import { addDaysOnly, dayIndex, toDateOnly } from "@/lib/gantt/dates";
-import { plotItemDates } from "@/lib/gantt/rows";
+import { assigneeIdsOf, plotItemDates } from "@/lib/gantt/rows";
 import { collectDependencies } from "@/lib/gantt/dependencies";
 import { rescheduleFrom } from "@/lib/gantt/reschedule";
 import { chunkIds } from "@/lib/supabasePaging";
@@ -16,6 +16,7 @@ import { boardLabel, resolveGroup, resolvePerson, type DirectoryPerson } from "@
 import { summarizeTask, type TaskSummary } from "@/lib/agent/reads";
 import { FieldError, findColumn, parseFieldValue } from "@/lib/agent/fields";
 import { stableStringify } from "@/lib/agent/requests";
+import { htmlToText } from "@/lib/agent/browse";
 import {
   AgentError,
   fail,
@@ -59,6 +60,8 @@ export interface WriteResult {
   group: string;
   link: string;
   task: TaskSummary;
+  /** Who is assigned now, read from the saved task. */
+  assignees: { id: string; name: string; is_you: boolean }[];
   /** What else happened because of this write. */
   side_effects: string[];
   /** Things asked for that could not be done, said plainly. */
@@ -475,7 +478,23 @@ async function groupTitle(ctx: AgentContext, groupId: string): Promise<string> {
   return data?.title ?? "";
 }
 
-function result(ctx: AgentContext, saved: Item, board: Board, group: string, sideEffects: string[], notes: string[]): WriteResult {
+/**
+ * The saved row, as the database returned it. Assignees are read from that row,
+ * not from what was asked for, so the assistant can say who is on the task.
+ */
+async function result(
+  ctx: AgentContext,
+  saved: Item,
+  board: Board,
+  group: string,
+  sideEffects: string[],
+  notes: string[],
+  names: Map<string, string> = new Map([[ctx.userId, ctx.fullName]])
+): Promise<WriteResult> {
+  const assigneeIds = assigneeIdsOf(saved, board);
+  if (assigneeIds.some((id) => !names.has(id))) {
+    for (const p of await loadDirectory(ctx)) names.set(p.id, p.full_name);
+  }
   return {
     task_id: saved.id,
     name: saved.name,
@@ -485,6 +504,7 @@ function result(ctx: AgentContext, saved: Item, board: Board, group: string, sid
     group,
     link: taskLink(ctx, board.id, saved.id),
     task: summarizeTask(saved, board, ctx.workspaces, ctx.today),
+    assignees: assigneeIds.map((id) => ({ id, name: names.get(id) ?? "Unknown", is_you: id === ctx.userId })),
     side_effects: sideEffects,
     notes,
   };
@@ -631,7 +651,7 @@ export async function createTask(ctx: AgentContext, input: CreateTaskInput): Pro
   const synced = await syncCalendars(ctx, item, board);
   if (synced) sideEffects.push(synced);
 
-  return result(ctx, item, board, group.title, sideEffects, notes);
+  return result(ctx, item, board, group.title, sideEffects, notes, names);
 }
 
 export async function createSubtask(
@@ -673,7 +693,8 @@ export async function updateTask(ctx: AgentContext, input: UpdateTaskInput): Pro
     names,
     newName: input.name,
   });
-  return { ...result(ctx, saved, board, await groupTitle(ctx, saved.group_id), sideEffects, changed ? [] : ["Nothing changed: the task already had these values."]), changed };
+  const notes = changed ? [] : ["Nothing changed: the task already had these values."];
+  return { ...(await result(ctx, saved, board, await groupTitle(ctx, saved.group_id), sideEffects, notes, names)), changed };
 }
 
 /** v1's set_status, now the same path as any field update. */
@@ -740,7 +761,7 @@ export async function addComment(
   ctx: AgentContext,
   taskId: string,
   text: string
-): Promise<{ comment_id: string; task_id: string; task: string; board: string; link: string; side_effects: string[] }> {
+): Promise<{ comment_id: string; text: string; task_id: string; task: string; board: string; link: string; side_effects: string[] }> {
   const body = commentHtml(text);
   if (!body) throw new AgentError("The comment is empty.");
   const { item, board } = await loadItem(ctx, taskId);
@@ -749,12 +770,14 @@ export async function addComment(
   const { data, error } = await ctx.supabase
     .from("updates")
     .insert({ item_id: item.id, body, author_id: ctx.userId, author_name: ctx.fullName })
-    .select("id")
+    .select("id, body")
     .single();
   if (error || !data) fail(error, "post the comment");
 
   return {
     comment_id: data.id,
+    // As saved, so the assistant can quote what was posted.
+    text: htmlToText(data.body),
     task_id: item.id,
     task: item.name,
     board: boardLabel(board, ctx.workspaces),

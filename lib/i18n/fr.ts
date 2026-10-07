@@ -807,7 +807,7 @@ export const fr: Dictionary = {
   "aiScope.readFor": "Autoriser l'assistant à lire {name}",
   "aiScope.writeFor": "Autoriser l'assistant à modifier {name}",
   "aiScope.private": "Espace privé",
-  "aiScope.footer": "Les changements s'appliquent dès la prochaine demande de votre assistant. Il ne peut jamais rien supprimer.",
+  "aiScope.footer": "Chaque case cochée est enregistrée tout de suite. Les changements s'appliquent dès la prochaine demande de votre assistant. Il ne peut jamais rien supprimer.",
   "aiScope.errSave": "Impossible d'enregistrer votre choix pour l'assistant IA",
   "aiScope.errLoad": "Impossible de charger vos espaces. Fermez cette fenêtre et réessayez.",
   "profile.errUpload": "Échec du téléversement de l'avatar",

@@ -134,7 +134,9 @@ async function asPerson<T>(authInfo: AuthInfo | undefined, run: (ctx: AgentConte
     const ctx = await loadContext(supabase, userId, origin);
     if (ctx.workspaces.length === 0) {
       throw new AgentError(
-        "No workspaces are shared with your assistant yet. Choose them in HostFlow › Profile settings › AI assistant."
+        "No workspaces are shared with your assistant yet. In HostFlow, click your avatar (bottom left) › My Profile › " +
+          "the \"AI assistant\" tab, and tick Read (or Write) next to each workspace. Each tick saves on its own; " +
+          "then ask again."
       );
     }
     return reply(await run(ctx));

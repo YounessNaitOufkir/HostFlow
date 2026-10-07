@@ -805,7 +805,7 @@ export const en = {
   "aiScope.readFor": "Let the assistant read {name}",
   "aiScope.writeFor": "Let the assistant change {name}",
   "aiScope.private": "Private workspace",
-  "aiScope.footer": "Changes apply to your assistant's next request. It can never delete anything.",
+  "aiScope.footer": "Each tick saves straight away. Changes apply to your assistant's next request. It can never delete anything.",
   "aiScope.errSave": "Could not save your AI assistant choice",
   "aiScope.errLoad": "Could not load your workspaces. Close this window and try again.",
   "profile.errUpload": "Failed to upload avatar",
