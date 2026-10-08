@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNextPath } from "@/lib/safeNext";
 
 export default async function proxy(request: NextRequest) {
   let response = NextResponse.next({
@@ -80,18 +81,27 @@ export default async function proxy(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/update-password") &&
     !request.nextUrl.pathname.startsWith("/privacy") &&
     !request.nextUrl.pathname.startsWith("/terms") &&
-    !request.nextUrl.pathname.startsWith("/api/")
+    !request.nextUrl.pathname.startsWith("/api/") &&
+    // RFC 9728 metadata for the Claude connector: Claude reads it before
+    // anyone has signed in, to find out where sign-in happens.
+    !request.nextUrl.pathname.startsWith("/.well-known/")
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    // The Claude consent screen is reached from Supabase's OAuth server with an
+    // authorization_id that must survive the sign-in, or the person signs in
+    // and lands on the board app with the connection left hanging.
+    if (request.nextUrl.pathname.startsWith("/oauth/")) {
+      url.search = `?next=${encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search)}`;
+    }
     return NextResponse.redirect(url);
   }
 
-  // If there is a user and the route is /login, redirect to /
+  // If there is a user and the route is /login, send them on: to `next` when
+  // it is a path on this site, otherwise home.
   if (user && request.nextUrl.pathname.startsWith("/login")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+    const next = safeNextPath(request.nextUrl.searchParams.get("next"));
+    return NextResponse.redirect(new URL(next, request.url));
   }
 
   return response;

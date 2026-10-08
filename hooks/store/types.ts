@@ -76,6 +76,9 @@ export interface BoardStoreState {
 
   // --- Hidden Columns ---
   hiddenColumns: Record<string, string[]>;
+
+  // --- Personal column order (this browser only), keyed by board id ---
+  columnOrder: Record<string, string[]>;
 }
 
 export type BoardAction =
@@ -143,6 +146,11 @@ export type BoardAction =
   | {
       type: "TOGGLE_COLUMN_VISIBILITY";
       payload: { boardId: string; columnId: string };
+    }
+  | { type: "SET_COLUMN_ORDER"; payload: Record<string, string[]> }
+  | {
+      type: "MOVE_COLUMN";
+      payload: { boardId: string; columns: Column[]; startIndex: number; endIndex: number };
     };
 
 export type BoardStoreDispatch = React.Dispatch<BoardAction>;

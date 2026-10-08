@@ -63,6 +63,16 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
+  // Picking several people is the normal case, so the picker stays open after
+  // each pick. updateCell closes whatever menu is open as its first,
+  // synchronous step (right for single-choice pickers like Status); asking to
+  // stay open straight after the save is batched into the same render, so the
+  // later request wins and the list never flickers shut.
+  const saveKeepingOpen = (ids: string[]) => {
+    onUpdate(item.id, column.id, ids);
+    if (isOpen) setIsOpen(true);
+  };
+
   const assign = (userId: string) => {
     onUpdate(item.id, column.id, [...selectedIds, userId]);
   };
@@ -93,7 +103,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
 
   const toggleUser = (userId: string) => {
     if (selectedIds.includes(userId)) {
-      onUpdate(item.id, column.id, selectedIds.filter((id) => id !== userId));
+      saveKeepingOpen(selectedIds.filter((id) => id !== userId));
       return;
     }
     // A private workspace's pickable list already contains only yourself
@@ -107,7 +117,7 @@ export default function PeopleCell({ item, column, onUpdate, profiles, activeSta
         return;
       }
     }
-    assign(userId);
+    saveKeepingOpen([...selectedIds, userId]);
   };
 
   const handleGrantAndAssign = async () => {

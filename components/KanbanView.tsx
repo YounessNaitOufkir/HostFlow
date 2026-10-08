@@ -14,6 +14,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { parseDateOnly } from "@/lib/gantt/dates";
 import { useBoardStore } from "@/hooks/useBoardStore";
 import { TruncatedText } from "@/components/ui/TruncatedText";
+import { withoutBlankOption } from "@/lib/cellDefaults";
 
 // ============================================================
 // Helpers
@@ -116,12 +117,13 @@ export default function KanbanView({
     { label: "High", color: "bg-[#e2445c] text-white" },
     { label: "Medium", color: "bg-[#a25ddc] text-white" },
     { label: "Low", color: "bg-[#579bfc] text-white" },
-    { label: "Empty", color: "bg-[#c4c4c4] dark:bg-[#3e4157] text-white" },
   ];
 
-  const laneOptions = selectedColumn?.type === "priority" 
-    ? PRIORITY_OPTIONS 
-    : selectedColumn?.settings?.statusLabels || STATUS_OPTIONS;
+  const laneOptions = withoutBlankOption(
+    selectedColumn?.type === "priority"
+      ? PRIORITY_OPTIONS
+      : selectedColumn?.settings?.statusLabels || STATUS_OPTIONS
+  );
 
   // Other columns to display as chips on cards (exclude the kanban grouping column, max 3)
   const chipColumns = columns.filter((c) => c.id !== kanbanColumnId).slice(0, 3);

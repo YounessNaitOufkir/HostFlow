@@ -1,4 +1,19 @@
 import DOMPurify from "dompurify";
+import { isOwnStorageUrl } from "@/lib/attachments";
+
+// Pictures in updates: an <img> is kept only when it points at this app's own
+// storage. Anything else (a tracking pixel, a hot-linked image) is removed, so
+// allowing <img> does not let an update load arbitrary URLs for every reader.
+let imageHookInstalled = false;
+function installImageHook() {
+  if (imageHookInstalled) return;
+  imageHookInstalled = true;
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.nodeName === "IMG" && !isOwnStorageUrl(node.getAttribute("src"))) {
+      node.parentNode?.removeChild(node);
+    }
+  });
+}
 
 /**
  * Strips all HTML tags and scripts from a user-provided string.
@@ -25,6 +40,7 @@ export function sanitizeHtml(input: string | null | undefined): string {
   if (!input) return "";
 
   if (typeof window !== "undefined" && DOMPurify.isSupported) {
+    installImageHook();
     return DOMPurify.sanitize(input, {
       ALLOWED_TAGS: [
         "p",
@@ -42,8 +58,10 @@ export function sanitizeHtml(input: string | null | undefined): string {
         "h1",
         "h2",
         "h3",
+        // Only pictures from this app's own storage survive: see the hook below.
+        "img",
       ],
-      ALLOWED_ATTR: ["href", "target", "rel"],
+      ALLOWED_ATTR: ["href", "target", "rel", "src", "alt"],
       FORBID_TAGS: ["script", "style", "iframe", "object", "embed"],
       FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
     });

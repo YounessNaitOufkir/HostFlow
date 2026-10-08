@@ -115,7 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // This device only. The default ("global") also ends every other session
+    // of the account, including a connected AI assistant's.
+    await supabase.auth.signOut({ scope: "local" });
     router.push("/login");
   };
 

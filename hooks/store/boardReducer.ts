@@ -1,5 +1,6 @@
 import type { BoardStoreState, BoardAction } from "./types";
 import { STORAGE_KEYS } from "@/lib/storageKeys";
+import { applyColumnOrder, moveVisibleColumn } from "@/lib/columnOrder";
 
 export const initialBoardStoreState: BoardStoreState = {
   loading: true,
@@ -32,6 +33,7 @@ export const initialBoardStoreState: BoardStoreState = {
   trashItems: [],
   collapsedGroups: [],
   hiddenColumns: {},
+  columnOrder: {},
 };
 
 export function boardReducer(
@@ -252,6 +254,29 @@ export function boardReducer(
         );
       }
       return { ...state, hiddenColumns: newHiddenColumns };
+    }
+    case "SET_COLUMN_ORDER":
+      return { ...state, columnOrder: action.payload };
+    case "MOVE_COLUMN": {
+      const { boardId, columns, startIndex, endIndex } = action.payload;
+      const ordered = applyColumnOrder(columns, state.columnOrder[boardId]);
+      const newColumnOrder = {
+        ...state.columnOrder,
+        [boardId]: moveVisibleColumn(
+          ordered,
+          state.hiddenColumns[boardId] || [],
+          startIndex,
+          endIndex
+        ),
+      };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(STORAGE_KEYS.columnOrder, JSON.stringify(newColumnOrder));
+        } catch {
+          // Private browsing or a full quota: the order still holds for this session.
+        }
+      }
+      return { ...state, columnOrder: newColumnOrder };
     }
     default:
       return state;

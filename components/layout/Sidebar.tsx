@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, ChevronLeft, ChevronRight, PieChart, LayoutTemplate } from "lucide-react";
+import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, ChevronLeft, ChevronRight, PieChart, LayoutTemplate, Pin, PinOff } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
@@ -15,6 +15,7 @@ import { useSpring, animated } from "@react-spring/web";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import WorkspaceMembersModal from "@/components/WorkspaceMembersModal";
 import { HostlikAccessPrompt } from "@/components/access/HostlikAccessPrompt";
+import { useWorkspacePins } from "@/hooks/queries/useWorkspacePins";
 
 interface SidebarProps {
   // Data
@@ -173,6 +174,105 @@ export default function Sidebar({
   const visibleBoards = activeWorkspace
     ? boards.filter((b) => b.workspace_id === activeWorkspace.id)
     : [];
+
+  // Pinned workspaces float to the top of the menu, each person's own (workspace_pins).
+  const { pinnedIds, togglePin } = useWorkspacePins(profile?.id);
+  const pinnedWorkspaces = workspaces.filter((w) => pinnedIds.includes(w.id));
+  const otherWorkspaces = workspaces.filter((w) => !pinnedIds.includes(w.id));
+
+  const renderWorkspaceRow = (ws: Workspace) => (
+                      <div
+                        key={ws.id}
+                        className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] group/ws flex justify-between items-center transition-colors"
+                      >
+                        <button
+                          type="button"
+                          className="flex-1 text-left cursor-pointer truncate mr-2 text-gray-700 dark:text-gray-300 py-0.5"
+                          onClick={() => {
+                            onSelectWorkspace(ws);
+                            onSwitchBoard(null);
+                            setIsWorkspaceMenuOpen(false);
+                          }}
+                        >
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            {ws.is_private && (
+                              <Lock
+                                size={11}
+                                className="text-brand-amber shrink-0"
+                              />
+                            )}
+                            <TruncatedText className="truncate block">{ws.name}</TruncatedText>
+                          </span>
+                          <span className={`block truncate text-[10.5px] uppercase tracking-[0.06em] text-gray-400 dark:text-slate-500 mt-0.5 ${ws.is_private ? "ml-[17px]" : ""}`}>
+                            {ws.is_private
+                              ? [t("sidebar.privateSpace"), privateOwnerLabel(ws)].filter(Boolean).join(" · ")
+                              : t("sidebar.organization")}
+                          </span>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* Pinned shows its pin all the time; otherwise it appears on hover or focus. */}
+                          <button
+                            type="button"
+                            aria-label={t(pinnedIds.includes(ws.id) ? "sidebar.unpinWorkspace" : "sidebar.pinWorkspace", { name: ws.name })}
+                            aria-pressed={pinnedIds.includes(ws.id)}
+                            className={`cursor-pointer transition-colors focus-visible:opacity-100 ${
+                              pinnedIds.includes(ws.id)
+                                ? "text-blue-600 dark:text-blue-400 hover:text-blue-700"
+                                : "text-gray-400 hover:text-blue-500 opacity-0 group-hover/ws:opacity-100 focus:opacity-100"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePin(ws.id);
+                            }}
+                          >
+                            {pinnedIds.includes(ws.id) ? <PinOff size={13} /> : <Pin size={13} />}
+                          </button>
+                        <div className="hidden group-hover/ws:flex items-center gap-2">
+                          {/* Icons with role="button" but no tabIndex/onKeyDown were
+                              announced as buttons to a screen reader yet unreachable
+                              and non-activatable by keyboard — real <button>s instead. */}
+                          <button
+                            type="button"
+                            aria-label={`Manage access to ${ws.name}`}
+                            className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMembersModalWs(ws);
+                              setIsWorkspaceMenuOpen(false);
+                            }}
+                          >
+                            <Users2 size={13} />
+                          </button>
+                          {canManageWorkspace(ws) && (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`Rename ${ws.name}`}
+                                className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRenameWorkspace(ws);
+                                }}
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Delete ${ws.name}`}
+                                className="text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteWorkspace(ws);
+                                }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                        </div>
+                      </div>
+);
 
   return (
     <>
@@ -393,80 +493,18 @@ export default function Sidebar({
                         {t("sidebar.allWorkspacesLower")}
                       </span>
                     </button>
-                    {workspaces.map((ws) => (
-                      <div
-                        key={ws.id}
-                        className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-white/[0.04] text-[13px] group/ws flex justify-between items-center transition-colors"
-                      >
-                        <button
-                          type="button"
-                          className="flex-1 text-left cursor-pointer truncate mr-2 text-gray-700 dark:text-gray-300 py-0.5"
-                          onClick={() => {
-                            onSelectWorkspace(ws);
-                            onSwitchBoard(null);
-                            setIsWorkspaceMenuOpen(false);
-                          }}
-                        >
-                          <span className="flex items-center gap-1.5 min-w-0">
-                            {ws.is_private && (
-                              <Lock
-                                size={11}
-                                className="text-brand-amber shrink-0"
-                              />
-                            )}
-                            <TruncatedText className="truncate block">{ws.name}</TruncatedText>
-                          </span>
-                          <span className={`block truncate text-[10.5px] uppercase tracking-[0.06em] text-gray-400 dark:text-slate-500 mt-0.5 ${ws.is_private ? "ml-[17px]" : ""}`}>
-                            {ws.is_private
-                              ? [t("sidebar.privateSpace"), privateOwnerLabel(ws)].filter(Boolean).join(" · ")
-                              : t("sidebar.organization")}
-                          </span>
-                        </button>
-                        <div className="hidden group-hover/ws:flex items-center gap-2">
-                          {/* Icons with role="button" but no tabIndex/onKeyDown were
-                              announced as buttons to a screen reader yet unreachable
-                              and non-activatable by keyboard — real <button>s instead. */}
-                          <button
-                            type="button"
-                            aria-label={`Manage access to ${ws.name}`}
-                            className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMembersModalWs(ws);
-                              setIsWorkspaceMenuOpen(false);
-                            }}
-                          >
-                            <Users2 size={13} />
-                          </button>
-                          {canManageWorkspace(ws) && (
-                            <>
-                              <button
-                                type="button"
-                                aria-label={`Rename ${ws.name}`}
-                                className="text-gray-400 hover:text-blue-500 cursor-pointer transition-colors"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRenameWorkspace(ws);
-                                }}
-                              >
-                                <Pencil size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Delete ${ws.name}`}
-                                className="text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDeleteWorkspace(ws);
-                                }}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                    {pinnedWorkspaces.length > 0 && (
+                      <div className="px-4 pt-2.5 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                        {t("sidebar.pinned")}
                       </div>
-                    ))}
+                    )}
+                    {pinnedWorkspaces.map((ws) => renderWorkspaceRow(ws))}
+                    {pinnedWorkspaces.length > 0 && otherWorkspaces.length > 0 && (
+                      <div className="px-4 pt-2.5 pb-1 border-t border-gray-100 dark:border-slate-700/50 text-[10.5px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+                        {t("sidebar.workspaces")}
+                      </div>
+                    )}
+                    {otherWorkspaces.map((ws) => renderWorkspaceRow(ws))}
                     <button
                       type="button"
                       onClick={() => {

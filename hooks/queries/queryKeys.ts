@@ -1,6 +1,7 @@
 export const queryKeys = {
   globalSettings: () => ["globalSettings"] as const,
   workspaces: () => ["workspaces"] as const,
+  workspacePins: () => ["workspacePins"] as const,
   globalSearch: (query: string, boardScope = "") =>
     ["globalSearch", query, boardScope] as const,
   profiles: () => ["profiles"] as const,

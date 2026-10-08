@@ -15,6 +15,7 @@ import { rescheduleFrom } from "@/lib/gantt/reschedule";
 import { resolveMoveTargetGroup } from "@/lib/automations/moveTarget";
 import { queryKeys } from "@/hooks/queries/queryKeys";
 import { applyDoneLink } from "@/lib/doneLink";
+import { withCellDefaults } from "@/lib/cellDefaults";
 
 
 interface UseItemMutationsProps {
@@ -662,7 +663,8 @@ export function useItemMutations({
         board_id: activeBoard.id,
         group_id: groupId,
         name,
-        column_values: columnValues,
+        // The database fills these too; doing it here shows them immediately.
+        column_values: withCellDefaults(activeBoard.columns, columnValues),
         position: maxPosition + 1,
       };
       dispatch({ type: "ADD_ITEM", payload: newItem });
@@ -1125,7 +1127,11 @@ export function useItemMutations({
         destGroupItems.forEach((it, idx) => {
           renumbered.push({ id: it.id, position: (idx + 1) * SPACING });
         });
-        newPos = draggedItem.position;
+        // The dragged item is in destGroupItems too, so it takes its renumbered
+        // slot. Keeping its old position instead (typically a small integer from
+        // addItem's max + 1) sorted it above every renumbered sibling, so a drag
+        // of one row up sent the item to the top of the group.
+        newPos = renumbered[destination.index].position;
       }
 
       const movedItem = {

@@ -59,6 +59,15 @@ export function useBoardStore(onNeedsImport?: () => void) {
           }
         } catch (e) {}
       }
+      const savedOrder = localStorage.getItem(STORAGE_KEYS.columnOrder);
+      if (savedOrder) {
+        try {
+          const parsed = JSON.parse(savedOrder);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            dispatch({ type: "SET_COLUMN_ORDER", payload: parsed });
+          }
+        } catch {}
+      }
       const savedSidebar = localStorage.getItem(STORAGE_KEYS.sidebar);
       if (savedSidebar !== null) {
         dispatch({

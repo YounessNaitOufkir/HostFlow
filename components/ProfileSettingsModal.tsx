@@ -5,7 +5,8 @@ import { useT } from "@/components/LanguageProvider";
 import { isDigestChannel, telegramIsUsable, type DigestChannel } from "@/lib/digestChannel";
 import { Profile } from "@/types";
 import { supabase } from "@/lib/supabase";
-import { X, Upload, Loader2, Camera, Shield, User, Bell } from "lucide-react";
+import { X, Upload, Loader2, Camera, Shield, User, Bell, Bot } from "lucide-react";
+import AiScopesPanel from "@/components/AiScopesPanel";
 import TelegramConnectButton from "@/components/TelegramConnectButton";
 import GoogleCalendarConnectButton from "@/components/GoogleCalendarConnectButton";
 import { toast } from "sonner";
@@ -18,7 +19,7 @@ interface ProfileSettingsModalProps {
 
 export default function ProfileSettingsModal({ profile, onClose, onProfileUpdated }: ProfileSettingsModalProps) {
   const t = useT();
-  const [activeTab, setActiveTab] = useState<"profile" | "notifications">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "ai">("profile");
   const [fullName, setFullName] = useState(profile.full_name);
   const [emailNotifications, setEmailNotifications] = useState(profile.email_notifications_enabled ?? true);
   const [dailyDigest, setDailyDigest] = useState(profile.daily_digest_enabled ?? true);
@@ -126,14 +127,14 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
   // Handle Enter key to save
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !saving) {
+      if (e.key === "Enter" && !saving && activeTab !== "ai") {
         e.preventDefault();
         handleSave();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [fullName, saving, profile.full_name]);
+  }, [fullName, saving, profile.full_name, activeTab]);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -161,6 +162,12 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
             className={`flex-1 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-2 transition-colors ${activeTab === 'notifications' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
           >
             <Bell size={16} /> {t("profile.tabNotifications")}
+          </button>
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`flex-1 py-3 text-sm font-medium border-b-2 flex items-center justify-center gap-2 transition-colors ${activeTab === 'ai' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+          >
+            <Bot size={16} /> {t("profile.tabAi")}
           </button>
         </div>
 
@@ -262,6 +269,7 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
           </div>
         </div>
           )}
+          {activeTab === 'ai' && <AiScopesPanel profile={profile} />}
           {activeTab === 'notifications' && (
             <div className="space-y-6">
               <div>
@@ -350,20 +358,32 @@ export default function ProfileSettingsModal({ profile, onClose, onProfileUpdate
 
         </div>
 <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-200 dark:border-slate-700/50 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          >
-            {t("profile.cancel")}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !fullName.trim()}
-            className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
-          >
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            {t("profile.save")}
-          </button>
+          {activeTab === 'ai' ? (
+            // Each tick on this tab saves on its own; there is nothing to submit.
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+            >
+              {t("common.done")}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                {t("profile.cancel")}
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !fullName.trim()}
+                className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving && <Loader2 size={14} className="animate-spin" />}
+                {t("profile.save")}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

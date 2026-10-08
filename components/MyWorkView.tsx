@@ -4,7 +4,9 @@ import React from "react";
 import { displayStatus } from "@/lib/i18n/labels";
 import { Item, Board, Workspace, STATUS_OPTIONS } from "@/types";
 import { LayoutDashboard, AlertCircle } from "lucide-react";
-import { useT } from "@/components/LanguageProvider";
+import { useT, useLanguage } from "@/components/LanguageProvider";
+import { itemIsDone } from "@/lib/statusSemantics";
+import { timelinePill } from "@/lib/timelinePill";
 
 interface MyWorkViewProps {
   items: Item[];
@@ -26,9 +28,20 @@ interface MyWorkViewProps {
 
 export default function MyWorkView({ items, boards, workspaces = [], onSelectItem, onBrowseWorkspaces }: MyWorkViewProps) {
   const t = useT();
+  const { dateLocale } = useLanguage();
+
+  // Finished work has nothing left to do here, so My Work lists only what is
+  // still open. "Done" is read through each board's own vocabulary ("Fait",
+  // or a label the board declared as done), not by comparing to the word.
+  // An item whose board is not loaded cannot be judged, so it stays.
+  const openItems = items.filter((item) => {
+    const board = boards.find((b) => b.id === item.board_id);
+    return !board || !itemIsDone(board.columns, item.column_values);
+  });
+
   // Group items by board
   const itemsByBoard: Record<string, Item[]> = {};
-  items.forEach((item) => {
+  openItems.forEach((item) => {
     if (!itemsByBoard[item.board_id]) {
       itemsByBoard[item.board_id] = [];
     }
@@ -62,6 +75,24 @@ export default function MyWorkView({ items, boards, workspaces = [], onSelectIte
     );
   };
 
+  // The first timeline column holding dates, as the board would paint it.
+  // Done items never reach here, so the pill is never green.
+  const getTimelinePill = (item: Item, boardId: string) => {
+    const board = boards.find((b) => b.id === boardId);
+    const timelineCols = board?.columns.filter((c) => c.type === "timeline") ?? [];
+    for (const col of timelineCols) {
+      const pill = timelinePill(item.column_values?.[col.id], false, dateLocale);
+      if (pill) {
+        return (
+          <span className={`${pill.bg} text-white text-xs font-bold tracking-wide px-2.5 py-1 rounded-full whitespace-nowrap`}>
+            {pill.text}
+          </span>
+        );
+      }
+    }
+    return <span className="text-gray-300 dark:text-slate-600 text-sm">–</span>;
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-gray-50 dark:bg-slate-800 overflow-y-auto">
       <div className="p-8 pb-4">
@@ -75,11 +106,13 @@ export default function MyWorkView({ items, boards, workspaces = [], onSelectIte
       </div>
 
       <div className="p-8 pt-4 flex-1">
-        {items.length === 0 ? (
+        {openItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500 bg-white dark:bg-slate-900 rounded-xl shadow-sm dark:shadow-none border border-gray-100 dark:border-slate-700">
             <AlertCircle size={48} className="mb-4 text-gray-300" />
             <p className="text-lg font-medium">{t("myWork.emptyTitle")}</p>
-            <p className="text-sm">{t("myWork.emptyBody")}</p>
+            <p className="text-sm">
+              {items.length > 0 ? t("myWork.allDoneBody") : t("myWork.emptyBody")}
+            </p>
             {onBrowseWorkspaces && (
               <button
                 onClick={onBrowseWorkspaces}
@@ -106,18 +139,23 @@ export default function MyWorkView({ items, boards, workspaces = [], onSelectIte
                       onClick={() => onSelectItem(item)}
                       className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
                     >
-                      <div className="flex items-center space-x-4">
-                        <div className="w-6 h-6 rounded border border-gray-300 dark:border-slate-500 bg-gray-50 dark:bg-slate-800 flex flex-col justify-between p-0.5 group-hover:border-blue-400">
+                      <div className="flex items-center space-x-4 min-w-0">
+                        <div className="w-6 h-6 shrink-0 rounded border border-gray-300 dark:border-slate-500 bg-gray-50 dark:bg-slate-800 flex flex-col justify-between p-0.5 group-hover:border-blue-400">
                           <div className="h-px bg-gray-300 group-hover:bg-blue-400"></div>
                           <div className="h-px bg-gray-300 group-hover:bg-blue-400"></div>
                           <div className="h-px bg-gray-300 group-hover:bg-blue-400"></div>
                         </div>
-                        <span className="text-[15px] font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 transition-colors">
+                        <span className="text-[15px] font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 transition-colors truncate">
                           {item.name}
                         </span>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        {getStatusChip(item, boardId)}
+                      <div className="flex items-center gap-3 shrink-0 ml-4">
+                        <div className="w-32 flex justify-center">
+                          {getTimelinePill(item, boardId)}
+                        </div>
+                        <div className="w-28 flex justify-end">
+                          {getStatusChip(item, boardId)}
+                        </div>
                       </div>
                     </div>
                   ))}

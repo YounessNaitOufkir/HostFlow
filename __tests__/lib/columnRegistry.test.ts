@@ -56,11 +56,10 @@ describe("Column Registry — Batch 2", () => {
   it("offers only the column types the board actually uses", () => {
     const essential = getColumnsByCategory("essential").map((c) => c.type);
     expect(essential).toEqual(
-      expect.arrayContaining(["status", "text", "people", "timeline", "tags", "priority"])
+      expect.arrayContaining(["status", "text", "people", "timeline", "tags", "priority", "files"])
     );
     expect(essential).not.toContain("numbers");
     expect(essential).not.toContain("date");
-    expect(essential).not.toContain("files");
 
     const advanced = getColumnsByCategory("advanced").map((c) => c.type);
     expect(advanced).toEqual(expect.arrayContaining(["dependency", "checkbox"]));
@@ -77,7 +76,7 @@ describe("Column Registry — Batch 2", () => {
     // Hiding is additive: existing columns of these types still render, and the
     // importer can still create them from a spreadsheet. Deleting a registry
     // entry to remove it from the menu would break both - this pins that.
-    const hidden: ColumnType[] = ["formula", "rating", "link", "relation", "files", "date", "numbers"];
+    const hidden: ColumnType[] = ["formula", "rating", "link", "relation", "date", "numbers"];
     hidden.forEach((type) => {
       expect(COLUMN_REGISTRY[type]).toBeDefined();
       expect(COLUMN_REGISTRY[type].hiddenFromMenu).toBe(true);

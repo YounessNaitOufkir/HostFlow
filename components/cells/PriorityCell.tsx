@@ -6,6 +6,7 @@ import { Item, Column } from "@/types";
 import { TruncatedText } from "@/components/ui/TruncatedText";
 import { useT } from "@/components/LanguageProvider";
 import { displayPriority } from "@/lib/i18n/labels";
+import { withoutBlankOption } from "@/lib/cellDefaults";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 
@@ -22,7 +23,6 @@ const PRIORITY_OPTIONS = [
   { label: "High", color: "bg-[#e2445c] text-white" },
   { label: "Medium", color: "bg-[#a25ddc] text-white" },
   { label: "Low", color: "bg-[#579bfc] text-white" },
-  { label: "Empty", color: "bg-[#c4c4c4] dark:bg-[#3e4157] text-white" },
 ];
 
 export default function PriorityCell({ item, column, activeStatusId, setActiveStatusId, onUpdate }: PriorityCellProps) {
@@ -57,7 +57,9 @@ export default function PriorityCell({ item, column, activeStatusId, setActiveSt
     if (setActiveStatusId) setActiveStatusId(null);
   };
 
-  const currentOptions = column.settings?.priorityLabels || PRIORITY_OPTIONS;
+  // No blank choice: a task always has a priority (see lib/cellDefaults.ts).
+  // Several boards still store an "Empty" option in their settings.
+  const currentOptions = withoutBlankOption(column.settings?.priorityLabels || PRIORITY_OPTIONS);
   const currentOption = currentOptions.find((o: any) => o.label === value) || currentOptions[currentOptions.length - 1];
   const isEmpty = value === "Empty";
 

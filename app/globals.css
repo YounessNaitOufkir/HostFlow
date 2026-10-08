@@ -925,11 +925,25 @@ body {
   0%, 35% { background-color: rgba(245, 166, 35, 0.22); }
   100% { background-color: transparent; }
 }
-.row-flash {
+/* [data-item-id] raises specificity on purpose: every row also carries
+   .animate-row-in, whose own `animation` otherwise wins and the flash never
+   played at all. */
+[data-item-id].row-flash {
   animation: rowFlash 2.2s ease-out;
 }
+/* A task a notification pointed at: held long enough to find on a busy board,
+   with an even amber outline (not a one-sided bar) so it reads over other
+   row colours. */
+@keyframes rowHighlight {
+  0%, 70% { background-color: rgba(245, 166, 35, 0.28); box-shadow: inset 0 0 0 1.5px rgba(245, 166, 35, 0.85); }
+  100% { background-color: transparent; box-shadow: inset 0 0 0 1.5px transparent; }
+}
+[data-item-id].row-highlight {
+  animation: rowHighlight 4.5s ease-out;
+}
 @media (prefers-reduced-motion: reduce) {
-  .row-flash { animation: none; background-color: rgba(245, 166, 35, 0.18); }
+  [data-item-id].row-flash { animation: none; background-color: rgba(245, 166, 35, 0.18); }
+  [data-item-id].row-highlight { animation: none; background-color: rgba(245, 166, 35, 0.22); box-shadow: inset 0 0 0 1.5px rgba(245, 166, 35, 0.85); }
   .animate-ring-settle { animation: none; opacity: 0; }
   .animate-ring-settle-icon { animation: none; opacity: 1; transform: none; }
 }
