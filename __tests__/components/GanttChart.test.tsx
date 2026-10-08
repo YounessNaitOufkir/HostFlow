@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import type { Board, Column, Group, Item, ItemLink, Profile } from "@/types";
@@ -1246,5 +1246,70 @@ describe("GanttChart editing", () => {
 
     await user.click(bar("Permis"));
     expect(opened).toEqual(["Permis"]);
+  });
+});
+
+describe("GanttChart trackpad gestures", () => {
+  /** The one real scroller: the bars' viewport. */
+  const body = () => bar("Permis").closest(".overflow-auto") as HTMLElement;
+
+  const swipe = (target: Element, init: WheelEventInit) => {
+    const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, ...init });
+    // A native listener, so React's state updates need flushing by hand.
+    act(() => {
+      target.dispatchEvent(event);
+    });
+    return event;
+  };
+
+  it("pinching zooms the chart, not the page", () => {
+    renderChart();
+    const atDay = px(bar("Permis").style.width);
+
+    // A trackpad pinch out arrives as ctrl+wheel with a positive deltaY.
+    const pinchOut = swipe(body(), { ctrlKey: true, deltaY: 100 });
+    expect(pinchOut.defaultPrevented).toBe(true);
+    expect(px(bar("Permis").style.width)).toBeCloseTo(5 * PX_PER_DAY.week, 3);
+    expect(px(bar("Permis").style.width)).toBeLessThan(atDay);
+
+    swipe(body(), { ctrlKey: true, deltaY: -100 });
+    expect(px(bar("Permis").style.width)).toBeCloseTo(5 * PX_PER_DAY.day, 3);
+  });
+
+  it("collects a pinch's small steps into one zoom change", () => {
+    renderChart();
+    swipe(body(), { ctrlKey: true, deltaY: 10 });
+    swipe(body(), { ctrlKey: true, deltaY: 10 });
+    // Still at day: 20px of pinch is a twitch, not a zoom.
+    expect(px(bar("Permis").style.width)).toBeCloseTo(5 * PX_PER_DAY.day, 3);
+    swipe(body(), { ctrlKey: true, deltaY: 25 });
+    expect(px(bar("Permis").style.width)).toBeCloseTo(5 * PX_PER_DAY.week, 3);
+  });
+
+  it("scrolls the chart when swiping over the task names", () => {
+    renderChart();
+    const name = screen
+      .getAllByText("Devis")
+      .find((el) => !body().contains(el))!;
+
+    const event = swipe(name, { deltaX: 30, deltaY: 40 });
+    expect(event.defaultPrevented).toBe(true);
+    expect(body().scrollTop).toBe(40);
+    expect(body().scrollLeft).toBe(30);
+  });
+
+  it("moves through time when swiping up or down over the dates", () => {
+    const { container } = renderChart();
+    const header = container.querySelector("[style*='will-change: transform']") as HTMLElement;
+
+    swipe(header, { deltaY: 70 });
+    expect(body().scrollLeft).toBe(70);
+    expect(body().scrollTop).toBe(0);
+  });
+
+  it("leaves a swipe over the bars to the browser's own scrolling", () => {
+    renderChart();
+    const event = swipe(bar("Permis"), { deltaY: 40 });
+    expect(event.defaultPrevented).toBe(false);
   });
 });

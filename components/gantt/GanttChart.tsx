@@ -42,6 +42,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { addDaysOnly, today, toDateOnly, daysBetween, dayIndex } from "@/lib/gantt/dates";
 import { visibleRowRange, visiblePxWindow } from "@/lib/gantt/virtual";
+import { PINCH_STEP, headerSwipe, wheelDeltaPx, zoomToward } from "@/lib/gantt/wheel";
 import {
   GANTT_FIELDS,
   DEFAULT_GANTT_FIELDS,
@@ -765,6 +766,127 @@ export default function GanttChart({
     syncPanes();
   }, [syncPanes]);
 
+  // ------------------------------------------------------- trackpad gestures
+
+  /** Header + task pane + body: where swipes and pinches belong to the chart. */
+  const chartAreaRef = useRef<HTMLDivElement>(null);
+  /** The date under the pinch, held across the re-render a zoom change causes. */
+  const zoomAnchorRef = useRef<{ date: Date; dayFraction: number; offset: number } | null>(null);
+  const hasRows = rows.length > 0;
+  const gestureRef = useRef({ scale, changeZoom });
+  useLayoutEffect(() => {
+    gestureRef.current = { scale, changeZoom };
+  }, [scale, changeZoom]);
+
+  useEffect(() => {
+    const area = chartAreaRef.current;
+    const body = bodyRef.current;
+    if (!area || !body) return;
+
+    /** Zoom one step, keeping the date under the pointer where it was. */
+    const zoomAt = (direction: -1 | 1, clientX: number) => {
+      const { scale: current, changeZoom: apply } = gestureRef.current;
+      const next = zoomToward(current.pxPerDay, direction);
+      if (!next) return;
+      const rect = body.getBoundingClientRect();
+      const inside = clientX >= rect.left && clientX <= rect.left + body.clientWidth;
+      // Over the task pane the pointer is off the timeline: anchor its middle.
+      const offset = inside ? clientX - rect.left : body.clientWidth / 2;
+      const days = (body.scrollLeft + offset) / current.pxPerDay;
+      zoomAnchorRef.current = {
+        date: addDaysOnly(current.chartStart, Math.floor(days)),
+        dayFraction: days - Math.floor(days),
+        offset,
+      };
+      apply(next);
+    };
+
+    let pinchTravel = 0;
+    let inGesture = false;
+    let pinchIdle: ReturnType<typeof setTimeout> | undefined;
+
+    const onWheel = (e: WheelEvent) => {
+      // A trackpad pinch arrives as ctrl+wheel (Chrome, Edge, Firefox), as
+      // does ctrl+mouse wheel. Left alone it zooms the whole page.
+      if (e.ctrlKey) {
+        e.preventDefault();
+        // Safari's gesture events already zoom; never count a pinch twice.
+        if (inGesture) return;
+        pinchTravel += e.deltaMode === 0 ? e.deltaY : e.deltaY * 40;
+        clearTimeout(pinchIdle);
+        pinchIdle = setTimeout(() => (pinchTravel = 0), 250);
+        if (Math.abs(pinchTravel) >= PINCH_STEP) {
+          zoomAt(pinchTravel < 0 ? -1 : 1, e.clientX);
+          pinchTravel = 0;
+        }
+        return;
+      }
+      // The body scrolls natively, momentum and all.
+      if (body.contains(e.target as Node)) return;
+
+      const delta = wheelDeltaPx(e, { width: body.clientWidth, height: body.clientHeight });
+      const overHeader = headerTrackRef.current?.parentElement?.contains(e.target as Node);
+      const { dx, dy } = overHeader ? headerSwipe(delta) : delta;
+      if (dx === 0 && dy === 0) return;
+      e.preventDefault();
+      body.scrollLeft += dx;
+      body.scrollTop += dy;
+    };
+
+    // Safari reports a trackpad pinch as gesture events, not ctrl+wheel.
+    let gestureScale = 1;
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      gestureScale = 1;
+      inGesture = true;
+    };
+    const onGestureEnd = () => {
+      inGesture = false;
+    };
+    const onGestureChange = (e: Event) => {
+      e.preventDefault();
+      const { scale: pinch, clientX } = e as Event & { scale: number; clientX: number };
+      if (pinch / gestureScale >= 1.25) {
+        gestureScale = pinch;
+        zoomAt(-1, clientX);
+      } else if (pinch / gestureScale <= 0.8) {
+        gestureScale = pinch;
+        zoomAt(1, clientX);
+      }
+    };
+
+    // Not React's onWheel: that listener is passive, and preventDefault - the
+    // only way to keep a pinch from zooming the page - is ignored in it.
+    area.addEventListener("wheel", onWheel, { passive: false });
+    area.addEventListener("gesturestart", onGestureStart);
+    area.addEventListener("gesturechange", onGestureChange);
+    area.addEventListener("gestureend", onGestureEnd);
+    return () => {
+      clearTimeout(pinchIdle);
+      area.removeEventListener("wheel", onWheel);
+      area.removeEventListener("gesturestart", onGestureStart);
+      area.removeEventListener("gesturechange", onGestureChange);
+      area.removeEventListener("gestureend", onGestureEnd);
+    };
+    // The chart area only exists once there are rows; an empty chart renders
+    // a message instead, and the listeners must attach when the rows arrive.
+  }, [hasRows]);
+
+  // After a pinch re-scales the chart, scroll so the anchored date is back
+  // under the pointer. Layout, not effect: before the frame paints, or the
+  // chart flashes at the old scroll position first.
+  useLayoutEffect(() => {
+    const anchor = zoomAnchorRef.current;
+    const el = bodyRef.current;
+    if (!anchor || !el) return;
+    zoomAnchorRef.current = null;
+    el.scrollLeft = Math.max(
+      0,
+      scale.xOf(anchor.date) + anchor.dayFraction * scale.pxPerDay - anchor.offset
+    );
+    syncPanes();
+  }, [scale, syncPanes]);
+
   // ---------------------------------------------------------------- windowing
 
   const rowWindow = useMemo(
@@ -1476,7 +1598,10 @@ export default function GanttChart({
     >
       {toolbar}
 
-      <div className="flex-1 flex flex-col min-h-0 border-t border-gray-200 dark:border-[#1e2333]">
+      <div
+        ref={chartAreaRef}
+        className="flex-1 flex flex-col min-h-0 border-t border-gray-200 dark:border-[#1e2333]"
+      >
         {/* Header band. Its own viewport, translated to follow the body's
             horizontal scroll - one real scroller keeps the two in lockstep
             without a scroll-event feedback loop between them. */}
@@ -1593,7 +1718,9 @@ export default function GanttChart({
           {/* The one real scroller. */}
           <div
             ref={bodyRef}
-            className="flex-1 overflow-auto bg-gray-50/50 dark:bg-[#0e111a]"
+            // overscroll-contain: a sideways swipe that reaches the chart's
+            // left edge would otherwise carry on into the browser's "Back".
+            className="flex-1 overflow-auto overscroll-contain bg-gray-50/50 dark:bg-[#0e111a]"
             onScroll={syncPanes}
           >
             <div
