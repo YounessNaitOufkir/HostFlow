@@ -2,7 +2,15 @@ import { createMcpHandler, getPublicOrigin, withMcpAuth } from "mcp-handler";
 import type { AuthInfo } from "@modelcontextprotocol/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { AgentError, find, getDelays, getMyTasks, loadContext, type AgentContext } from "@/lib/agent/service";
+import {
+  AgentError,
+  find,
+  getDelays,
+  getMissionToday,
+  getMyTasks,
+  loadContext,
+  type AgentContext,
+} from "@/lib/agent/service";
 import {
   ConfirmationNeeded,
   addComment,
@@ -181,6 +189,20 @@ const handler = createMcpHandler(
       },
       async ({ range }, ctx) =>
         asPerson(ctx.http?.authInfo, async (agent) => ({ today: agent.today, tasks: await getMyTasks(agent, range) }))
+    );
+
+    server.registerTool(
+      "what_matters_today",
+      {
+        title: "What matters today",
+        description:
+          "The signed-in person's top 3 tasks right now with the reasons, who they are waiting on, and on-site " +
+          "conflicts in the next 7 days, within their assistant's workspaces. The same ranking as HostFlow's " +
+          "Pilotage view and morning digest. Read only.",
+        inputSchema: z.object({}),
+        annotations: { readOnlyHint: true },
+      },
+      async (_args, ctx) => asPerson(ctx.http?.authInfo, (agent) => getMissionToday(agent))
     );
 
     server.registerTool(

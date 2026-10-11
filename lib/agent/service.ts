@@ -1,7 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Board, Item, Workspace } from "@/types";
-import { fetchAllRows } from "@/lib/supabasePaging";
+import type { Board, Item, ItemLink, Workspace } from "@/types";
+import { chunkIds, fetchAllRows } from "@/lib/supabasePaging";
 import { todayInTimezone } from "@/lib/orgTime";
+import { addDaysOnly, dayIndex, parseDateOnly, toDateOnly } from "@/lib/gantt/dates";
+import { collectDependencies } from "@/lib/gantt/dependencies";
+import { assigneeIdsOf } from "@/lib/gantt/rows";
+import { NOW_LIMIT, rankNow, type NowReason } from "@/lib/mission/score";
+import { buildWaitingList } from "@/lib/mission/waiting";
+import { findOnSiteConflicts } from "@/lib/mission/conflicts";
 import type { DelayNote } from "@/lib/delays";
 import {
   boardLabel,
@@ -132,6 +138,105 @@ export async function loadDirectory(ctx: AgentContext): Promise<DirectoryPerson[
 export async function getMyTasks(ctx: AgentContext, range: TaskRange): Promise<TaskSummary[]> {
   const items = await loadItems(ctx);
   return myTasks(items, ctx.boards, ctx.workspaces, ctx.userId, ctx.today, range);
+}
+
+export interface MissionToday {
+  today: string;
+  /** The person's top tasks, best first, with why each one matters now. */
+  now: Array<{ id: string; task: string; workspace: string | null; reasons: NowReason[]; link: string }>;
+  /** Who the person's open tasks are waiting on; follow-ups due first. */
+  waiting: Array<{ who: string; follow_up_due: boolean; follow_up: string | null; tasks: string[] }>;
+  /** Days in the next week the person must be on site in two places. */
+  conflicts: Array<{ day: string; tasks: [string, string] }>;
+}
+
+/**
+ * Pilotage for the signed-in person: the same rankNow, waiting list and on-site
+ * check as the view and the morning digest, so all three agree on a given day.
+ *
+ * Pure. Only the boards passed in count: an item or a link that reaches
+ * outside them (another workspace, out of the assistant's scope) is dropped.
+ */
+export function missionToday(
+  items: Item[],
+  links: ItemLink[],
+  boards: Board[],
+  workspaces: Workspace[],
+  userId: string,
+  today: string,
+  linkFor: (boardId: string, itemId: string) => string
+): MissionToday {
+  const todayDate = parseDateOnly(today);
+  if (!todayDate) return { today, now: [], waiting: [], conflicts: [] };
+  const todayIdx = dayIndex(todayDate);
+
+  const boardsById = new Map(boards.map((b) => [b.id, b]));
+  const scoped = items.filter((i) => boardsById.has(i.board_id));
+  const deps = collectDependencies(scoped, boardsById, links);
+  const workspaceName = new Map(workspaces.map((w) => [w.id, w.name]));
+  const where = (board: Board) => (board.workspace_id ? workspaceName.get(board.workspace_id) ?? null : null);
+  // Task names repeat on every property, so a bare name can be ambiguous.
+  const label = (item: Item, board: Board) => {
+    const ws = where(board);
+    return ws ? `${item.name} — ${ws}` : item.name;
+  };
+
+  const now = rankNow({ items: scoped, boardsById, deps, todayIdx }, { personId: userId })
+    .slice(0, NOW_LIMIT)
+    .map((t) => ({
+      id: t.item.id,
+      task: t.item.name,
+      workspace: where(t.board),
+      reasons: t.reasons,
+      link: linkFor(t.board.id, t.item.id),
+    }));
+
+  const waiting = buildWaitingList(scoped, boardsById, deps, todayIdx)
+    .map((g) => ({ g, mine: g.tasks.filter((t) => assigneeIdsOf(t.item, t.board).includes(userId)) }))
+    .filter(({ mine }) => mine.length > 0)
+    .map(({ g, mine }) => ({
+      who: g.who,
+      follow_up_due: mine.some((t) => t.followUpDue),
+      follow_up: mine.map((t) => t.followUp).filter((d): d is string => !!d).sort()[0] ?? null,
+      tasks: mine.map((t) => label(t.item, t.board)),
+    }));
+
+  const conflicts = findOnSiteConflicts(scoped, boardsById, todayIdx)
+    .filter((c) => c.personId === userId)
+    .map((c) => ({
+      day: toDateOnly(addDaysOnly(todayDate, c.dayIdx - todayIdx)),
+      tasks: [label(c.tasks[0].item, c.tasks[0].board), label(c.tasks[1].item, c.tasks[1].board)] as [string, string],
+    }));
+
+  return { today, now, waiting, conflicts };
+}
+
+/** Dependency links touching the given items, each once. */
+async function loadDependencyLinks(ctx: AgentContext, itemIds: string[]): Promise<ItemLink[]> {
+  const byId = new Map<string, ItemLink>();
+  for (const ids of chunkIds(itemIds)) {
+    const list = ids.join(",");
+    const rows = await fetchAllRows<ItemLink>((from, to) =>
+      ctx.supabase
+        .from("item_links")
+        .select("*")
+        .eq("link_type", "dependency")
+        .or(`source_item_id.in.(${list}),target_item_id.in.(${list})`)
+        .order("id")
+        .range(from, to)
+    );
+    // A link whose two ends fall in different chunks comes back twice.
+    for (const link of rows) byId.set(link.id, link);
+  }
+  return Array.from(byId.values());
+}
+
+export async function getMissionToday(ctx: AgentContext): Promise<MissionToday> {
+  const items = await loadItems(ctx);
+  const links = await loadDependencyLinks(ctx, items.map((i) => i.id));
+  return missionToday(items, links, ctx.boards, ctx.workspaces, ctx.userId, ctx.today, (boardId, itemId) =>
+    taskLink(ctx, boardId, itemId)
+  );
 }
 
 /** Boards in a workspace, or one board, or everything - for the delays scope. */
