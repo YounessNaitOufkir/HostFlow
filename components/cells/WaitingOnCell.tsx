@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { BellRing, X } from "lucide-react";
+import { BellRing, Hourglass, X } from "lucide-react";
 import type { CellValue, Column, Item, WaitingOnValue } from "@/types";
 import { useLanguage } from "@/components/LanguageProvider";
 import DatePopover from "@/components/ui/DatePopover";
@@ -52,13 +52,22 @@ export default function WaitingOnCell({ item, column, onUpdate }: WaitingOnCellP
 
   return (
     <div
-      className={`${column.width ? "" : "w-48"} group border-r border-gray-200 dark:border-slate-700 flex items-center gap-1 px-2 shrink-0`}
+      className={`${column.width ? "" : "w-48"} group relative border-r border-gray-200 dark:border-slate-700 flex items-center gap-1 px-2 shrink-0`}
       style={{ width: column.width ? `${column.width}px` : undefined }}
     >
+      {/* Empty and idle: nothing in the row, a faint hourglass on hover - like the
+          Date column's calendar. The "who?" hint only appears once you click in. */}
+      {!localWho && draft === null && (
+        <Hourglass
+          aria-hidden
+          size={13}
+          className="pointer-events-none absolute left-2 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-60 transition-opacity"
+        />
+      )}
       <input
         type="text"
         value={localWho}
-        placeholder={t("coltype.waiting_on")}
+        placeholder={draft !== null ? t("mission.waiting.whoPlaceholder") : ""}
         aria-label={t("coltype.waiting_on")}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={() => {

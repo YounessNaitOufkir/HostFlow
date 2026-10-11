@@ -90,6 +90,14 @@ describe("WaitingOnCell", () => {
     expect(input).toHaveValue("Later");
   });
 
+  it("shows no placeholder in an idle empty cell, and a hint once clicked", () => {
+    render(<WaitingOnCell item={item(null)} column={column} onUpdate={vi.fn()} />);
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveAttribute("placeholder", "");
+    fireEvent.focus(input);
+    expect(input.getAttribute("placeholder")).toMatch(/^Who\?/);
+  });
+
   it("renders empty, not crashing, on a malformed value", () => {
     render(<WaitingOnCell item={item("{bad")} column={column} onUpdate={vi.fn()} />);
     expect(screen.getByRole("textbox")).toHaveValue("");

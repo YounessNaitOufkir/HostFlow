@@ -1059,6 +1059,7 @@ export const en = {
   "mission.waiting.clear": "Clear",
   "mission.waiting.followUp": "Follow-up",
   "mission.waiting.since": "Waiting since",
+  "mission.waiting.whoPlaceholder": "Who? e.g. Carpenter, Bank",
   "mission.waiting.title": "What you are waiting on from others, and when to follow up",
   "mission.waiting.today": "Today",
   "mission.waiting.days": "{count} d",

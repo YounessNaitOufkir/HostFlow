@@ -1061,6 +1061,7 @@ export const fr: Dictionary = {
   "mission.waiting.clear": "Effacer",
   "mission.waiting.followUp": "Relance",
   "mission.waiting.since": "Attendu depuis",
+  "mission.waiting.whoPlaceholder": "Qui ? ex. Menuisier, Banque",
   "mission.waiting.title": "Ce que vous attendez des autres, et quand relancer",
   "mission.waiting.today": "Aujourd'hui",
   "mission.waiting.days": "{count} j",
