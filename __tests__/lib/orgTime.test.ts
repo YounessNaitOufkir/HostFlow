@@ -37,8 +37,10 @@ describe("orgTime", () => {
   });
 
   describe("cronTimeInTimezone", () => {
-    it("reports the 09:00 UTC cron as 10:00 in Casablanca", () => {
-      expect(cronTimeInTimezone("Africa/Casablanca", 9)).toBe("10:00");
+    it("reports the 09:00 UTC cron in the zone's local time", () => {
+      // Tokyo, not Casablanca: this reads today's offset, and Morocco's has
+      // changed (UTC+1 until September 2026, GMT since), which broke the test.
+      expect(cronTimeInTimezone("Asia/Tokyo", 9)).toBe("18:00");
     });
 
     it("reports the cron unchanged in UTC", () => {

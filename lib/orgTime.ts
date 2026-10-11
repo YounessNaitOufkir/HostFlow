@@ -13,10 +13,7 @@
 
 export const DEFAULT_ORG_TIMEZONE = "UTC";
 
-/**
- * The UTC hour the automations cron fires at, from `vercel.json` ("0 9 * * *").
- * The daily digest runs earlier, at 06:00 UTC, so it lands before the workday.
- */
+/** The UTC hour the Vercel cron fires at, from `vercel.json` ("0 9 * * *"). */
 export const CRON_UTC_HOUR = 9;
 
 function isoDateIn(timeZone: string, now: Date): string {
