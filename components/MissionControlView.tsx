@@ -7,7 +7,11 @@ import { collectDependencies } from "@/lib/gantt/dependencies";
 import { dayIndex, today } from "@/lib/gantt/dates";
 import { isOpenItem, waitingOnCellOf } from "@/lib/mission/fields";
 import { buildWaitingList, type WaitingTask } from "@/lib/mission/waiting";
+import { NOW_LIMIT, rankNow } from "@/lib/mission/score";
+import { findOnSiteConflicts } from "@/lib/mission/conflicts";
 import WaitingForList from "@/components/mission/WaitingForList";
+import NowList from "@/components/mission/NowList";
+import ConflictBanner from "@/components/mission/ConflictBanner";
 import type { WorkspaceGanttUpdate } from "@/components/WorkspaceGanttView";
 import type { Board, Item, Profile, Workspace } from "@/types";
 
@@ -22,15 +26,59 @@ interface MissionControlViewProps {
 }
 
 type WaitingFilter = "all" | "due";
+type MissionTab = "now" | "waiting";
+type Scope = "mine" | "team";
+
+/** A small segmented control: one pressed option at a time. */
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: [T, string][];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex gap-0.5 rounded-lg bg-[var(--surface-tertiary)] p-1">
+      {options.map(([key, text]) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+          className={`rounded-md px-3 py-1 text-[13px] font-semibold transition-colors ${
+            value === key
+              ? "bg-[var(--surface-primary)] text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
+              : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          }`}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Pilotage: what costs money or a client if nobody acts today, across every
- * property at once. Phase 1 shows who the team is waiting on; the ranked
- * "Maintenant" list joins it once that data is being filled in.
+ * property at once. "Maintenant" ranks the top tasks with the reasons why;
+ * "En attente de" lists who the team is waiting on.
  */
-export default function MissionControlView({ boards, workspaces, onOpenTask, onUpdateCell }: MissionControlViewProps) {
+export default function MissionControlView({
+  boards,
+  workspaces,
+  profiles,
+  currentUserId,
+  onOpenTask,
+  onUpdateCell,
+}: MissionControlViewProps) {
   const { t, bcp47 } = useLanguage();
   const { loading, error, items, itemLinks, automationsFor, refresh } = useWorkspaceGanttData(boards);
+  const [tab, setTab] = useState<MissionTab>("now");
+  const [scope, setScope] = useState<Scope>("mine");
   const [filter, setFilter] = useState<WaitingFilter>("all");
 
   // Read on every render, so an open tab moves on to the next day.
@@ -39,6 +87,16 @@ export default function MissionControlView({ boards, workspaces, onOpenTask, onU
   const boardsById = useMemo(() => new Map(boards.map((b) => [b.id, b])), [boards]);
   const deps = useMemo(() => collectDependencies(items, boardsById, itemLinks), [items, boardsById, itemLinks]);
   const groups = useMemo(() => buildWaitingList(items, boardsById, deps, todayIdx), [items, boardsById, deps, todayIdx]);
+
+  const personId = scope === "mine" ? currentUserId : undefined;
+  const nowTasks = useMemo(
+    () => rankNow({ items, boardsById, deps, todayIdx }, { personId }).slice(0, NOW_LIMIT),
+    [items, boardsById, deps, todayIdx, personId]
+  );
+  const conflicts = useMemo(() => {
+    const all = findOnSiteConflicts(items, boardsById, todayIdx);
+    return personId ? all.filter((c) => c.personId === personId) : all;
+  }, [items, boardsById, todayIdx, personId]);
 
   // The open tasks directly behind each waiting task, named on its card.
   const blockedBy = useMemo(() => {
@@ -75,14 +133,40 @@ export default function MissionControlView({ boards, workspaces, onOpenTask, onU
   return (
     <div className="flex-1 overflow-auto bg-[var(--surface-secondary)] px-4 py-6 sm:p-8">
       <div className="mx-auto max-w-[1200px] space-y-6">
-        <header>
-          <p className="text-[13px] text-[var(--text-tertiary)]">
-            {t("sidebar.pilotage")} · {t("mission.tab.waiting")}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">{t("mission.waiting.title")}</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            {today().toLocaleDateString(bcp47, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </p>
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[13px] text-[var(--text-tertiary)]">
+              {t("sidebar.pilotage")} · {t(tab === "now" ? "mission.tab.now" : "mission.tab.waiting")}
+            </p>
+            <h1 className="mt-1 max-w-3xl text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">
+              {t(tab === "now" ? "mission.title" : "mission.waiting.title")}
+            </h1>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              {today().toLocaleDateString(bcp47, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {tab === "now" && (
+              <Segmented
+                label={t("mission.scope.label")}
+                value={scope}
+                options={[
+                  ["mine", t("mission.scope.mine")],
+                  ["team", t("mission.scope.team")],
+                ]}
+                onChange={setScope}
+              />
+            )}
+            <Segmented
+              label={t("sidebar.pilotage")}
+              value={tab}
+              options={[
+                ["now", t("mission.tab.now")],
+                ["waiting", t("mission.tab.waiting")],
+              ]}
+              onChange={setTab}
+            />
+          </div>
         </header>
 
         {error ? (
@@ -98,6 +182,23 @@ export default function MissionControlView({ boards, workspaces, onOpenTask, onU
               <div key={i} className="h-48 animate-pulse rounded-xl bg-[var(--surface-tertiary)]" />
             ))}
           </div>
+        ) : tab === "now" ? (
+          <>
+            <ConflictBanner
+              conflicts={conflicts}
+              profiles={profiles}
+              workspaces={workspaces}
+              todayIdx={todayIdx}
+              onOpenTask={onOpenTask}
+            />
+            {nowTasks.length ? (
+              <NowList tasks={nowTasks} workspaces={workspaces} todayIdx={todayIdx} onOpenTask={onOpenTask} />
+            ) : (
+              <p className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--surface-primary)] p-8 text-center text-sm text-[var(--text-secondary)]">
+                {t("mission.empty.now")}
+              </p>
+            )}
+          </>
         ) : groups.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--surface-primary)] p-8 text-center text-sm text-[var(--text-secondary)]">
             {t("mission.empty.waiting")}
