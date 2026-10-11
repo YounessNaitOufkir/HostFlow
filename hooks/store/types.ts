@@ -47,6 +47,7 @@ export interface BoardStoreState {
     | "workspace_overview"
     | "workspace_gantt"
     | "portfolio_overview"
+    | "mission_control"
     | "search"
     | "activity"
     | "review";

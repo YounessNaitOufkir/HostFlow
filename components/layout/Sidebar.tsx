@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
-import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, ChevronLeft, ChevronRight, PieChart, LayoutTemplate, Pin, PinOff } from "lucide-react";
+import { LayoutDashboard, Plus, Bell, Pencil, Layout, Trash2, ChevronDown, Briefcase, Lock, Users2, LayoutGrid, CalendarDays, Search, ChevronLeft, ChevronRight, PieChart, LayoutTemplate, Pin, PinOff, Radar } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Board, Workspace, Profile } from "@/types";
 import NotificationsMenu from "@/components/NotificationsMenu";
@@ -336,6 +336,21 @@ export default function Sidebar({
               }`}
             >
               <LayoutDashboard size={20} />
+            </SpringButton>
+          </Tooltip>
+          <Tooltip content={t("sidebar.pilotage")} side="right">
+            <SpringButton
+              aria-label={t("sidebar.pilotage")}
+              onClick={() =>
+                onSetMainView(mainView === "mission_control" ? viewAfterLeaving(!!activeBoard) : "mission_control")
+              }
+              className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
+                mainView === "mission_control"
+                  ? "bg-white/15 text-white shadow-inner"
+                  : "text-white/60 hover:text-white hover:bg-white/8"
+              }`}
+            >
+              <Radar size={20} />
             </SpringButton>
           </Tooltip>
           <Tooltip content={t("sidebar.trashBin")} side="right">

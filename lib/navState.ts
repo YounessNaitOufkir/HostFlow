@@ -32,6 +32,7 @@ export const BOARD_INDEPENDENT_VIEWS = new Set([
   "workspace_overview",
   "workspace_gantt",
   "portfolio_overview",
+  "mission_control",
 ]);
 
 /** True if this view can be restored without a board behind it. */

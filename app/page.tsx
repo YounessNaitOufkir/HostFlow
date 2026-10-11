@@ -79,6 +79,7 @@ import ActivityLog from "@/components/views/ActivityLog";
 import WorkspaceOverview from "@/components/WorkspaceOverview";
 import WorkspaceGanttView, { type WorkspaceGanttUpdate } from "@/components/WorkspaceGanttView";
 import PortfolioOverview from "@/components/PortfolioOverview";
+import MissionControlView from "@/components/MissionControlView";
 
 // Feature components
 import ItemPanel from "@/components/ItemPanel";
@@ -124,6 +125,7 @@ const VIEW_TITLE_KEYS: Partial<Record<string, TranslationKey>> = {
   workspace_overview: "sidebar.workspaceOverview",
   workspace_gantt: "sidebar.masterGantt",
   portfolio_overview: "sidebar.portfolio",
+  mission_control: "sidebar.pilotage",
   search: "sidebar.search",
 };
 
@@ -1386,6 +1388,15 @@ export default function HostFlowApp() {
             if (state.activeBoard?.id !== board.id) store.switchBoard(board);
             dispatch({ type: "SET_MAIN_VIEW", payload: "review" });
           }}
+        />
+      ) : state.mainView === "mission_control" ? (
+        <MissionControlView
+          boards={state.boards}
+          workspaces={state.workspaces}
+          profiles={state.profiles}
+          currentUserId={user?.id ?? ""}
+          onOpenTask={navigateToItem}
+          onUpdateCell={handleWorkspaceGanttUpdate}
         />
       ) : state.mainView === "workspace_gantt" ? (
         <div className="flex-1 flex flex-col h-full overflow-hidden">

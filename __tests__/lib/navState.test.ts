@@ -8,7 +8,7 @@ import { isBoardIndependentView, BOARD_INDEPENDENT_VIEWS,
 // an indefinite "Loading board..." spinner, and the persist effect writes that
 // pairing straight back, so the user is stuck on it across reloads.
 const BOARD_SCOPED = ["board", "kanban", "dashboard", "calendar", "gantt", "cards"];
-const STANDALONE = ["my_work", "trash", "workspace_overview", "workspace_gantt"];
+const STANDALONE = ["my_work", "trash", "workspace_overview", "workspace_gantt", "mission_control"];
 
 describe("isBoardIndependentView", () => {
   it.each(STANDALONE)("restores %s without a board", (view) => {
