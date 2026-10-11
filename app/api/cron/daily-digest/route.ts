@@ -9,6 +9,10 @@ import { digestDeliveryFor } from "@/lib/digestChannel";
 import { sendEmail } from "@/lib/email";
 import { itemIsDone } from "@/lib/statusSemantics";
 import { todayInTimezone, dueStateIn } from "@/lib/orgTime";
+import { fetchAllRows } from "@/lib/supabasePaging";
+import { dayIndex, parseDateOnly } from "@/lib/gantt/dates";
+import { nowByUser } from "@/lib/mission/digest";
+import type { Board, Item, ItemLink } from "@/types";
 
 export async function GET(request: Request) {
   let runId: string | null = null;
@@ -62,7 +66,8 @@ export async function GET(request: Request) {
     // 3. Fetch boards to map column IDs to types (we need to find 'people' and 'date' columns)
     const { data: boards, error: boardsError } = await supabase
       .from("boards")
-      .select("id, columns, workspace_id");
+      // gantt_config carries the target finish the « Maintenant » ranking reads.
+      .select("id, name, columns, workspace_id, gantt_config");
 
     // Thrown, not returned: a return here would leave the cron_runs row open
     // with a fresh started_at and no ok, which the watchdog reads as healthy.
@@ -95,14 +100,44 @@ export async function GET(request: Request) {
     };
 
     // 4. Fetch all active items
-    const { data: items, error: itemsError } = await supabase
-      .from("items")
-      .select("id, name, board_id, column_values")
-      .is("deleted_at", null);
-
-    if (itemsError || !items) {
+    //
+    // Paged: PostgREST stops at 1000 rows without saying so, and a digest built
+    // from a silent partial read misses tasks with nothing to show it did.
+    let items: Item[];
+    try {
+      items = await fetchAllRows<Item>((from, to) =>
+        supabase
+          .from("items")
+          .select("id, name, board_id, group_id, position, column_values")
+          .is("deleted_at", null)
+          .order("id")
+          .range(from, to) as unknown as PromiseLike<{ data: Item[] | null; error: { message: string } | null }>
+      );
+    } catch {
       throw new Error("Failed to fetch items");
     }
+
+    // Dependencies feed the « Maintenant » ranking (critical path, tasks
+    // unblocked). Not fatal: without them the ranking still knows due dates.
+    let itemLinks: ItemLink[] = [];
+    try {
+      itemLinks = await fetchAllRows<ItemLink>((from, to) =>
+        supabase
+          .from("item_links")
+          .select("*")
+          .eq("link_type", "dependency")
+          .order("id")
+          .range(from, to) as unknown as PromiseLike<{ data: ItemLink[] | null; error: { message: string } | null }>
+      );
+    } catch (error) {
+      console.error("[Daily Digest Cron] Failed to fetch dependencies:", error);
+    }
+
+    // The same top three the Pilotage view shows each reader under "Mine".
+    const todayDate = parseDateOnly(todayStr);
+    const nowOf = todayDate
+      ? nowByUser(items, boards as Board[], itemLinks, dayIndex(todayDate), activeUserIds)
+      : new Map<string, never[]>();
 
     // 5. Build a mapping of user -> Due Tasks
     type TaskEntry = { item: any; state: "today" | "overdue" };
@@ -187,7 +222,14 @@ export async function GET(request: Request) {
     let unreachable = 0;
     for (const userId of Object.keys(userTasks)) {
       const tasks = userTasks[userId];
-      if (tasks.length === 0) continue;
+      // A reader with nothing dated today can still have a task that matters
+      // now (a blocker due tomorrow, a follow-up to send): that is worth a digest.
+      const now = (nowOf.get(userId) ?? []).map((t) => ({
+        id: t.item.id,
+        name: t.item.name,
+        workspace: workspaceNameForBoard(t.item.board_id),
+      }));
+      if (tasks.length === 0 && now.length === 0) continue;
 
       const profile = profileOf.get(userId);
       const locale = isLocale(languageOf.get(userId))
@@ -195,6 +237,7 @@ export async function GET(request: Request) {
         : DEFAULT_LOCALE;
 
       const asDigestTask = (t: TaskEntry) => ({
+        id: t.item.id,
         name: t.item.name,
         workspace: workspaceNameForBoard(t.item.board_id),
       });
@@ -213,11 +256,11 @@ export async function GET(request: Request) {
         // Capped, escaped and HTML-formatted. Built inline before, in Markdown and
         // uncapped: a user with 201 due/overdue tasks produced roughly 6,300
         // characters and Telegram rejected the whole message as too long.
-        const message = buildDigestMessage(dueToday, overdue, locale);
+        const message = buildDigestMessage(dueToday, overdue, locale, now);
         sends.push(notifyUsersViaTelegram([userId], message));
         sentCount++;
       } else if (delivery.via === "email") {
-        const mail = buildDigestEmail(dueToday, overdue, locale, profile?.full_name);
+        const mail = buildDigestEmail(dueToday, overdue, locale, profile?.full_name, now);
         emailSends.push(
           sendEmail({
             to: profile!.email!,

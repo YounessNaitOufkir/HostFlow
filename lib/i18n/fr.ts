@@ -1017,6 +1017,7 @@ export const fr: Dictionary = {
   "digest.title": "Votre récapitulatif HostFlow du jour",
   "digest.intro": "Vous avez {count} tâches qui demandent votre attention :",
   "digest.introOne": "Vous avez 1 tâche qui demande votre attention :",
+  "digest.now": "Maintenant",
   "digest.dueToday": "À rendre aujourd'hui",
   "digest.overdue": "En retard",
   "digest.more": "…et {count} de plus",

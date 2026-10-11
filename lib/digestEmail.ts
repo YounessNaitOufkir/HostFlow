@@ -1,6 +1,6 @@
 import { renderEmail, appUrl, type EmailSection } from "@/lib/emailTemplate";
 import { translate, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
-import { MAX_ITEMS_PER_SECTION, MAX_NAME_CHARS, type DigestTask } from "@/lib/digestMessage";
+import { MAX_ITEMS_PER_SECTION, MAX_NAME_CHARS, digestTotal, type DigestTask } from "@/lib/digestMessage";
 
 /**
  * The daily digest, as an email.
@@ -61,13 +61,15 @@ export function buildDigestEmail(
   dueToday: DigestTask[],
   overdue: DigestTask[],
   locale: Locale = DEFAULT_LOCALE,
-  recipientName?: string | null
+  recipientName?: string | null,
+  now: DigestTask[] = []
 ): DigestEmail {
-  const total = dueToday.length + overdue.length;
+  const total = digestTotal(dueToday, overdue, now);
   const tr = (key: Parameters<typeof translate>[1], vars?: Parameters<typeof translate>[2]) =>
     translate(locale, key, vars);
 
   const sections = [
+    section(tr("digest.now"), now, locale, "amber"),
     section(tr("digest.dueToday"), dueToday, locale, "amber"),
     section(tr("digest.overdue"), overdue, locale, "red"),
   ].filter((s): s is EmailSection => s !== null);
@@ -82,8 +84,8 @@ export function buildDigestEmail(
     ],
     sections,
     // Red only when overdue is all there is; a day with work due today as well
-    // should not read as an emergency.
-    accent: dueToday.length === 0 ? "red" : "amber",
+    // should not read as an emergency, nor should a day with only « Maintenant ».
+    accent: overdue.length > 0 && dueToday.length === 0 ? "red" : "amber",
     cta: { label: tr("digest.openBoard"), href: appUrl() },
     footerNote: tr("digest.footer"),
   });

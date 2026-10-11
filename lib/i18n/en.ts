@@ -1015,6 +1015,7 @@ export const en = {
   "digest.title": "Your Daily HostFlow Digest",
   "digest.intro": "You have {count} tasks needing attention:",
   "digest.introOne": "You have 1 task needing attention:",
+  "digest.now": "Now",
   "digest.dueToday": "Due Today",
   "digest.overdue": "Overdue",
   "digest.more": "…and {count} more",

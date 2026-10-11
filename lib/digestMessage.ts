@@ -44,6 +44,19 @@ export interface DigestTask {
    * cannot be acted on. Optional so a task whose workspace is unknown still lists.
    */
   workspace?: string | null;
+  /** The item id, when known: lets a task listed twice be counted once. */
+  id?: string;
+}
+
+/**
+ * The tasks a digest is about, each counted once. "Maintenant" picks from the
+ * same tasks as the two date sections, so a task can appear in both - which is
+ * the point - but the headline count must not double it.
+ */
+export function digestTotal(dueToday: DigestTask[], overdue: DigestTask[], now: DigestTask[] = []): number {
+  const key = (t: DigestTask) => t.id ?? `${t.name}\u0000${t.workspace ?? ""}`;
+  const dated = new Set([...dueToday, ...overdue].map(key));
+  return dueToday.length + overdue.length + now.filter((t) => !dated.has(key(t))).length;
 }
 
 function renderName(name: string): string {
@@ -89,8 +102,9 @@ export function buildDigestMessage(
   dueToday: DigestTask[],
   overdue: DigestTask[],
   locale: Locale = DEFAULT_LOCALE,
+  now: DigestTask[] = [],
 ): string {
-  const total = dueToday.length + overdue.length;
+  const total = digestTotal(dueToday, overdue, now);
 
   let message = `📋 <b>${translate(locale, "digest.title")}</b>\n`;
   message += `${
@@ -98,6 +112,8 @@ export function buildDigestMessage(
       ? translate(locale, "digest.introOne")
       : translate(locale, "digest.intro", { count: total })
   }\n\n`;
+  // The day's top tasks from Pilotage lead: the same ranking as the view.
+  message += section(translate(locale, "digest.now"), "🎯", now, locale);
   message += section(translate(locale, "digest.dueToday"), "🚨", dueToday, locale);
   message += section(translate(locale, "digest.overdue"), "⚠️", overdue, locale);
 

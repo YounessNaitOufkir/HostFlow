@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildDigestMessage,
+  digestTotal,
   MAX_ITEMS_PER_SECTION,
   MAX_NAME_CHARS,
   DIGEST_CHAR_BUDGET,
@@ -126,5 +127,42 @@ describe("buildDigestMessage", () => {
     const message = buildDigestMessage(tasks(200), tasks(200), "fr");
     expect(message.length).toBeLessThanOrEqual(DIGEST_CHAR_BUDGET);
     expect(message.length).toBeLessThanOrEqual(TELEGRAM_MAX_MESSAGE_CHARS);
+  });
+});
+
+describe("buildDigestMessage — Maintenant", () => {
+  const now = [
+    { id: "a", name: "Valider le devis", workspace: "Agdal T3" },
+    { id: "b", name: "Relancer le menuisier", workspace: "Agdal T3" },
+  ];
+
+  it("leads with the day's top tasks, before Due Today", () => {
+    const message = buildDigestMessage([{ id: "c", name: "Ménage" }], [], "fr", now);
+    expect(message).toContain("🎯 <b>Maintenant (2)</b>");
+    expect(message.indexOf("Maintenant")).toBeLessThan(message.indexOf("Ménage"));
+    expect(message).toContain("Valider le devis — <i>Agdal T3</i>");
+  });
+
+  it("is unchanged when there is nothing to rank", () => {
+    const due = [{ name: "Ménage" }];
+    expect(buildDigestMessage(due, [], "en", [])).toBe(buildDigestMessage(due, [], "en"));
+    expect(buildDigestMessage(due, [], "en")).not.toContain("Now");
+  });
+
+  it("counts a task listed both under Now and Overdue once", () => {
+    const late = [{ id: "a", name: "Valider le devis", workspace: "Agdal T3" }];
+    expect(digestTotal([], late, now)).toBe(2);
+    expect(buildDigestMessage([], late, "en", now)).toContain("You have 2 tasks needing attention");
+  });
+
+  it("tells same-named tasks on different properties apart without an id", () => {
+    const late = [{ name: "Ménage", workspace: "Agdal T3" }];
+    expect(digestTotal([], late, [{ name: "Ménage", workspace: "Salé" }])).toBe(2);
+    expect(digestTotal([], late, [{ name: "Ménage", workspace: "Agdal T3" }])).toBe(1);
+  });
+
+  it("stays within the budget with Now on top of a long backlog", () => {
+    const message = buildDigestMessage(tasks(5), tasks(200, "Late"), "fr", tasks(3, "Now"));
+    expect(message.length).toBeLessThanOrEqual(DIGEST_CHAR_BUDGET);
   });
 });

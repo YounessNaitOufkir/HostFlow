@@ -73,3 +73,24 @@ describe("buildDigestEmail", () => {
     expect(buildDigestEmail([task("A")], [], "en", null).html).not.toContain("Hi ,");
   });
 });
+
+describe("buildDigestEmail — Maintenant", () => {
+  it("puts the day's top tasks first", () => {
+    const mail = buildDigestEmail([task("Ménage")], [], "fr", null, [task("Valider le devis", "Agdal T3")]);
+    expect(mail.html).toContain("Maintenant (1)");
+    expect(mail.html.indexOf("Maintenant (1)")).toBeLessThan(mail.html.indexOf("Ménage"));
+    expect(mail.text).toContain("Valider le devis — Agdal T3");
+  });
+
+  it("is unchanged when there is nothing to rank", () => {
+    const a = buildDigestEmail([task("A")], [task("B")], "en", "Salma");
+    const b = buildDigestEmail([task("A")], [task("B")], "en", "Salma", []);
+    expect(b).toEqual(a);
+  });
+
+  it("still makes a digest when Now is all there is", () => {
+    const mail = buildDigestEmail([], [], "en", null, [task("Valider le devis")]);
+    expect(mail.subject).toContain("1 task needs your attention");
+    expect(mail.html).toContain("Now (1)");
+  });
+});

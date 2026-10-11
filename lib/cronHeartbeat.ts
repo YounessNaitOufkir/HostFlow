@@ -16,7 +16,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 
 /** How long each job may go unseen before the watchdog calls it stale. */
 export const CRON_MAX_SILENCE_HOURS: Record<string, number> = {
-  // All three run daily at 09:00 UTC. 26 hours leaves room for a late start
+  // All three run daily: the digest at 06:00 UTC, the other two at 09:00. 26 hours leaves room for a late start
   // and for the watchdog's own schedule without crying wolf on an ordinary
   // day. purge-trash runs daily too, not weekly — the 30-day retention
   // promise would slip to as much as 37 days on a weekly cadence.
