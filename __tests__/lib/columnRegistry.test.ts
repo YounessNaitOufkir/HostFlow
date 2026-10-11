@@ -24,9 +24,12 @@ describe("Column Registry — Batch 2", () => {
     "link",
     "rating",
     "relation",
+    "waiting_on",
+    "on_site",
   ];
 
-  it("contains definitions for all 15 supported column types", () => {
+  it("contains definitions for all 17 supported column types", () => {
+    expect(Object.keys(COLUMN_REGISTRY)).toHaveLength(17);
     allTypes.forEach((type) => {
       const def = COLUMN_REGISTRY[type];
       expect(def).toBeDefined();

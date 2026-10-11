@@ -94,6 +94,8 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
       { ref: "owner", titleKey: "col.assignee", type: "people" },
       { ref: "status", titleKey: "col.status", type: "status", labels: "status" },
       { ref: "dep", titleKey: "col.dependency", type: "dependency" },
+      { ref: "waiting", titleKey: "col.waitingOn", type: "waiting_on" },
+      { ref: "onsite", titleKey: "col.onSite", type: "on_site" },
       { ref: "prio", titleKey: "col.priority", type: "priority", labels: "priority" },
       { ref: "notes", titleKey: "col.notes", type: "text" },
     ],

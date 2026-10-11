@@ -24,6 +24,8 @@ import {
   Clock,
   AlertTriangle,
   Calculator,
+  Hourglass,
+  MapPin,
 } from "lucide-react";
 import type { ColumnType, CellValue } from "@/types";
 import type { TranslationKey } from "@/lib/i18n/types";
@@ -256,6 +258,31 @@ export const COLUMN_REGISTRY: Record<ColumnType, ColumnDefinition> = {
     isReadOnly: false,
     category: "advanced",
     hiddenFromMenu: true,
+  },
+  waiting_on: {
+    type: "waiting_on",
+    label: "Waiting on",
+    labelKey: "coltype.waiting_on",
+    defaultTitle: "Waiting on",
+    icon: Hourglass,
+    widthClass: "w-48",
+    defaultValue: null,
+    isAggregatable: false,
+    isReadOnly: false,
+    category: "advanced",
+  },
+  // Deliberately not a checkbox: lib/doneLink.ts must never read "on site" as done.
+  on_site: {
+    type: "on_site",
+    label: "On site",
+    labelKey: "coltype.on_site",
+    defaultTitle: "On site",
+    icon: MapPin,
+    widthClass: "w-24",
+    defaultValue: false,
+    isAggregatable: false,
+    isReadOnly: false,
+    category: "advanced",
   },
 };
 

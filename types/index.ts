@@ -28,7 +28,9 @@ export type ColumnType =
   | "checkbox"
   | "link"
   | "rating"
-  | "relation";
+  | "relation"
+  | "waiting_on"
+  | "on_site";
 
 // ============================================================
 // Column Settings (per-type configuration)
@@ -93,6 +95,16 @@ export interface Column {
   settings?: ColumnSettings;
 }
 
+/**
+ * A `waiting_on` cell: who the task is waiting on, since when, and when to
+ * chase them. Dates are "yyyy-MM-dd". Parsed by lib/mission/fields.ts.
+ */
+export interface WaitingOnValue {
+  who: string;
+  since: string;
+  followUp: string | null;
+}
+
 /** Typed cell values */
 export type CellValue =
   | string
@@ -101,6 +113,7 @@ export type CellValue =
   | string[] // people IDs, tags, file URLs, dependency IDs
   | { start: string; end: string } // timeline
   | { url: string; label?: string } // link
+  | WaitingOnValue // waiting_on
   | null;
 
 export interface Workspace {

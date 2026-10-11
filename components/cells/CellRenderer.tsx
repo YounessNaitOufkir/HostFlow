@@ -18,6 +18,7 @@ import CheckboxCell from "./CheckboxCell";
 import LinkCell from "./LinkCell";
 import RatingCell from "./RatingCell";
 import RelationCell from "./RelationCell";
+import WaitingOnCell from "./WaitingOnCell";
 
 interface CellRendererProps {
   item: Item;
@@ -130,7 +131,11 @@ export default function CellRenderer({
         />
       );
     case "checkbox":
+    // The same toggle, but a different type: lib/doneLink.ts never reads it as done.
+    case "on_site":
       return <CheckboxCell item={item} column={column} onUpdate={onUpdate} />;
+    case "waiting_on":
+      return <WaitingOnCell item={item} column={column} onUpdate={onUpdate} />;
     case "link":
       return <LinkCell item={item} column={column} onUpdate={onUpdate} />;
     case "rating":

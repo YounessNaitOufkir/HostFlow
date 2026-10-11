@@ -74,6 +74,34 @@ describe("CellRenderer Dispatcher — Batch 2", () => {
     }
   });
 
+  it("renders on_site as the checkbox toggle", () => {
+    const onUpdate = vi.fn();
+    const { container } = render(
+      <CellRenderer
+        item={{ ...mockItem, column_values: { site_col: false } }}
+        column={makeCol("site_col", "on_site")}
+        activeStatusId={null}
+        setActiveStatusId={vi.fn()}
+        onUpdate={onUpdate}
+      />
+    );
+    fireEvent.click(container.querySelector("button")!);
+    expect(onUpdate).toHaveBeenCalledWith("item-500", "site_col", true);
+  });
+
+  it("routes waiting_on to its own cell", () => {
+    render(
+      <CellRenderer
+        item={{ ...mockItem, column_values: { w: { who: "Banque", since: "2026-10-01", followUp: null } } }}
+        column={makeCol("w", "waiting_on")}
+        activeStatusId={null}
+        setActiveStatusId={vi.fn()}
+        onUpdate={vi.fn()}
+      />
+    );
+    expect(screen.getByDisplayValue("Banque")).toBeInTheDocument();
+  });
+
   it("renders default empty cell fallback for unknown column type", () => {
     const { container } = render(
       <CellRenderer

@@ -3,6 +3,7 @@ import { PRIORITY_OPTIONS } from "@/types";
 import { statusOptionsOf } from "@/lib/doneLink";
 import { withoutBlankOption } from "@/lib/cellDefaults";
 import { parseDateOnly } from "@/lib/gantt/dates";
+import { parseWaitingOn } from "@/lib/mission/fields";
 import { normalizeName, resolveStatusLabel, type Resolution } from "@/lib/agent/resolve";
 
 /**
@@ -59,6 +60,8 @@ const FORMATS: Record<Column["type"], string> = {
   formula: "read only",
   dependency: "read only",
   relation: "read only",
+  waiting_on: '{"who":"…","since":"YYYY-MM-DD","followUp":"YYYY-MM-DD or null"}',
+  on_site: "true or false",
 };
 
 export function describeColumn(column: Column): ColumnDescription {
@@ -116,7 +119,7 @@ export function parseFieldValue(column: Column, raw: unknown): FieldValue {
   if (refusal) throw new FieldError(refusal);
   const value = (v: unknown): FieldValue => ({ kind: "value", value: v });
 
-  if (raw === null) return value(column.type === "checkbox" ? false : null);
+  if (raw === null) return value(column.type === "checkbox" || column.type === "on_site" ? false : null);
 
   switch (column.type) {
     case "status": {
@@ -151,6 +154,19 @@ export function parseFieldValue(column: Column, raw: unknown): FieldValue {
       if (end < start) [start, end] = [end, start];
       return value({ start, end });
     }
+    case "waiting_on": {
+      const r = raw as { since?: unknown; followUp?: unknown };
+      if (typeof raw !== "object" || Array.isArray(raw)) {
+        throw new FieldError(`"${column.title}" needs ${FORMATS.waiting_on}.`);
+      }
+      // Dates first, so a bad one is named in the error rather than silently dropped.
+      checkDate(r.since, column, "since");
+      if (r.followUp !== undefined && r.followUp !== null) checkDate(r.followUp, column, "followUp");
+      const parsed = parseWaitingOn(raw);
+      if (!parsed) throw new FieldError(`"${column.title}" needs a non-empty "who".`);
+      return value(parsed);
+    }
+    case "on_site":
     case "checkbox": {
       if (typeof raw === "boolean") return value(raw);
       if (raw === "true" || raw === "false") return value(raw === "true");
@@ -217,5 +233,6 @@ export function readFieldValue(column: Column, value: unknown, names: Map<string
       ? list.map((id) => ({ id, name: names.get(String(id)) ?? "Unknown" }))
       : value;
   }
+  if (column.type === "waiting_on") return parseWaitingOn(value);
   return value;
 }

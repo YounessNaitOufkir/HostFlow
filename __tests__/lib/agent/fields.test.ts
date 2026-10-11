@@ -54,6 +54,27 @@ describe("parseFieldValue", () => {
     refused(col("link"), "javascript:alert(1)");
   });
 
+  it("waiting_on: who, since and an optional follow-up", () => {
+    expect(ok(col("waiting_on"), { who: " Banque ", since: "2026-10-06", followUp: "2026-10-09" })).toEqual({
+      who: "Banque",
+      since: "2026-10-06",
+      followUp: "2026-10-09",
+    });
+    expect(ok(col("waiting_on"), { who: "Amine", since: "2026-10-06" })).toEqual({ who: "Amine", since: "2026-10-06", followUp: null });
+    expect(ok(col("waiting_on"), null)).toBeNull();
+    refused(col("waiting_on"), { who: "  ", since: "2026-10-06" });
+    refused(col("waiting_on"), { who: "Amine" });
+    refused(col("waiting_on"), { who: "Amine", since: "2026-10-06", followUp: "soon" });
+    refused(col("waiting_on"), "Amine");
+  });
+
+  it("on_site: true or false, cleared to false", () => {
+    expect(ok(col("on_site"), true)).toBe(true);
+    expect(ok(col("on_site"), "false")).toBe(false);
+    expect(ok(col("on_site"), null)).toBe(false);
+    refused(col("on_site"), "maybe");
+  });
+
   it("people are handed back for the caller to resolve", () => {
     expect(parseFieldValue(col("people"), "Salma")).toEqual({ kind: "people", wanted: ["Salma"] });
     expect(parseFieldValue(col("people"), ["me", "Youssef"])).toEqual({ kind: "people", wanted: ["me", "Youssef"] });
@@ -108,6 +129,15 @@ describe("readFieldValue", () => {
       { id: "u1", name: "Yasser" },
       { id: "u9", name: "Unknown" },
     ]);
+  });
+
+  it("reads waiting_on as its parsed value, and a malformed one as null", () => {
+    expect(readFieldValue(col("waiting_on"), '{"who":"Banque","since":"2026-10-06"}', new Map())).toEqual({
+      who: "Banque",
+      since: "2026-10-06",
+      followUp: null,
+    });
+    expect(readFieldValue(col("waiting_on"), "{bad", new Map())).toBeNull();
   });
 
   it("reads an empty cell as null", () => {
