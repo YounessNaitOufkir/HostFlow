@@ -281,10 +281,14 @@ export async function getDelays(
   return delays(items, boards, ctx.workspaces, notes, names, ctx.today);
 }
 
+const FIND_LIMIT = 25;
+
 export interface FindResult {
   workspaces: string[];
   boards: string[];
   tasks: TaskSummary[];
+  /** More tasks matched than were returned. */
+  more_tasks: boolean;
 }
 
 export async function find(ctx: AgentContext, query: string): Promise<FindResult> {
@@ -300,11 +304,13 @@ export async function find(ctx: AgentContext, query: string): Promise<FindResult
     .select("*")
     .is("deleted_at", null)
     .ilike("name", pattern)
-    .limit(25);
+    .limit(FIND_LIMIT + 1);
   if (error) fail(error, "search tasks");
 
   const boardById = new Map(ctx.boards.map((b) => [b.id, b]));
-  const tasks = ((data ?? []) as Item[])
+  const found = (data ?? []) as Item[];
+  const tasks = found
+    .slice(0, FIND_LIMIT)
     .filter((item) => boardById.has(item.board_id))
     .map((item) => {
       const board = boardById.get(item.board_id)!;
@@ -318,6 +324,7 @@ export async function find(ctx: AgentContext, query: string): Promise<FindResult
       .map((b) => boardLabel(b, ctx.workspaces))
       .sort(),
     tasks,
+    more_tasks: found.length > FIND_LIMIT,
   };
 }
 

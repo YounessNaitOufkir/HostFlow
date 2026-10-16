@@ -229,7 +229,9 @@ const handler = createMcpHandler(
       "find",
       {
         title: "Find",
-        description: "Search workspaces, boards and tasks by name. Returns task ids for the other tools.",
+        description:
+          "Search workspaces, boards and tasks by name, done tasks included. Returns at most 25 tasks; more_tasks true " +
+          "means there were more, so narrow the query or use list_tasks to see a whole board. Returns task ids for the other tools.",
         inputSchema: z.object({ query: z.string().min(1) }),
         annotations: { readOnlyHint: true },
       },
@@ -279,12 +281,13 @@ const handler = createMcpHandler(
       {
         title: "List tasks",
         description:
-          "Tasks on a board in board order, a page at a time. Completed tasks are left out unless include_completed is " +
-          "true. Pass next_cursor back as cursor for the next page; null means there are no more.",
+          "Every task on a board, done ones included, in board order, a page at a time. Set include_completed to false " +
+          "for open tasks only; completed_hidden then says how many were left out. Pass next_cursor back as cursor for " +
+          "the next page and keep going until it is null before saying you have every task.",
         inputSchema: z.object({
           board_id: ID,
           group_id: ID.optional().describe("Only this group."),
-          include_completed: z.boolean().optional(),
+          include_completed: z.boolean().optional().describe("Default true. false leaves done tasks out."),
           cursor: z.string().optional(),
           limit: z.number().int().min(1).max(200).optional().describe("Page size, default 50."),
         }),

@@ -116,9 +116,10 @@ export async function listTasks(ctx: AgentContext, input: ListTasksInput) {
     }
   }
 
-  const rows = items
-    .filter((i) => !input.group_id || i.group_id === input.group_id)
-    .filter((i) => input.include_completed || !itemIsDone(board.columns ?? [], i.column_values))
+  const inGroup = items.filter((i) => !input.group_id || i.group_id === input.group_id);
+  const open = inGroup.filter((i) => !itemIsDone(board.columns ?? [], i.column_values));
+  const includeCompleted = input.include_completed !== false;
+  const rows = (includeCompleted ? inGroup : open)
     .map((i) => ({ item: i, key: sortKey(i, groupOrder) }))
     .sort((a, b) => a.key.localeCompare(b.key))
     .filter((r) => !after || r.key > after);
@@ -128,7 +129,9 @@ export async function listTasks(ctx: AgentContext, input: ListTasksInput) {
   return {
     board_id: board.id,
     board: boardLabel(board, ctx.workspaces),
-    include_completed: input.include_completed === true,
+    include_completed: includeCompleted,
+    // Said out loud: a board whose tasks are all done would otherwise read as empty.
+    completed_hidden: includeCompleted ? 0 : inGroup.length - open.length,
     tasks: page.map(({ item }) => ({
       ...summarizeTask(item, board, ctx.workspaces, ctx.today),
       group_id: item.group_id,
