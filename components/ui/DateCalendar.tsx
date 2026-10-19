@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { durationDays, parseDateOnly, toDateOnly } from "@/lib/gantt/dates";
+import type { CalendarClosures } from "@/hooks/useClosures";
 
 /** Calendar days as "yyyy-MM-dd". `end` is unused in single mode. */
 export interface DateValue {
@@ -22,6 +23,8 @@ interface DateCalendarProps {
   /** Saves: a range when its end is picked, a single date when it is picked, and Today. */
   onApply: (value: DateValue) => void;
   onClear: () => void;
+  /** Days the task's place is shut: struck through, still pickable. */
+  closures?: CalendarClosures;
 }
 
 /** Stored values can arrive reversed; the calendar always shows them in order. */
@@ -42,7 +45,7 @@ const sameDay = (a: Date, b: Date) => toDateOnly(a) === toDateOnly(b);
  * it). A range is two clicks: the first is the start, the second the end, and
  * the second saves - there is no Apply step. A single date saves on its click.
  */
-export default function DateCalendar({ mode, value, onChange, onApply, onClear }: DateCalendarProps) {
+export default function DateCalendar({ mode, value, onChange, onApply, onClear, closures }: DateCalendarProps) {
   const { t, dateLocale } = useLanguage();
   const { from, to } = orderedRange(value);
   // Opening always starts a fresh pick: the next click is a start.
@@ -85,6 +88,7 @@ export default function DateCalendar({ mode, value, onChange, onApply, onClear }
     middle: (d: Date) => hasBand && !!from && !!shownEnd && d > from && d < shownEnd && !sameDay(d, shownEnd),
     bandFrom: (d: Date) => hasBand && !!from && sameDay(d, from),
     bandTo: (d: Date) => hasBand && !!shownEnd && sameDay(d, shownEnd),
+    closed: (d: Date) => !!closures?.closedOn(d),
   };
 
   const shortDate = (d: Date) => format(d, "d MMM", { locale: dateLocale });
@@ -99,6 +103,9 @@ export default function DateCalendar({ mode, value, onChange, onApply, onClear }
     ? focus === "end" && from ? t("date.pickEnd") : days ? (days === 1 ? t("date.oneDay") : t("date.days", { count: days })) : t("date.pickStart")
     : null;
 
+  // Pointing at a closed day says why, in place of the usual hint.
+  const closedHint = hover && closures ? closures.closedOn(hover) : null;
+
   const todayValue = (): DateValue => {
     const iso = toDateOnly(new Date());
     return range ? { start: iso, end: iso } : { start: iso, end: null };
@@ -110,7 +117,11 @@ export default function DateCalendar({ mode, value, onChange, onApply, onClear }
           setting it, so a long label never widens the popup. */}
       <div className="w-0 min-w-full flex items-baseline justify-between gap-3 mb-1.5 px-0.5">
         <div className="text-[14px] font-bold leading-tight truncate">{label}</div>
-        {hint && <div className="shrink-0 text-[11.5px] text-gray-600 dark:text-gray-400">{hint}</div>}
+        {closedHint ? (
+          <div className="min-w-0 truncate text-[11.5px] font-semibold text-amber-700 dark:text-amber-400">{closedHint}</div>
+        ) : (
+          hint && <div className="shrink-0 text-[11.5px] text-gray-600 dark:text-gray-400">{hint}</div>
+        )}
       </div>
 
       <DayPicker
@@ -130,6 +141,7 @@ export default function DateCalendar({ mode, value, onChange, onApply, onClear }
           bandFrom: "hf-band-from",
           bandTo: "hf-band-to",
           today: "hf-today",
+          closed: "hf-closed",
         }}
         components={{
           Chevron: ({ orientation }) =>
@@ -151,6 +163,16 @@ export default function DateCalendar({ mode, value, onChange, onApply, onClear }
           day_button: "hf-day-btn w-[34px] h-[34px] rounded-full text-[12.5px] font-semibold",
         }}
       />
+
+      {closures && closures.legend.length > 0 && (
+        <div className="w-0 min-w-full mt-1 space-y-0.5 px-0.5">
+          {closures.legend.map((line) => (
+            <div key={line} className="text-[11.5px] text-gray-600 dark:text-gray-400 truncate" title={line}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="mt-2 pt-2.5 border-t border-gray-200 dark:border-slate-700 flex items-center justify-between gap-4">
         <button

@@ -1102,6 +1102,10 @@ body {
 .hf-band-to { background: linear-gradient(to left, transparent 50%, var(--hf-band) 50%); }
 .hf-sel .hf-day-btn { background: var(--hf-ink); color: var(--hf-on-ink); box-shadow: none; }
 .hf-preview .hf-day-btn { background: var(--hf-band); box-shadow: inset 0 0 0 1.5px var(--hf-ink); }
+/* A day the task's place is shut (lib/closures.ts): still pickable, just struck. */
+.hf-closed .hf-day-btn { color: #9aa0ad; text-decoration: line-through; text-decoration-thickness: 1px; }
+.dark .hf-closed .hf-day-btn { color: #6b7183; }
+.hf-sel.hf-closed .hf-day-btn { color: var(--hf-on-ink); }
 .hf-today .hf-day-btn::after {
   content: ""; position: absolute; left: 50%; bottom: 4px; width: 4px; height: 4px;
   border-radius: 9999px; background: currentColor; transform: translateX(-50%);

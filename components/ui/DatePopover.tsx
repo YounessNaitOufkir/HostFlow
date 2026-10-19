@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
 import DateCalendar, { EMPTY_DATE_VALUE, isDayButton, orderedRange, type DateValue } from "@/components/ui/DateCalendar";
 import { toDateOnly } from "@/lib/gantt/dates";
+import type { CalendarClosures } from "@/hooks/useClosures";
 
 interface DatePopoverProps {
   mode: "single" | "range";
@@ -23,6 +24,8 @@ interface DatePopoverProps {
   className?: string;
   style?: React.CSSProperties;
   children: React.ReactNode;
+  /** Days to strike through because the task's place is shut. */
+  closures?: CalendarClosures;
 }
 
 /** Puts a stored value in order and, unless open-ended, gives a lone start an end. */
@@ -39,7 +42,7 @@ export function normalizeDateValue(value: DateValue, mode: "single" | "range", o
  * trigger, so a menu this sits inside still counts clicks on it as inside.
  */
 export default function DatePopover({
-  mode, value, onCommit, openEnded = false, align = "left", portal = false, ariaLabel, className = "", style, children,
+  mode, value, onCommit, openEnded = false, align = "left", portal = false, ariaLabel, className = "", style, children, closures,
 }: DatePopoverProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<DateValue>(value);
@@ -102,6 +105,7 @@ export default function DatePopover({
             onChange={setDraft}
             onApply={commit}
             onClear={() => commit(EMPTY_DATE_VALUE)}
+            closures={closures}
           />
         </div>
   );

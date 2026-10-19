@@ -34,7 +34,10 @@ import {
   useProfilesQuery,
   useBoardsQuery,
   useMyWorkQuery,
+  useClosuresQuery,
 } from "@/hooks/queries/useGlobalQueries";
+import { ClosuresProvider, useClosureText } from "@/hooks/useClosures";
+import { NO_CLOSURES, closedDayWarning } from "@/lib/closures";
 import { useBoardDataQuery } from "@/hooks/queries/useBoardDataQuery";
 import { supabase } from "@/lib/supabase";
 import { readNavState, writeNavState, clearLegacyNavKeys, isBoardIndependentView } from "@/lib/navState";
@@ -325,6 +328,8 @@ export default function HostFlowApp() {
   // React Query Data Fetching & Store Sync
   // ============================================================
   const { data: settingsData } = useGlobalSettingsQuery(!authLoading && !!user);
+  const { data: closuresData } = useClosuresQuery(!authLoading && !!user);
+  const closures = closuresData ?? NO_CLOSURES;
   useEffect(() => {
     if (settingsData) {
       if (settingsData.organizationSettings) {
@@ -771,6 +776,37 @@ export default function HostFlowApp() {
     },
     [isTeamMember, queryClient, t]
   );
+  /**
+   * After a Timeline or Tags edit: if the task's place is shut on every day it
+   * is now planned for ("banque" on a Saturday), say so, with one click to move
+   * it to the next open day. A warning only - the edit has already been saved.
+   */
+  const closureText = useClosureText();
+  const warnClosedDays = useCallback(
+    (before: Item | undefined, board: Board | null | undefined, columnId: string, value: unknown, write: (columnId: string, value: unknown) => void) => {
+      if (!before || !board) return;
+      const warning = closedDayWarning(before, board, columnId, value, closures);
+      if (!warning) return;
+      const { fixValue, fixStart } = warning;
+      const fixDate = fixStart ? closureText.dayLabel(fixStart) : "";
+      toast.warning(closureText.reasonText(warning.reasons[0], warning.day), {
+        id: `closed-${warning.itemId}`,
+        description: warning.itemName,
+        duration: 12000,
+        action: fixValue
+          ? {
+              label: t("closed.move", { date: fixDate }),
+              onClick: () => {
+                write(warning.columnId, fixValue);
+                toast.success(t("closed.moved", { date: fixDate }), { id: `closed-${warning.itemId}` });
+              },
+            }
+          : undefined,
+      });
+    },
+    [closures, closureText, t]
+  );
+
   const handleUpdateCellRef = useRef<(itemId: string, columnId: string, value: unknown) => void>(() => {});
 
   const handleUpdateCell = useCallback(
@@ -782,10 +818,13 @@ export default function HostFlowApp() {
             handleUpdateCellRef.current(itemId, columnId, next)
           );
         }
+        warnClosedDays(before, state.activeBoard, columnId, value, (col, next) =>
+          handleUpdateCellRef.current(itemId, col, next)
+        );
         store.updateCell(state.items, state.itemLinks, state.activeBoard, state.boardAutomations, profile, itemId, columnId, value);
       }
     },
-    [state.items, state.itemLinks, state.activeBoard, state.boardAutomations, profile, store.updateCell, askAboutDelay, suggestLength]
+    [state.items, state.itemLinks, state.activeBoard, state.boardAutomations, profile, store.updateCell, askAboutDelay, suggestLength, warnClosedDays]
   );
   useEffect(() => {
     handleUpdateCellRef.current = handleUpdateCell;
@@ -814,6 +853,11 @@ export default function HostFlowApp() {
             handleUpdateCellRef.current(moved.itemId, moved.columnId, next)
           );
         }
+        // Only the task that was dragged: the ones it pushed are not the
+        // person's choice, so a toast for each would be noise.
+        warnClosedDays(before, state.activeBoard, moved.columnId, moved.value, (col, next) =>
+          handleUpdateCellRef.current(moved.itemId, col, next)
+        );
       }
       store.updateCells(state.items, changes, {
         message:
@@ -822,7 +866,7 @@ export default function HostFlowApp() {
             : undefined,
       });
     },
-    [state.items, state.activeBoard, store.updateCells, askAboutDelay, suggestLength]
+    [state.items, state.activeBoard, store.updateCells, askAboutDelay, suggestLength, warnClosedDays]
   );
 
   /**
@@ -833,10 +877,14 @@ export default function HostFlowApp() {
   const handleWorkspaceGanttUpdate = useCallback(
     ({ board, automations, items, itemLinks, itemId, columnId, value }: WorkspaceGanttUpdate) => {
       if (!profile) return;
-      askAboutDelay(items.find((i) => i.id === itemId), board, columnId, value);
+      const before = items.find((i) => i.id === itemId);
+      askAboutDelay(before, board, columnId, value);
+      warnClosedDays(before, board, columnId, value, (col, next) =>
+        store.updateCell(items, itemLinks, board, automations, profile, itemId, col, next)
+      );
       store.updateCell(items, itemLinks, board, automations, profile, itemId, columnId, value);
     },
-    [profile, store.updateCell, askAboutDelay]
+    [profile, store.updateCell, askAboutDelay, warnClosedDays]
   );
 
   const handleAddColumn = useCallback(
@@ -1264,6 +1312,7 @@ export default function HostFlowApp() {
   // ============================================================
 
   return (
+    <ClosuresProvider value={closures}>
     <AssignablePeopleContext.Provider value={assignablePeopleIds}>
     <BoardAccessContext.Provider value={boardAccessValue}>
     <div className="flex h-screen w-screen overflow-visible bg-[#F4F6F8] dark:bg-[#181b34]">
@@ -1812,6 +1861,7 @@ export default function HostFlowApp() {
     </div>
     </BoardAccessContext.Provider>
     </AssignablePeopleContext.Provider>
+    </ClosuresProvider>
   );
 }
 // added for logging

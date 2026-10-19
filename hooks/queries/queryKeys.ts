@@ -1,5 +1,6 @@
 export const queryKeys = {
   globalSettings: () => ["globalSettings"] as const,
+  closures: () => ["closures"] as const,
   workspaces: () => ["workspaces"] as const,
   workspacePins: () => ["workspacePins"] as const,
   globalSearch: (query: string, boardScope = "") =>

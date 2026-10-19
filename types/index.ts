@@ -450,6 +450,31 @@ export interface Team {
   created_at?: string;
 }
 
+/** Somewhere tasks happen that shuts on given days - see lib/closures.ts. */
+export interface Place {
+  id: string;
+  name: string;
+  /** Tags that mean "this happens here", matched ignoring case and accents. */
+  tags: string[];
+  /** 0 = Sunday ... 6 = Saturday. */
+  closed_weekdays: number[];
+  closed_on_holidays: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** A public holiday. No year: every year on that day. */
+export interface PublicHoliday {
+  id: string;
+  name: string;
+  month: number;
+  day: number;
+  year: number | null;
+  /** A moon-dependent date not yet confirmed. */
+  estimated: boolean;
+  created_at?: string;
+}
+
 export interface TeamMember {
   team_id: string;
   user_id: string;

@@ -10,7 +10,10 @@ import {
   Profile,
   Board,
   Item,
+  Place,
+  PublicHoliday,
 } from "@/types";
+import type { Closures } from "@/lib/closures";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { fetchSettled } from "@/lib/pendingWrites";
 
@@ -28,6 +31,31 @@ export function useGlobalSettingsQuery(enabled = true) {
         teams: (teamsRes.data || []) as Team[],
       };
     },
+    enabled,
+  });
+}
+
+/**
+ * Places and public holidays, for the closed-day warnings (lib/closures.ts).
+ * Read by every board, so cached for the session; admins' edits invalidate it.
+ * A failed read means no warnings rather than an error: the feature is advice.
+ */
+export function useClosuresQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.closures(),
+    queryFn: async (): Promise<Closures & { available: boolean }> => {
+      const [placesRes, holidaysRes] = await Promise.all([
+        supabase.from("places").select("*").order("name"),
+        supabase.from("public_holidays").select("*").order("month").order("day"),
+      ]);
+      return {
+        // False until the closed-days migration has run, so settings can say so.
+        available: !placesRes.error && !holidaysRes.error,
+        places: placesRes.error ? [] : ((placesRes.data || []) as Place[]),
+        holidays: holidaysRes.error ? [] : ((holidaysRes.data || []) as PublicHoliday[]),
+      };
+    },
+    staleTime: 10 * 60 * 1000,
     enabled,
   });
 }

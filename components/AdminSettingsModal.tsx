@@ -4,7 +4,8 @@ import { PersonColorPicker } from "@/components/ui/PersonColorPicker";
 import { personColor } from "@/lib/personColor";
 import { useT } from "@/components/LanguageProvider";
 import { fill } from "@/lib/i18n/fill";
-import { X, Building2, Users, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown, Search } from "lucide-react";
+import { X, Building2, Users, Bell, Type, Check, Lock, Shield, ChevronRight, ChevronDown, Search, CalendarOff } from "lucide-react";
+import ClosuresSettings from "@/components/admin/ClosuresSettings";
 import { OrganizationSettings, Team, Profile, Workspace, Board, UserRole } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { reportMutationError, reportSuccess } from "@/lib/errorReporting";
@@ -42,7 +43,7 @@ export default function AdminSettingsModal({
   initialProfileId,
 }: AdminSettingsModalProps) {
   const t = useT();
-  const [activeTab, setActiveTab] = useState<"organization" | "users" | "permissions">(initialTab ?? "organization");
+  const [activeTab, setActiveTab] = useState<"organization" | "users" | "permissions" | "closures">(initialTab ?? "organization");
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(initialProfileId ?? null);
@@ -525,6 +526,7 @@ export default function AdminSettingsModal({
     { id: "organization", label: t("adm.tabOrganization"), icon: Building2 },
     { id: "users", label: t("adm.tabUsers"), icon: Users },
     { id: "permissions", label: t("adm.tabPermissions"), icon: Lock },
+    { id: "closures", label: t("adm.tabClosures"), icon: CalendarOff },
   ] as const;
 
   return (
@@ -696,6 +698,8 @@ export default function AdminSettingsModal({
                 </div>
               </div>
             )}
+
+            {activeTab === "closures" && <ClosuresSettings />}
 
             {activeTab === "users" && (
               <div className="h-full flex flex-col">

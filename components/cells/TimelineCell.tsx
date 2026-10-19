@@ -6,6 +6,8 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { itemIsDone } from "@/lib/statusSemantics";
 import { timelinePill } from "@/lib/timelinePill";
 import DatePopover from "@/components/ui/DatePopover";
+import { useClosures } from "@/hooks/useClosures";
+import { tagsOf } from "@/lib/closures";
 
 interface TimelineCellProps {
   item: Item;
@@ -26,6 +28,10 @@ export default function TimelineCell({ item, column, onUpdate, columns }: Timeli
   const finished = itemIsDone(columns ?? [], item.column_values);
 
   const pill = timelinePill(value, finished, dateLocale);
+
+  // A task tagged with a place gets that place's closed days struck through.
+  const { calendarFor } = useClosures();
+  const closures = calendarFor(tagsOf(item, columns ?? []));
   const displayText = pill?.text ?? "-";
   const pillBg = pill?.bg ?? "";
 
@@ -34,6 +40,7 @@ export default function TimelineCell({ item, column, onUpdate, columns }: Timeli
       mode="range"
       align="center"
       portal
+      closures={closures}
       value={{ start: value?.start ?? null, end: value?.end ?? null }}
       onCommit={(next) => onUpdate(item.id, column.id, next.start ? { start: next.start, end: next.end } : null)}
       className={`${column.width ? "" : "w-48"} h-full border-r border-gray-200 dark:border-slate-700 shrink-0 flex items-center justify-center p-1 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/50 group`}
